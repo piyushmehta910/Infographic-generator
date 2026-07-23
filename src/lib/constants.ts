@@ -1,0 +1,208 @@
+import { AspectRatio, Font, Theme, ThemeColors, AIProviderOption } from './types';
+
+export const ASPECT_RATIOS: Record<string, AspectRatio> = {
+  '1:1': { id: '1:1', label: 'Square 1:1', width: 1080, height: 1080 },
+  '4:5': { id: '4:5', label: 'Portrait 4:5', width: 1080, height: 1350 },
+  '9:16': { id: '9:16', label: 'Story 9:16', width: 1080, height: 1920 },
+  '16:9': { id: '16:9', label: 'Landscape 16:9', width: 1920, height: 1080 },
+  'A4-P': { id: 'A4-P', label: 'A4 Portrait', width: 794, height: 1123 },
+  'A4-L': { id: 'A4-L', label: 'A4 Landscape', width: 1123, height: 794 },
+  letter: { id: 'letter', label: 'Letter', width: 816, height: 1056 },
+  custom: { id: 'custom', label: 'Custom', width: 800, height: 800 },
+};
+
+export const FONTS: Font[] = [
+  { id: 'inter', name: 'Inter', googleFont: 'Inter', weights: [400, 500, 600, 700] },
+  { id: 'poppins', name: 'Poppins', googleFont: 'Poppins', weights: [400, 500, 600, 700] },
+  { id: 'roboto', name: 'Roboto', googleFont: 'Roboto', weights: [400, 500, 700] },
+  { id: 'manrope', name: 'Manrope', googleFont: 'Manrope', weights: [400, 500, 600, 700] },
+  { id: 'nunito', name: 'Nunito', googleFont: 'Nunito', weights: [400, 500, 600, 700] },
+  { id: 'dm-sans', name: 'DM Sans', googleFont: 'DM+Sans', weights: [400, 500, 700] },
+];
+
+export const THEMES: Record<string, Theme> = {
+  light: {
+    id: 'light',
+    name: 'Light',
+    isDark: false,
+    colors: {
+      background: '#ffffff',
+      backgroundSecondary: '#f8fafc',
+      text: '#0f172a',
+      textSecondary: '#64748b',
+      accent: '#3b82f6',
+      accentLight: '#dbeafe',
+      border: '#e2e8f0',
+      shadow: 'rgba(0, 0, 0, 0.1)',
+      cardBackground: '#ffffff',
+    },
+  },
+  dark: {
+    id: 'dark',
+    name: 'Dark',
+    isDark: true,
+    colors: {
+      background: '#0f172a',
+      backgroundSecondary: '#1e293b',
+      text: '#f1f5f9',
+      textSecondary: '#94a3b8',
+      accent: '#60a5fa',
+      accentLight: '#1e3a5f',
+      border: '#334155',
+      shadow: 'rgba(0, 0, 0, 0.3)',
+      cardBackground: '#1e293b',
+    },
+  },
+  minimal: {
+    id: 'minimal',
+    name: 'Minimal',
+    isDark: false,
+    colors: {
+      background: '#fafafa',
+      backgroundSecondary: '#f5f5f5',
+      text: '#171717',
+      textSecondary: '#737373',
+      accent: '#000000',
+      accentLight: '#e5e5e5',
+      border: '#e5e5e5',
+      shadow: 'rgba(0, 0, 0, 0.05)',
+      cardBackground: '#ffffff',
+    },
+  },
+  corporate: {
+    id: 'corporate',
+    name: 'Corporate',
+    isDark: false,
+    colors: {
+      background: '#ffffff',
+      backgroundSecondary: '#f0f4f8',
+      text: '#1a202c',
+      textSecondary: '#4a5568',
+      accent: '#2b6cb0',
+      accentLight: '#bee3f8',
+      border: '#e2e8f0',
+      shadow: 'rgba(0, 0, 0, 0.08)',
+      cardBackground: '#ffffff',
+    },
+  },
+  'midnight-blue': {
+    id: 'midnight-blue',
+    name: 'Midnight Blue',
+    isDark: true,
+    colors: {
+      background: '#0a1628',
+      backgroundSecondary: '#132347',
+      text: '#e8f0fe',
+      textSecondary: '#a0b4d0',
+      accent: '#4f8cff',
+      accentLight: '#1a3a6e',
+      border: '#1e3a5f',
+      shadow: 'rgba(0, 0, 0, 0.4)',
+      cardBackground: '#132347',
+    },
+  },
+  modern: {
+    id: 'modern',
+    name: 'Modern',
+    isDark: false,
+    colors: {
+      background: '#f8fafc',
+      backgroundSecondary: '#f1f5f9',
+      text: '#0f172a',
+      textSecondary: '#475569',
+      accent: '#8b5cf6',
+      accentLight: '#ede9fe',
+      border: '#e2e8f0',
+      shadow: 'rgba(139, 92, 246, 0.1)',
+      cardBackground: '#ffffff',
+    },
+  },
+};
+
+export const DEFAULT_TEMPLATE_SETTINGS = {
+  alignment: 'center' as const,
+  verticalAlign: 'middle' as const,
+  spacing: 'comfortable' as const,
+  padding: 24,
+  margin: 16,
+  roundedCorners: 12,
+  shadow: 4,
+  border: false,
+  backgroundColor: '#ffffff',
+  fontFamily: 'Inter',
+};
+
+export const AI_PROVIDERS: AIProviderOption[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    requiresApiKey: true,
+    docsUrl: 'https://platform.openai.com/api-keys',
+    models: [
+      { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxOutput: 16384 },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, maxOutput: 16384 },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128000, maxOutput: 4096 },
+    ],
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    requiresApiKey: true,
+    docsUrl: 'https://ai.google.dev/gemini-api/docs/api-keys',
+    models: [
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1048576, maxOutput: 8192 },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1048576, maxOutput: 8192 },
+      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', contextWindow: 1048576, maxOutput: 8192 },
+    ],
+  },
+  {
+    id: 'claude',
+    name: 'Anthropic Claude',
+    requiresApiKey: true,
+    docsUrl: 'https://console.anthropic.com/',
+    models: [
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, maxOutput: 8192 },
+      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', contextWindow: 200000, maxOutput: 4096 },
+    ],
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    requiresApiKey: true,
+    docsUrl: 'https://openrouter.ai/keys',
+    models: [
+      { id: 'openai/gpt-4o', name: 'OpenAI GPT-4o', contextWindow: 128000, maxOutput: 16384 },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', contextWindow: 200000, maxOutput: 8192 },
+      { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1048576, maxOutput: 8192 },
+      { id: 'meta-llama/llama-3.1-70b', name: 'Llama 3.1 70B', contextWindow: 131072, maxOutput: 4096 },
+    ],
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    requiresApiKey: true,
+    docsUrl: 'https://console.groq.com/keys',
+    models: [
+      { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90B Vision', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', contextWindow: 32768, maxOutput: 4096 },
+    ],
+  },
+];
+
+export const TEMPLATE_CATEGORIES = [
+  { id: 'all', label: 'All Templates' },
+  { id: 'business', label: 'Business' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'education', label: 'Education' },
+  { id: 'technology', label: 'Technology' },
+  { id: 'medical', label: 'Medical' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'comparison', label: 'Comparison' },
+  { id: 'startup', label: 'Startup' },
+  { id: 'social', label: 'Social Media' },
+] as const;
+
+export const APP_NAME = 'InfoGraphic AI';
+export const APP_TAGLINE = 'Turn ideas into stunning infographics with AI';
+export const APP_DESCRIPTION = 'AI-powered infographic generator. Create beautiful, professional infographics from text, ideas, or images.';
