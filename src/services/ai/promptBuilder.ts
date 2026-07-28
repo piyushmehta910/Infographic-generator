@@ -8,8 +8,14 @@ import { AIGenerationRequest } from "@/lib/types";
 export function buildContentAnalysisPrompt(
   request: AIGenerationRequest,
 ): string {
-  const { input, inputType, aspectRatio, theme, font, language, audience } =
-    request;
+  const { input, inputType, aspectRatio, theme, font, language, audience } = request;
+  const aspectRatioStr = aspectRatio || "1:1";
+  const themeStr = theme || "modern";
+  const fontStr = font || "Inter";
+  const languageStr = language || "English";
+  const audienceStr = audience || "General";
+
+  const metadata = `\n[Config: Aspect Ratio: ${aspectRatioStr} | Theme: ${themeStr} | Font: ${fontStr} | Language: ${languageStr} | Audience: ${audienceStr}]`;
 
   let contentText = "";
   switch (inputType) {
@@ -36,7 +42,7 @@ export function buildContentAnalysisPrompt(
 ## STEP 3: IMPROVE — Improve the content through AI — fix grammar, polish wording, remove repetition, make it professional and impactful
 
 ## INPUT CONTENT
-${contentText}
+${contentText}${metadata}
 
 ## YOUR TASK — Complete ALL of the following:
 1. **Fix grammar & spelling** — correct every error
@@ -146,7 +152,7 @@ Return ONLY valid JSON:
  * Each call must produce a UNIQUE design approach
  */
 export function buildDesignBlueprintPrompt(
-  content: any,
+  content: unknown,
   request: AIGenerationRequest,
 ): string {
   const { aspectRatio, font, language, audience } = request;
