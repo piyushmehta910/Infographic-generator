@@ -200,7 +200,15 @@ export default function DashboardPage() {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Generation failed';
-      showToast({ type: 'error', title: 'Generation Failed', message: msg });
+      if (msg.includes('GROQ_RATE_LIMIT')) {
+        showToast({
+          type: 'error',
+          title: 'Groq Rate Limit Exceeded',
+          message: 'The request was too large for your current Groq service tier. Please try: 1) Using a smaller model, 2) Reducing your input size, or 3) Upgrading your Groq plan.'
+        });
+      } else {
+        showToast({ type: 'error', title: 'Generation Failed', message: msg });
+      }
     } finally {
       setIsLoading(false);
       setLoadingMessage('');

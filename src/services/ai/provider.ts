@@ -98,12 +98,30 @@ class OpenRouterProviderImpl implements AIProvider {
 class GroqProviderImpl implements AIProvider {
   id: AIProviderId = 'groq';
   async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
+    // Token reduction strategy for rate limits
+    const isSmallModel = model.includes('8b') || model.includes('20b');
+    const reducedMaxTokens = isSmallModel ? Math.min(maxTokens, 4000) : maxTokens;
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: model || 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature, max_tokens: maxTokens }),
+      body: JSON.stringify({
+        model: model || 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: reducedMaxTokens
+      }),
     });
-    if (!response.ok) throw new Error(`Groq API error: ${await response.text()}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      const errorData = JSON.parse(errorText);
+      if (errorData.error?.type === 'tokens' && errorData.error?.code === 'rate_limit_exceeded') {
+        throw new Error(`GROQ_RATE_LIMIT: ${errorData.error.message}. Please try a smaller model or reduce your request size.`);
+      }
+      throw new Error(`Groq API error: ${errorText}`);
+    }
+
     const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
   }
