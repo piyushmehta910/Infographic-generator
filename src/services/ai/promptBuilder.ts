@@ -64,7 +64,7 @@ ${contentText}${metadata}
 17. **Extract ALL statistics** — any numbers, percentages, figures as standalone stat cards
 18. **Create timeline** — if any dates or chronological information exists
 19. **Create process steps** — if step-by-step information exists
-20. **Generate call-to-action** — compelling, action-oriented (ONLY if explicitly requested in the input content, otherwise leave empty)
+20. **Generate call-to-action** — ONLY if the user explicitly asks for a CTA in their input. Otherwise, leave "callToAction" as an empty string. Do NOT generate CTAs by default.
 21. **Recommend 4-5 emoji icons** — that match the content's theme and tone
 22. **Recommend a coordinated color palette** — 5 colors (primary, secondary, accent, background, text) that work together harmoniously. Colors MUST be coordinated — use color theory principles (complementary, analogous, or triadic schemes). Do NOT pick random colors. Ensure the palette is cohesive and purposeful.
 23. **Verify WCAG AA contrast compliance** — ensure all text-to-background color combinations meet WCAG AA standards (minimum 4.5:1 for normal text, 3:1 for large text). Specify the contrast ratio for each color pair used.
@@ -499,7 +499,7 @@ The generated HTML MUST include ALL of the following responsive CSS:
 2. STATISTICS: Visual stat cards with big numbers
 3. SECTIONS: 2-3 column grid of content cards with icons
 4. TIMELINE (if content has timeline data): Visual timeline
-5. CTA: Gradient button at bottom (ONLY include if explicitly requested in content, otherwise omit)
+5. CTA: ONLY include if content.callToAction is not empty. Otherwise, skip the CTA section entirely.
 
 ## OUTPUT FORMAT
 \`\`\`html

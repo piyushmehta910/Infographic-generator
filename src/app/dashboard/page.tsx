@@ -1052,14 +1052,6 @@ function generateBlankHtml(content: InfographicContent, theme: any): string {
     </div>`
         : ""
     }
-    ${
-      content.callToAction
-        ? `
-    <div class="cta">
-      <span>${content.callToAction}</span>
-    </div>`
-        : ""
-    }
   </div>
 </body>
 </html>`;
