@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import {
   InfographicContent,
   Theme,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/types";
 import { BlankTemplate } from "./BlankTemplate";
 
-const templateComponents: Record<string, React.FC<any>> = {
+const templateComponents: Record<string, React.ComponentType<any>> = {
   blank: BlankTemplate,
 };
 

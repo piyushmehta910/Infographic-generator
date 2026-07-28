@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -11,11 +11,8 @@ import {
   Palette,
   Image,
   ArrowRight,
-  Star,
-  Check,
   Menu,
   X,
-  Github,
 } from "lucide-react";
 
 const features = [

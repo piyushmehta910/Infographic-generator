@@ -242,7 +242,7 @@ export interface AIGenerationResult {
   model?: string;
   processingTime?: number;
   generatedHtml?: string;
-  blueprint?: any;
+  blueprint?: unknown;
   concepts?: Array<{
     id: string;
     title: string;
@@ -293,7 +293,7 @@ export interface Project {
   updatedAt: string;
   content: InfographicContent;
   templateId?: string;
-  blueprint?: any;
+  blueprint?: unknown;
   html?: string;
   theme: ThemeId;
   aspectRatio: AspectRatioId;
