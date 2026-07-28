@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "keep-alive": "node scripts/keep-alive.js",
+    "start:prod": "npm run start & npm run keep-alive",
     "lint": "next lint",
     "format": "prettier --write ."
   },
