@@ -211,6 +211,10 @@ export const AI_PROVIDERS: AIProviderOption[] = [
       { id: 'mistralai/mixtral-8x7b-instruct-v0.1', name: 'Mixtral 8x7B Instruct', contextWindow: 32768, maxOutput: 4096 },
       { id: 'google/codegemma-7b-it', name: 'CodeGemma 7B', contextWindow: 8192, maxOutput: 4096 },
       { id: 'nvidia/nemotron-4-340b-reward', name: 'Nemotron 4 340B Reward', contextWindow: 4096, maxOutput: 2048 },
+      { id: 'minimax/m2.7', name: 'MiniMax M2.7', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'deepseek/deepseek-v4-pro', name: 'DeepSeek-V4 Pro', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'qwen/qwen3.5-coder', name: 'Qwen 3.5 Coder', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'laguna/laguna-s-2.1-poolside', name: 'Laguna S 2.1 (Poolside)', contextWindow: 131072, maxOutput: 8192 },
     ],
   },
 ];
