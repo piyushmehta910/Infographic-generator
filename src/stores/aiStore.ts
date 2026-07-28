@@ -112,7 +112,7 @@ export const useAIStore = create<AIStore>()(
         }),
         merge: (persisted, current) => {
           // Force migrate old model names that are no longer supported
-          const merged = { ...current, ...(persisted as any) };
+          const merged = { ...current, ...(persisted as Partial<AIStore>) };
           if (merged.providers) {
             merged.providers = merged.providers.map((p: AIProviderConfig) => {
               // Force Groq to use supported model
