@@ -22,7 +22,6 @@ import {
   Globe,
   RotateCcw,
   Wand2,
-  Menu,
   Undo2,
   Redo2,
   ZoomOut,
@@ -30,8 +29,6 @@ import {
   Grid3X3,
   Layout,
   Type,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
@@ -44,8 +41,6 @@ import { ASPECT_RATIOS, AI_PROVIDERS } from "@/lib/constants";
 import {
   InfographicContent,
   AIGenerationRequest,
-  ThemeId,
-  AspectRatioId,
   FontId,
 } from "@/lib/types";
 
@@ -63,7 +58,7 @@ export default function DashboardPage() {
     setActiveProvider,
     getActiveConfig,
   } = useAIStore();
-  const { sidebarOpen, showToast } = useUIStore();
+  const { showToast } = useUIStore();
 
   const [input, setInput] = useState("");
   const [inputType, setInputType] = useState<
