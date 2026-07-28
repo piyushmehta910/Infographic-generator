@@ -69,6 +69,7 @@ export default function DashboardPage() {
   const [generatedHtml, setGeneratedHtml] = useState('');
   const [currentHtml, setCurrentHtml] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -80,6 +81,9 @@ export default function DashboardPage() {
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [showMobileProperties, setShowMobileProperties] = useState(false);
   const [aspectRatio, setAspectRatioState] = useState(getAspectRatio('1:1'));
+  const [customWidth, setCustomWidth] = useState(800);
+  const [customHeight, setCustomHeight] = useState(800);
+  const [showAspectRatioModal, setShowAspectRatioModal] = useState(false);
 
   const theme = getTheme('modern');
 
@@ -403,6 +407,20 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {/* Aspect Ratio Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    Aspect Ratio
+                    <button onClick={() => setShowAspectRatioModal(true)} className="text-xs text-blue-600 hover:text-blue-700 ml-auto">
+                      Change
+                    </button>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">{aspectRatio.label}</span>
+                    <span className="text-sm text-gray-400">{aspectRatio.width} × {aspectRatio.height}px</span>
+                  </div>
+                </div>
+
                 {/* Generate Button */}
                 <button
                   onClick={handleGenerate}
@@ -516,6 +534,77 @@ export default function DashboardPage() {
               </div>
               <div className="mt-6 flex gap-3">
                 <button onClick={() => setShowSettings(false)} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all">Done</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Aspect Ratio Modal */}
+      <AnimatePresence>
+        {showAspectRatioModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowAspectRatioModal(false)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-200" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-600" /> Select Aspect Ratio</h2>
+                <button onClick={() => setShowAspectRatioModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(ASPECT_RATIOS).map(([key, ratio]) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setAspectRatioState(ratio);
+                        setShowAspectRatioModal(false);
+                      }}
+                      className={`p-4 border-2 rounded-xl hover:border-blue-500 transition-colors text-center ${aspectRatio.id === ratio.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                    >
+                      <div className="font-medium text-gray-900">{ratio.label}</div>
+                      <div className="text-xs text-gray-500">{ratio.width} × {ratio.height}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Size Section */}
+                {aspectRatio.id === 'custom' && (
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
+                    <h3 className="font-semibold text-gray-800">Custom Size</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Width (px)</label>
+                        <input
+                          type="number"
+                          value={customWidth}
+                          onChange={(e) => setCustomWidth(Math.max(100, Math.min(5000, parseInt(e.target.value) || 800)))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          min="100"
+                          max="5000"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Height (px)</label>
+                        <input
+                          type="number"
+                          value={customHeight}
+                          onChange={(e) => setCustomHeight(Math.max(100, Math.min(5000, parseInt(e.target.value) || 800)))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          min="100"
+                          max="5000"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAspectRatioState({ ...aspectRatio, width: customWidth, height: customHeight });
+                        setShowAspectRatioModal(false);
+                      }}
+                      className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      Apply Custom Size
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
