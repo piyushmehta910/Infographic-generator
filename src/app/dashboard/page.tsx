@@ -194,7 +194,7 @@ export default function DashboardPage() {
       const request: AIGenerationRequest = {
         input: inputType === "image" ? input : input,
         inputType: inputType as any,
-        aspectRatio: "1:1",
+        aspectRatio: aspectRatio.id,
         theme: "modern",
         font: "inter" as FontId,
       };
