@@ -297,7 +297,7 @@ export default function DashboardPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Left Panel - Input */}
-          <div className="w-[420px] bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
+          <div className="w-[420px] bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 hidden md:flex">
             <div className="p-4 space-y-4">
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">

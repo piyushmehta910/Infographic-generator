@@ -148,7 +148,7 @@ export default function LandingPage() {
 
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
               Transform text, ideas, and images into beautiful, professional infographics.
-              AI structures your content — our templates make it stunning.
+              AI structures your content — you have full control over the design.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -189,12 +189,12 @@ export default function LandingPage() {
       <section id="features" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              A complete platform for creating professional infographics with AI.
-            </p>
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            Complete Design Control
+          </h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            A flexible platform where you control every aspect of your infographic design.
+          </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -221,12 +221,12 @@ export default function LandingPage() {
       <section id="templates" className="py-20">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Professional Templates
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Each template is fully responsive and supports multiple aspect ratios.
-            </p>
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            Flexible Design Options
+          </h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Choose from professional templates or create your own custom design. All options are fully responsive.
+          </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -262,7 +262,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Frequently Asked Questions
+              Design Flexibility FAQ
             </h2>
           </div>
 
@@ -306,12 +306,12 @@ export default function LandingPage() {
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 rounded-3xl p-12 md:p-20 text-white">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Create?
-            </h2>
-            <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-              Start creating professional infographics in minutes. No design skills needed.
-            </p>
+              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                Ready to Design?
+              </h2>
+              <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+                Start creating custom infographics with full design control. No design skills required.
+              </p>
             <button
               onClick={() => router.push('/dashboard')}
               className="px-8 py-4 bg-white text-gray-900 rounded-full text-lg font-semibold hover:shadow-xl transition-all inline-flex items-center gap-2"
