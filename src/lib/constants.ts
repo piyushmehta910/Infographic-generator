@@ -184,6 +184,9 @@ export const AI_PROVIDERS: AIProviderOption[] = [
     docsUrl: 'https://console.groq.com/keys',
     models: [
       { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'whisper-large-v3', name: 'Whisper Large v3', contextWindow: 30000, maxOutput: 4096 },
+      { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', contextWindow: 131072, maxOutput: 8192 },
       { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90B Vision', contextWindow: 131072, maxOutput: 8192 },
       { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', contextWindow: 32768, maxOutput: 4096 },
     ],
