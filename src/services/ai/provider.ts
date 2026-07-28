@@ -41,11 +41,12 @@ async function generateWithRetry(
         temperature,
         maxTokens,
       );
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "";
       const isRateLimit =
-        error?.message?.includes("rate_limit_exceeded") ||
-        error?.message?.includes("Rate limit") ||
-        error?.message?.includes("429");
+        errorMessage.includes("rate_limit_exceeded") ||
+        errorMessage.includes("Rate limit") ||
+        errorMessage.includes("429");
 
       if (isRateLimit && attempt < maxRetries) {
         // Wait 10 seconds before retrying on rate limit
@@ -272,6 +273,8 @@ const providerMap: Record<string, AIProvider> = {
   nim: new NIMProviderImpl(),
 };
 
+// Note: Using 'any' here because AI API responses have dynamic, unpredictable structure
+// The JSON is validated at runtime through usage, not at compile time
 function extractJSON(text: string): any {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("No JSON found in AI response");
