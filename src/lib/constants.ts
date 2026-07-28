@@ -175,6 +175,12 @@ export const AI_PROVIDERS: AIProviderOption[] = [
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', contextWindow: 200000, maxOutput: 8192 },
       { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1048576, maxOutput: 8192 },
       { id: 'meta-llama/llama-3.1-70b', name: 'Llama 3.1 70B', contextWindow: 131072, maxOutput: 4096 },
+      { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 Super', contextWindow: 1000000, maxOutput: 8192 },
+      { id: 'qwen/qwen3-coder', name: 'Qwen3 Coder', contextWindow: 1000000, maxOutput: 8192 },
+      { id: 'google/gemma-4-31b-it', name: 'Google Gemma 4 31B', contextWindow: 262000, maxOutput: 8192 },
+      { id: 'google/gemma-4-26b-a4b-it', name: 'Google Gemma 4 26B', contextWindow: 262000, maxOutput: 8192 },
+      { id: 'openai/gpt-oss-20b', name: 'OpenAI GPT-OSS 20B', contextWindow: 131072, maxOutput: 8192 },
+      { id: 'nvidia/nemotron-nano-9b-v2', name: 'NVIDIA Nemotron Nano 9B v2', contextWindow: 131072, maxOutput: 4096 },
     ],
   },
   {
