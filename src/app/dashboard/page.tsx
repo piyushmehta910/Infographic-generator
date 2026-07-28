@@ -273,7 +273,7 @@ export default function DashboardPage() {
   ]);
 
   const handleExport = useCallback(
-    async (format: "png" | "svg" | "json") => {
+    async (format: "png" | "jpg" | "svg" | "json") => {
       const canvas =
         document.getElementById("infographic-canvas") ||
         document.querySelector(".template-canvas-container iframe") ||
@@ -310,6 +310,37 @@ export default function DashboardPage() {
             });
             const link = document.createElement("a");
             link.download = `${content?.title || "infographic"}.png`;
+            link.href = dataUrl;
+            link.click();
+          }
+        } else if (format === "jpg") {
+          const { toJpeg } = await import("html-to-image");
+          const element =
+            document.getElementById("infographic-canvas") ||
+            document.querySelector('[data-infographic="true"]');
+          if (!element) {
+            const iframe = document.querySelector("iframe");
+            if (iframe) {
+              const dataUrl = await toJpeg(iframe, {
+                quality: 0.9,
+                pixelRatio: 2,
+              });
+              const link = document.createElement("a");
+              link.download = `${content?.title || "infographic"}.jpg`;
+              link.href = dataUrl;
+              link.click();
+              showToast({ type: "success", title: "Exported as JPG" });
+              setShowExport(false);
+              return;
+            }
+          }
+          if (element) {
+            const dataUrl = await toJpeg(element as HTMLElement, {
+              quality: 0.9,
+              pixelRatio: 2,
+            });
+            const link = document.createElement("a");
+            link.download = `${content?.title || "infographic"}.jpg`;
             link.href = dataUrl;
             link.click();
           }
@@ -957,6 +988,16 @@ export default function DashboardPage() {
                   <div className="font-medium text-gray-900">PNG</div>
                   <div className="text-xs text-gray-500">
                     High quality image
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleExport("jpg")}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-green-500 transition-colors text-center"
+                >
+                  <FileImage className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <div className="font-medium text-gray-900">JPG</div>
+                  <div className="text-xs text-gray-500">
+                    Compressed image
                   </div>
                 </button>
                 <button

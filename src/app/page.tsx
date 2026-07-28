@@ -13,44 +13,58 @@ import {
   ArrowRight,
   Menu,
   X,
+  FileText,
+  Wand2,
 } from "lucide-react";
 
 const features = [
   {
     icon: <Sparkles className="w-6 h-6" />,
-    title: "AI-Powered Content",
+    title: "AI Content Generation",
     description:
-      "Transform text, ideas, or images into structured infographic content with AI correction and formatting.",
+      "Paste text, describe an idea, or upload an image. AI analyzes, corrects grammar, improves wording, and structures content into professional infographic-ready JSON.",
+  },
+  {
+    icon: <FileText className="w-6 h-6" />,
+    title: "Multiple Input Types",
+    description:
+      "Support for text paste, idea descriptions, image upload (PNG/JPG/WEBP), and image URL analysis. AI extracts key facts, statistics, and insights.",
   },
   {
     icon: <Layout className="w-6 h-6" />,
-    title: "Template-Driven Design",
+    title: "8 Aspect Ratios",
     description:
-      "Choose from 8+ professional templates. AI generates structured JSON, not HTML — our templates handle the design.",
+      "Square 1:1, Portrait 4:5, Story 9:16, Landscape 16:9, A4 Portrait/Landscape, Letter, and custom dimensions. Perfect for any platform.",
   },
   {
     icon: <Palette className="w-6 h-6" />,
-    title: "Smart Themes",
+    title: "Smart Design System",
     description:
-      "Auto-selected or manual themes including Light, Dark, Minimal, Glassmorphism, Corporate, and more.",
+      "AI recommends coordinated color palettes, icons, and layouts. Choose from Light, Dark, Minimal, Corporate, Modern, and Midnight Blue themes.",
+  },
+  {
+    icon: <Download className="w-6 h-6" />,
+    title: "Multiple Export Formats",
+    description:
+      "Download as PNG, JPG, SVG, or JSON project file. High-resolution exports ready for social media, print, or further editing.",
+  },
+  {
+    icon: <Zap className="w-6 h-6" />,
+    title: "Your AI Provider",
+    description:
+      "Bring your own API key. Supports OpenAI GPT-4o, Google Gemini, Anthropic Claude, OpenRouter (14+ free models), and Groq. Keys stored locally in your browser.",
   },
   {
     icon: <Image className="w-6 h-6" />,
     title: "Image Analysis",
     description:
-      "Upload images or paste URLs. AI analyzes content, colors, and layout to generate matching infographics.",
+      "Upload an image or paste a URL. AI analyzes colors, subject, objects, charts, and layout to generate matching infographic content.",
   },
   {
-    icon: <Download className="w-6 h-6" />,
-    title: "Export Anywhere",
+    icon: <Wand2 className="w-6 h-6" />,
+    title: "Live Preview & Edit",
     description:
-      "Download as PNG, SVG, PDF, HTML, or JSON. High-resolution exports ready for print or social media.",
-  },
-  {
-    icon: <Zap className="w-6 h-6" />,
-    title: "Multi-Provider AI",
-    description:
-      "Bring your own API key for OpenAI, Gemini, Claude, OpenRouter, or Groq. Your data, your choice.",
+      "Watch your infographic generate in real-time. Preview with aspect ratio accuracy. Download instantly when satisfied.",
   },
 ];
 
