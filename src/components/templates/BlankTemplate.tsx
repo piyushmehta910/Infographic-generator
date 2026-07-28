@@ -2,9 +2,8 @@
 
 import React from 'react';
 import { TemplateProps } from '@/lib/types';
-import { getAlignmentStyle, getSpacingValue } from '@/services/template/templateEngine';
 
-export const ModernTemplate: React.FC<TemplateProps> = ({
+export const BlankTemplate: React.FC<TemplateProps> = ({
   content,
   theme,
   aspectRatio,
@@ -12,8 +11,6 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
   onElementClick,
 }) => {
   const isWide = aspectRatio.width > aspectRatio.height;
-  const spacing = getSpacingValue(settings.spacing);
-  const align = getAlignmentStyle(settings.alignment);
 
   return (
     <div
@@ -30,18 +27,6 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       }}
     >
-      {/* Decorative accent bar */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '6px',
-          background: `linear-gradient(90deg, ${theme.colors.accent}, ${theme.colors.accentLight})`,
-        }}
-      />
-
       {/* Header */}
       <div style={{ cursor: 'pointer' }} onClick={() => onElementClick?.('title')}>
         <h1
@@ -52,7 +37,6 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
             margin: 0,
             marginBottom: '6px',
             lineHeight: 1.15,
-            ...align,
           }}
         >
           {content.title}
@@ -65,7 +49,6 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
               fontWeight: 500,
               margin: 0,
               lineHeight: 1.4,
-              ...align,
             }}
           >
             {content.subtitle}
@@ -166,13 +149,6 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
                 {section.content}
               </p>
             )}
-            {section.bullets && section.bullets.length > 0 && (
-              <ul style={{ paddingLeft: '16px', margin: '6px 0 0', fontSize: '12px', color: theme.colors.textSecondary, lineHeight: 1.6 }}>
-                {section.bullets.map((bullet, i) => (
-                  <li key={i}>{bullet}</li>
-                ))}
-              </ul>
-            )}
           </div>
         ))}
       </div>
@@ -205,3 +181,5 @@ export const ModernTemplate: React.FC<TemplateProps> = ({
     </div>
   );
 };
+
+export default BlankTemplate;

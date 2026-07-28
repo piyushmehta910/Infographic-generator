@@ -23,7 +23,7 @@ const defaultProviders: AIProviderConfig[] = [
   { id: 'gemini', name: 'Google Gemini', apiKey: '', model: 'gemini-1.5-pro', temperature: 0.7, maxTokens: 4096, enabled: false },
   { id: 'claude', name: 'Anthropic Claude', apiKey: '', model: 'claude-3-5-sonnet-20241022', temperature: 0.7, maxTokens: 4096, enabled: false },
   { id: 'openrouter', name: 'OpenRouter', apiKey: '', model: 'openai/gpt-4o', temperature: 0.7, maxTokens: 4096, enabled: false },
-  { id: 'groq', name: 'Groq', apiKey: '', model: 'llama-3.1-70b-versatile', temperature: 0.7, maxTokens: 4096, enabled: false },
+  { id: 'groq', name: 'Groq', apiKey: '', model: 'llama-3.3-70b-versatile', temperature: 0.7, maxTokens: 4096, enabled: false },
 ];
 
 export const useAIStore = create<AIStore>()(
@@ -66,6 +66,24 @@ export const useAIStore = create<AIStore>()(
           providers: state.providers,
           activeProvider: state.activeProvider,
         }),
+        merge: (persisted, current) => {
+          // Force migrate old model names that are no longer supported
+          const merged = { ...current, ...(persisted as any) };
+          if (merged.providers) {
+            merged.providers = merged.providers.map((p: AIProviderConfig) => {
+              // Force Groq to use supported model
+              if (p.id === 'groq' && p.model === 'llama-3.1-70b-versatile') {
+                return { ...p, model: 'llama-3.3-70b-versatile' };
+              }
+              // Force OpenRouter to use correct model format if needed
+              if (p.id === 'openrouter' && p.model === 'meta-llama/llama-3.1-70b') {
+                return { ...p, model: 'openai/gpt-4o' };
+              }
+              return p;
+            });
+          }
+          return merged;
+        },
       }
     ),
     { name: 'ai-store' }

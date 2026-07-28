@@ -186,7 +186,7 @@ export interface AIModelOption {
 
 export interface AIGenerationRequest {
   input: string;
-  inputType: 'text' | 'idea' | 'image' | 'image-url';
+  inputType: 'text' | 'idea' | 'image' | 'image-url' | 'design';
   templateId?: string;
   theme?: ThemeId;
   aspectRatio?: AspectRatioId;
@@ -205,6 +205,17 @@ export interface AIGenerationResult {
   provider?: AIProviderId;
   model?: string;
   processingTime?: number;
+  generatedHtml?: string;
+  blueprint?: any;
+  concepts?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    colorPalette: Record<string, string>;
+    layoutStyle: string;
+    vibe: string;
+    keyFeatures: string[];
+  }>;
 }
 
 // --- Editor Types ---
@@ -245,7 +256,9 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   content: InfographicContent;
-  templateId: string;
+  templateId?: string;
+  blueprint?: any;
+  html?: string;
   theme: ThemeId;
   aspectRatio: AspectRatioId;
   settings: TemplateSettings;

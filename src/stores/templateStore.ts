@@ -32,9 +32,9 @@ interface TemplateStore {
 export const useTemplateStore = create<TemplateStore>()(
   devtools(
     (set, get) => ({
-      templates: [],
-      selectedTemplate: null,
-      selectedCategory: 'all',
+      templates: [{ id: 'blank', name: 'Blank Template', category: 'blank' as TemplateCategory, description: 'A blank template that adapts to any size', version: '1.0', aspectRatios: ['1:1', '4:5', '9:16', '16:9', 'A4-P', 'A4-L', 'letter', 'custom'], placeholders: [], themes: ['light', 'dark', 'modern'], fonts: ['inter', 'poppins', 'roboto'] }],
+      selectedTemplate: { id: 'blank', name: 'Blank Template', category: 'blank' as TemplateCategory, description: 'A blank template that adapts to any size', version: '1.0', aspectRatios: ['1:1', '4:5', '9:16', '16:9', 'A4-P', 'A4-L', 'letter', 'custom'], placeholders: [], themes: ['light', 'dark', 'modern'], fonts: ['inter', 'poppins', 'roboto'] },
+      selectedCategory: 'blank',
       selectedAspectRatio: '1:1',
       selectedTheme: 'light',
       selectedFont: 'inter',

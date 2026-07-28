@@ -229,6 +229,23 @@ export const BUILT_IN_TEMPLATES: TemplateConfig[] = [
     fonts: ['poppins', 'inter', 'nunito'],
     version: '1.0.0',
   },
+  {
+    id: 'custom',
+    name: 'AI Custom Design',
+    description: 'Unique AI-generated layout with dynamic colors and shapes',
+    category: 'startup',
+    aspectRatios: ['1:1', '4:5', '16:9', '9:16'],
+    placeholders: [
+      { id: 'title', type: 'text', label: 'Title', defaultValue: '{{title}}', required: true },
+      { id: 'subtitle', type: 'text', label: 'Subtitle', defaultValue: '{{subtitle}}', required: false },
+      { id: 'sections', type: 'list', label: 'Sections', defaultValue: '', required: true },
+      { id: 'statistics', type: 'stat', label: 'Stats', defaultValue: '', required: false },
+      { id: 'cta', type: 'cta', label: 'Call to Action', defaultValue: '{{cta}}', required: true },
+    ],
+    themes: ['modern', 'gradient'],
+    fonts: ['inter', 'poppins'],
+    version: '1.0.0',
+  },
 ];
 
 export function getTemplateById(id: string): TemplateConfig | undefined {
