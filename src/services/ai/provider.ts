@@ -1,15 +1,26 @@
-import { AIProviderId, InfographicContent, AIGenerationRequest, AIGenerationResult } from '@/lib/types';
-import { 
-  buildContentAnalysisPrompt, 
-  buildDesignBlueprintPrompt, 
+import {
+  AIProviderId,
+  InfographicContent,
+  AIGenerationRequest,
+  AIGenerationResult,
+} from "@/lib/types";
+import {
+  buildContentAnalysisPrompt,
+  buildDesignBlueprintPrompt,
   buildHTMLGenerationPrompt,
   buildDesignRevisionPrompt,
-  buildImageAnalysisPrompt 
-} from './promptBuilder';
+  buildImageAnalysisPrompt,
+} from "./promptBuilder";
 
 export interface AIProvider {
   id: AIProviderId;
-  generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string>;
+  generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string>;
 }
 
 async function generateWithRetry(
@@ -19,130 +30,226 @@ async function generateWithRetry(
   model: string,
   temperature: number,
   maxTokens: number,
-  maxRetries: number = 3
+  maxRetries: number = 3,
 ): Promise<string> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await provider.generate(prompt, apiKey, model, temperature, maxTokens);
+      return await provider.generate(
+        prompt,
+        apiKey,
+        model,
+        temperature,
+        maxTokens,
+      );
     } catch (error: any) {
-      const isRateLimit = error?.message?.includes('rate_limit_exceeded') || 
-                          error?.message?.includes('Rate limit') ||
-                          error?.message?.includes('429');
-      
+      const isRateLimit =
+        error?.message?.includes("rate_limit_exceeded") ||
+        error?.message?.includes("Rate limit") ||
+        error?.message?.includes("429");
+
       if (isRateLimit && attempt < maxRetries) {
         // Wait 10 seconds before retrying on rate limit
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
         continue;
       }
       throw error;
     }
   }
-  throw new Error('Max retries exceeded');
+  throw new Error("Max retries exceeded");
 }
 
 class OpenAIProviderImpl implements AIProvider {
-  id: AIProviderId = 'openai';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature, max_tokens: maxTokens }),
+  id: AIProviderId = "openai";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model || "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        temperature,
+        max_tokens: maxTokens,
+      }),
     });
-    if (!response.ok) throw new Error(`OpenAI API error: ${await response.text()}`);
+    if (!response.ok)
+      throw new Error(`OpenAI API error: ${await response.text()}`);
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+    return data.choices[0]?.message?.content || "";
   }
 }
 
 class GeminiProviderImpl implements AIProvider {
-  id: AIProviderId = 'gemini';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-pro'}:generateContent?key=${apiKey}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature, maxOutputTokens: maxTokens } }),
-    });
-    if (!response.ok) throw new Error(`Gemini API error: ${await response.text()}`);
+  id: AIProviderId = "gemini";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-pro"}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature, maxOutputTokens: maxTokens },
+        }),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Gemini API error: ${await response.text()}`);
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   }
 }
 
 class ClaudeProviderImpl implements AIProvider {
-  id: AIProviderId = 'claude';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: model || 'claude-3-5-sonnet-20241022', max_tokens: maxTokens, temperature, messages: [{ role: 'user', content: prompt }] }),
+  id: AIProviderId = "claude";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: model || "claude-3-5-sonnet-20241022",
+        max_tokens: maxTokens,
+        temperature,
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
-    if (!response.ok) throw new Error(`Claude API error: ${await response.text()}`);
+    if (!response.ok)
+      throw new Error(`Claude API error: ${await response.text()}`);
     const data = await response.json();
-    return data.content?.[0]?.text || '';
+    return data.content?.[0]?.text || "";
   }
 }
 
 class OpenRouterProviderImpl implements AIProvider {
-  id: AIProviderId = 'openrouter';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'HTTP-Referer': 'https://infographic-generator.vercel.app' },
-      body: JSON.stringify({ model: model || 'openai/gpt-4o', messages: [{ role: 'user', content: prompt }], temperature, max_tokens: maxTokens }),
-    });
-    if (!response.ok) throw new Error(`OpenRouter API error: ${await response.text()}`);
+  id: AIProviderId = "openrouter";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://infographic-generator.vercel.app",
+        },
+        body: JSON.stringify({
+          model: model || "openai/gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          temperature,
+          max_tokens: maxTokens,
+        }),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`OpenRouter API error: ${await response.text()}`);
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    return data.choices?.[0]?.message?.content || "";
   }
 }
 
 class GroqProviderImpl implements AIProvider {
-  id: AIProviderId = 'groq';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
+  id: AIProviderId = "groq";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
     // Token reduction strategy for rate limits
-    const isSmallModel = model.includes('8b') || model.includes('20b');
-    const reducedMaxTokens = isSmallModel ? Math.min(maxTokens, 4000) : maxTokens;
+    const isSmallModel = model.includes("8b") || model.includes("20b");
+    const reducedMaxTokens = isSmallModel
+      ? Math.min(maxTokens, 4000)
+      : maxTokens;
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: model || 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: reducedMaxTokens
-      }),
-    });
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model || "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          temperature,
+          max_tokens: reducedMaxTokens,
+        }),
+      },
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       const errorData = JSON.parse(errorText);
-      if (errorData.error?.type === 'tokens' && errorData.error?.code === 'rate_limit_exceeded') {
-        throw new Error(`GROQ_RATE_LIMIT: ${errorData.error.message}. Please try a smaller model or reduce your request size.`);
+      if (
+        errorData.error?.type === "tokens" &&
+        errorData.error?.code === "rate_limit_exceeded"
+      ) {
+        throw new Error(
+          `GROQ_RATE_LIMIT: ${errorData.error.message}. Please try a smaller model or reduce your request size.`,
+        );
       }
       throw new Error(`Groq API error: ${errorText}`);
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    return data.choices?.[0]?.message?.content || "";
   }
 }
 
 class NIMProviderImpl implements AIProvider {
-  id: AIProviderId = 'nim';
-  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
-    const response = await fetch('https://api.nvidia.com/v1/nim/inference', {
-      method: 'POST',
+  id: AIProviderId = "nim";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetch("https://api.nvidia.com/v1/nim/inference", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
       },
       body: JSON.stringify({
-        model: model || 'meta/llama3-70b-instruct',
-        messages: [{ role: 'user', content: prompt }],
+        model: model || "meta/llama3-70b-instruct",
+        messages: [{ role: "user", content: prompt }],
         temperature,
         max_tokens: maxTokens,
-        stream: false
+        stream: false,
       }),
     });
 
@@ -152,7 +259,7 @@ class NIMProviderImpl implements AIProvider {
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    return data.choices?.[0]?.message?.content || "";
   }
 }
 
@@ -167,7 +274,7 @@ const providerMap: Record<string, AIProvider> = {
 
 function extractJSON(text: string): any {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('No JSON found in AI response');
+  if (!jsonMatch) throw new Error("No JSON found in AI response");
   return JSON.parse(jsonMatch[0]);
 }
 
@@ -177,7 +284,7 @@ function extractHTML(text: string): string {
   if (codeBlockMatch) {
     html = codeBlockMatch[1].trim();
   }
-  if (!html.startsWith('<!') && !html.startsWith('<html')) {
+  if (!html.startsWith("<!") && !html.startsWith("<html")) {
     html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;overflow:hidden}</style></head><body>${html}</body></html>`;
   }
   return html;
@@ -192,17 +299,24 @@ export async function generateContent(
   providerId: AIProviderId,
   model: string,
   temperature: number = 0.7,
-  maxTokens: number = 4096
+  maxTokens: number = 4096,
 ): Promise<AIGenerationResult> {
   const startTime = Date.now();
 
   // For design mode, use the full AI pipeline
-  if (request.inputType === 'design' || request.inputType === 'text' || request.inputType === 'idea' || request.inputType === 'image' || request.inputType === 'image-url') {
-    if (!apiKey || apiKey.trim() === '') {
+  if (
+    request.inputType === "design" ||
+    request.inputType === "text" ||
+    request.inputType === "idea" ||
+    request.inputType === "image" ||
+    request.inputType === "image-url"
+  ) {
+    if (!apiKey || apiKey.trim() === "") {
       return {
         success: false,
-        error: 'AI generation requires an API key. Please configure your AI provider in Settings.',
-        provider: 'local' as AIProviderId,
+        error:
+          "AI generation requires an API key. Please configure your AI provider in Settings.",
+        provider: "local" as AIProviderId,
         processingTime: Date.now() - startTime,
       };
     }
@@ -222,14 +336,21 @@ export async function generateContent(
       // STEP 1: Content Analysis & Correction
       // ============================================
       const contentPrompt = buildContentAnalysisPrompt(request);
-      const contentResponse = await generateWithRetry(provider, contentPrompt, apiKey, model, 0.9, 2048);
+      const contentResponse = await generateWithRetry(
+        provider,
+        contentPrompt,
+        apiKey,
+        model,
+        0.9,
+        2048,
+      );
       const contentResult = extractJSON(contentResponse);
 
       // If content is incomplete, return the questions for the user to answer
       if (!contentResult.isComplete) {
         return {
           success: false,
-          error: 'CONTENT_INCOMPLETE',
+          error: "CONTENT_INCOMPLETE",
           content: contentResult,
           provider: providerId,
           model,
@@ -240,15 +361,36 @@ export async function generateContent(
       // ============================================
       // STEP 2: Design Blueprint
       // ============================================
-      const blueprintPrompt = buildDesignBlueprintPrompt(contentResult.correctedContent, request);
-      const blueprintResponse = await generateWithRetry(provider, blueprintPrompt, apiKey, model, 1.0, 4096);
+      const blueprintPrompt = buildDesignBlueprintPrompt(
+        contentResult.correctedContent,
+        request,
+      );
+      const blueprintResponse = await generateWithRetry(
+        provider,
+        blueprintPrompt,
+        apiKey,
+        model,
+        1.0,
+        4096,
+      );
       const blueprint = extractJSON(blueprintResponse);
 
       // ============================================
       // STEP 3: HTML/CSS Generation
       // ============================================
-      const htmlPrompt = buildHTMLGenerationPrompt(contentResult.correctedContent, blueprint, request);
-      const htmlResponse = await generateWithRetry(provider, htmlPrompt, apiKey, model, 0.9, maxTokens);
+      const htmlPrompt = buildHTMLGenerationPrompt(
+        contentResult.correctedContent,
+        blueprint,
+        request,
+      );
+      const htmlResponse = await generateWithRetry(
+        provider,
+        htmlPrompt,
+        apiKey,
+        model,
+        0.9,
+        maxTokens,
+      );
       const html = extractHTML(htmlResponse);
 
       return {
@@ -259,7 +401,13 @@ export async function generateContent(
           sections: contentResult.correctedContent.sections,
           statistics: contentResult.correctedContent.statistics,
           timeline: contentResult.correctedContent.timeline,
-          colors: [blueprint.colorPalette.primary, blueprint.colorPalette.secondary, blueprint.colorPalette.accent, blueprint.colorPalette.background, blueprint.colorPalette.text],
+          colors: [
+            blueprint.colorPalette.primary,
+            blueprint.colorPalette.secondary,
+            blueprint.colorPalette.accent,
+            blueprint.colorPalette.background,
+            blueprint.colorPalette.text,
+          ],
           icons: contentResult.correctedContent.suggestedIcons,
           callToAction: contentResult.correctedContent.callToAction,
         },
@@ -272,7 +420,10 @@ export async function generateContent(
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate infographic',
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate infographic",
         provider: providerId,
         processingTime: Date.now() - startTime,
       };
@@ -295,14 +446,14 @@ export async function reviseDesign(
   providerId: AIProviderId,
   model: string,
   temperature: number = 0.4,
-  maxTokens: number = 4096
+  maxTokens: number = 4096,
 ): Promise<AIGenerationResult> {
   const startTime = Date.now();
 
-  if (!apiKey || apiKey.trim() === '') {
+  if (!apiKey || apiKey.trim() === "") {
     return {
       success: false,
-      error: 'API key required for revision',
+      error: "API key required for revision",
       provider: providerId,
       processingTime: Date.now() - startTime,
     };
@@ -320,20 +471,40 @@ export async function reviseDesign(
 
   try {
     // Revise blueprint based on feedback
-    const revisionPrompt = buildDesignRevisionPrompt(currentBlueprint, userFeedback, content);
-    const revisionResponse = await provider.generate(revisionPrompt, apiKey, model, temperature, 2048);
+    const revisionPrompt = buildDesignRevisionPrompt(
+      currentBlueprint,
+      userFeedback,
+      content,
+    );
+    const revisionResponse = await provider.generate(
+      revisionPrompt,
+      apiKey,
+      model,
+      temperature,
+      2048,
+    );
     const revisedBlueprint = extractJSON(revisionResponse);
 
     // Generate new HTML from revised blueprint
     // We need to create a request object for the HTML generation
     const request: AIGenerationRequest = {
-      input: '',
-      inputType: 'design',
-      aspectRatio: '1:1',
+      input: "",
+      inputType: "design",
+      aspectRatio: "1:1",
     };
 
-    const htmlPrompt = buildHTMLGenerationPrompt(content, revisedBlueprint, request);
-    const htmlResponse = await provider.generate(htmlPrompt, apiKey, model, 0.2, maxTokens);
+    const htmlPrompt = buildHTMLGenerationPrompt(
+      content,
+      revisedBlueprint,
+      request,
+    );
+    const htmlResponse = await provider.generate(
+      htmlPrompt,
+      apiKey,
+      model,
+      0.2,
+      maxTokens,
+    );
     const html = extractHTML(htmlResponse);
 
     return {
@@ -348,7 +519,7 @@ export async function reviseDesign(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to revise design',
+      error: error instanceof Error ? error.message : "Failed to revise design",
       provider: providerId,
       processingTime: Date.now() - startTime,
     };
@@ -362,34 +533,52 @@ function generateLocalContent(
   request: AIGenerationRequest,
   providerId: AIProviderId,
   model: string,
-  startTime: number
+  startTime: number,
 ): AIGenerationResult {
-  const sentences = request.input.split(/[.!?]+/).filter(s => s.trim().length > 5);
-  const words = request.input.split(/\s+/).filter(w => w.length > 0);
-  
-  const title = sentences[0]?.trim().substring(0, 80) || 'Your Infographic';
-  
-  const sections: InfographicContent['sections'] = sentences.slice(0, 4).map((s, i) => ({
-    id: `section-${i}`,
-    title: `Key Point ${i + 1}`,
-    content: s.trim().substring(0, 300),
-    bullets: [],
-    icon: ['📊', '📈', '💡', '🎯'][i],
-    type: 'text' as const,
-  }));
+  const sentences = request.input
+    .split(/[.!?]+/)
+    .filter((s) => s.trim().length > 5);
+  const words = request.input.split(/\s+/).filter((w) => w.length > 0);
+
+  const title = sentences[0]?.trim().substring(0, 80) || "Your Infographic";
+
+  const sections: InfographicContent["sections"] = sentences
+    .slice(0, 4)
+    .map((s, i) => ({
+      id: `section-${i}`,
+      title: `Key Point ${i + 1}`,
+      content: s.trim().substring(0, 300),
+      bullets: [],
+      icon: ["📊", "📈", "💡", "🎯"][i],
+      type: "text" as const,
+    }));
 
   const stats = request.input.match(/\d+[%]?/g);
-  const statistics: InfographicContent['statistics'] = stats ? stats.slice(0, 4).map((num, i) => ({
-    id: `stat-${i}`,
-    value: num,
-    label: ['Growth', 'Impact', 'Reach', 'Rate'][i] || `Metric ${i + 1}`,
-    prefix: '',
-    suffix: num.includes('%') ? '' : '%',
-  })) : [
-    { id: 'stat-1', value: '95%', label: 'Effectiveness', prefix: '', suffix: '' },
-    { id: 'stat-2', value: '3x', label: 'Improvement', prefix: '', suffix: '' },
-    { id: 'stat-3', value: '50M+', label: 'Users', prefix: '', suffix: '' },
-  ];
+  const statistics: InfographicContent["statistics"] = stats
+    ? stats.slice(0, 4).map((num, i) => ({
+        id: `stat-${i}`,
+        value: num,
+        label: ["Growth", "Impact", "Reach", "Rate"][i] || `Metric ${i + 1}`,
+        prefix: "",
+        suffix: num.includes("%") ? "" : "%",
+      }))
+    : [
+        {
+          id: "stat-1",
+          value: "95%",
+          label: "Effectiveness",
+          prefix: "",
+          suffix: "",
+        },
+        {
+          id: "stat-2",
+          value: "3x",
+          label: "Improvement",
+          prefix: "",
+          suffix: "",
+        },
+        { id: "stat-3", value: "50M+", label: "Users", prefix: "", suffix: "" },
+      ];
 
   const content: InfographicContent = {
     title,
@@ -397,16 +586,16 @@ function generateLocalContent(
     sections,
     statistics,
     timeline: [],
-    colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981'],
-    icons: ['📊', '📈', '💡', '🎯'],
-    callToAction: 'Get Started Today →',
+    colors: ["#3b82f6", "#8b5cf6", "#ec4899", "#10b981"],
+    icons: ["📊", "📈", "💡", "🎯"],
+    callToAction: "Get Started Today →",
   };
 
   return {
     success: true,
     content,
-    provider: 'local' as AIProviderId,
-    model: 'local-generator',
+    provider: "local" as AIProviderId,
+    model: "local-generator",
     processingTime: Date.now() - startTime,
   };
 }
@@ -415,7 +604,7 @@ export async function analyzeImage(
   imageData: string,
   apiKey: string,
   providerId: AIProviderId,
-  model: string
+  model: string,
 ): Promise<any> {
   const provider = providerMap[providerId];
   if (!provider) throw new Error(`Unknown AI provider: ${providerId}`);
@@ -434,25 +623,61 @@ export async function generateHTMLFromBlueprint(
   apiKey: string,
   providerId: AIProviderId,
   model: string,
-  aspectRatio: string = '1:1',
-  maxTokens: number = 4096
+  aspectRatio: string = "1:1",
+  maxTokens: number = 4096,
 ): Promise<AIGenerationResult> {
   const startTime = Date.now();
-  if (!apiKey || apiKey.trim() === '') {
-    return { success: false, error: 'API key required for HTML generation', provider: providerId, processingTime: Date.now() - startTime };
+  if (!apiKey || apiKey.trim() === "") {
+    return {
+      success: false,
+      error: "API key required for HTML generation",
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
   const provider = providerMap[providerId];
   if (!provider) {
-    return { success: false, error: `Unknown AI provider: ${providerId}`, provider: providerId, processingTime: Date.now() - startTime };
+    return {
+      success: false,
+      error: `Unknown AI provider: ${providerId}`,
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
   try {
-    const request: AIGenerationRequest = { input: '', inputType: 'design', aspectRatio: aspectRatio as any };
+    const request: AIGenerationRequest = {
+      input: "",
+      inputType: "design",
+      aspectRatio: aspectRatio as any,
+    };
     const htmlPrompt = buildHTMLGenerationPrompt(content, blueprint, request);
-    const htmlResponse = await provider.generate(htmlPrompt, apiKey, model, 0.2, maxTokens);
+    const htmlResponse = await provider.generate(
+      htmlPrompt,
+      apiKey,
+      model,
+      0.2,
+      maxTokens,
+    );
     const html = extractHTML(htmlResponse);
-    return { success: true, content, generatedHtml: html, blueprint, provider: providerId, model, processingTime: Date.now() - startTime };
+    return {
+      success: true,
+      content,
+      generatedHtml: html,
+      blueprint,
+      provider: providerId,
+      model,
+      processingTime: Date.now() - startTime,
+    };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to generate HTML from blueprint', provider: providerId, processingTime: Date.now() - startTime };
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to generate HTML from blueprint",
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
 }
 
@@ -465,25 +690,59 @@ export async function generateBlueprintFromContent(
   request: AIGenerationRequest,
   apiKey: string,
   providerId: AIProviderId,
-  model: string
+  model: string,
 ): Promise<AIGenerationResult> {
   const startTime = Date.now();
-  if (!apiKey || apiKey.trim() === '') {
-    return { success: false, error: 'API key required for blueprint generation', provider: providerId, processingTime: Date.now() - startTime };
+  if (!apiKey || apiKey.trim() === "") {
+    return {
+      success: false,
+      error: "API key required for blueprint generation",
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
   const provider = providerMap[providerId];
   if (!provider) {
-    return { success: false, error: `Unknown AI provider: ${providerId}`, provider: providerId, processingTime: Date.now() - startTime };
+    return {
+      success: false,
+      error: `Unknown AI provider: ${providerId}`,
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
   try {
     const blueprintPrompt = buildDesignBlueprintPrompt(content, request);
-    const blueprintResponse = await provider.generate(blueprintPrompt, apiKey, model, 0.4, 2048);
+    const blueprintResponse = await provider.generate(
+      blueprintPrompt,
+      apiKey,
+      model,
+      0.4,
+      2048,
+    );
     const blueprint = extractJSON(blueprintResponse);
-    return { success: true, content, blueprint, provider: providerId, model, processingTime: Date.now() - startTime };
+    return {
+      success: true,
+      content,
+      blueprint,
+      provider: providerId,
+      model,
+      processingTime: Date.now() - startTime,
+    };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to generate blueprint', provider: providerId, processingTime: Date.now() - startTime };
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to generate blueprint",
+      provider: providerId,
+      processingTime: Date.now() - startTime,
+    };
   }
 }
 
 // Re-export for backward compatibility
-export { buildContentAnalysisPrompt, buildDesignBlueprintPrompt, buildHTMLGenerationPrompt, buildDesignRevisionPrompt } from './promptBuilder';
+export {
+  buildContentAnalysisPrompt,
+  buildDesignBlueprintPrompt,
+  buildHTMLGenerationPrompt,
+  buildDesignRevisionPrompt,
+} from "./promptBuilder";

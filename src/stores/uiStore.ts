@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import { UIState, Toast } from '@/lib/types';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import { UIState, Toast } from "@/lib/types";
 
 interface UIStore extends UIState {
   toggleSidebar: () => void;
@@ -9,7 +9,7 @@ interface UIStore extends UIState {
   toggleExportPanel: () => void;
   toggleAIPromptPanel: () => void;
   setActiveTab: (tab: string) => void;
-  showToast: (toast: Omit<Toast, 'id'>) => void;
+  showToast: (toast: Omit<Toast, "id">) => void;
   dismissToast: () => void;
 }
 
@@ -21,7 +21,7 @@ export const useUIStore = create<UIStore>()(
       propertiesPanelOpen: true,
       exportPanelOpen: false,
       aiPromptPanelOpen: false,
-      activeTab: 'generate',
+      activeTab: "generate",
       toast: null,
 
       toggleSidebar: () =>
@@ -61,6 +61,6 @@ export const useUIStore = create<UIStore>()(
 
       dismissToast: () => set({ toast: null }),
     }),
-    { name: 'ui-store' }
-  )
+    { name: "ui-store" },
+  ),
 );

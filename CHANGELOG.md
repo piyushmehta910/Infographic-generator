@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 2026-07-28
+
 - Added foundational project documentation:
   - `PROJECT_CONTEXT.md`
   - `ARCHITECTURE.md`

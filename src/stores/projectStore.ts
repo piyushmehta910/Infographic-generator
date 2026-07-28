@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { Project } from '@/lib/types';
+import { create } from "zustand";
+import { devtools, persist } from "zustand/middleware";
+import { Project } from "@/lib/types";
 
 interface ProjectStore {
   // State
@@ -36,11 +36,17 @@ export const useProjectStore = create<ProjectStore>()(
         updateProject: (id, updates) =>
           set((state) => ({
             projects: state.projects.map((p) =>
-              p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+              p.id === id
+                ? { ...p, ...updates, updatedAt: new Date().toISOString() }
+                : p,
             ),
             currentProject:
               state.currentProject?.id === id
-                ? { ...state.currentProject, ...updates, updatedAt: new Date().toISOString() }
+                ? {
+                    ...state.currentProject,
+                    ...updates,
+                    updatedAt: new Date().toISOString(),
+                  }
                 : state.currentProject,
           })),
 
@@ -58,12 +64,12 @@ export const useProjectStore = create<ProjectStore>()(
         getProject: (id) => get().projects.find((p) => p.id === id),
       }),
       {
-        name: 'project-store',
+        name: "project-store",
         partialize: (state) => ({
           projects: state.projects,
         }),
-      }
+      },
     ),
-    { name: 'project-store' }
-  )
+    { name: "project-store" },
+  ),
 );

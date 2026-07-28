@@ -1,8 +1,13 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { InfographicContent, Theme, AspectRatio, TemplateSettings } from '@/lib/types';
-import { BlankTemplate } from './BlankTemplate';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  InfographicContent,
+  Theme,
+  AspectRatio,
+  TemplateSettings,
+} from "@/lib/types";
+import { BlankTemplate } from "./BlankTemplate";
 
 const templateComponents: Record<string, React.FC<any>> = {
   blank: BlankTemplate,
@@ -46,13 +51,13 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       style={{
         width: `${scaledWidth}px`,
         height: `${scaledHeight}px`,
-        position: 'relative',
-        overflow: 'hidden',
+        position: "relative",
+        overflow: "hidden",
         borderRadius: `${settings.roundedCorners}px`,
         boxShadow: settings.shadow
           ? `0 ${settings.shadow}px ${settings.shadow * 2}px rgba(0,0,0,0.15)`
-          : '0 4px 20px rgba(0,0,0,0.1)',
-        border: settings.border ? `1px solid ${theme.colors.border}` : 'none',
+          : "0 4px 20px rgba(0,0,0,0.1)",
+        border: settings.border ? `1px solid ${theme.colors.border}` : "none",
       }}
       className="template-canvas-container"
     >
@@ -61,8 +66,8 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
           width: `${aspectRatio.width}px`,
           height: `${aspectRatio.height}px`,
           transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          position: 'absolute',
+          transformOrigin: "top left",
+          position: "absolute",
           top: 0,
           left: 0,
         }}

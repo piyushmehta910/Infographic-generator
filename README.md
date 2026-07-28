@@ -10,12 +10,14 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 ## Features
 
 ### Input Methods
+
 - **Text**: Paste notes, articles, reports, blog posts, research, scripts
 - **Idea**: Describe a concept and AI generates comprehensive content
 - **Image Upload**: Drag & drop or browse (PNG, JPG, WEBP)
 - **Image URL**: Paste a publicly accessible image URL for AI analysis
 
 ### AI Processing
+
 - Grammar correction & spelling fix
 - Professional rewriting & summarization
 - Language detection
@@ -27,6 +29,7 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 - Image analysis (OCR, subject detection, color extraction)
 
 ### Templates (8 Built-in)
+
 - **Modern** - Clean, minimal with geometric accents
 - **Business** - Corporate professional design
 - **Timeline** - Chronological flow layout
@@ -38,12 +41,15 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 - **Marketing** - Social media optimized
 
 ### Aspect Ratios
+
 1:1, 4:5, 9:16, 16:9, A4 Portrait, A4 Landscape, Letter, Custom
 
 ### Themes
+
 Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glassmorphism, Neumorphism, Gradient, Material Design
 
 ### AI Providers (Bring Your Own Key)
+
 - OpenAI (GPT-4o, GPT-4o-mini, GPT-4 Turbo)
 - Google Gemini (1.5 Pro, 1.5 Flash, 2.0 Flash)
 - Anthropic Claude (3.5 Sonnet, 3 Haiku)
@@ -51,6 +57,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - Groq (Fast inference)
 
 ### Export Formats
+
 - PNG (High resolution, 2x pixel ratio)
 - SVG (Vector format)
 - PDF (Document format)
@@ -58,6 +65,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - JSON (Project data)
 
 ### Editor Features
+
 - Live canvas preview
 - Text editing (title, subtitle, CTA)
 - Font selection (Inter, Poppins, Roboto, Manrope, Nunito, DM Sans)
@@ -69,6 +77,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - Auto-save to browser storage
 
 ### REST API
+
 - `POST /api/v1/generate` - Generate infographic content
 - `GET /api/v1/templates` - List available templates
 - Client-side AI generation with your API key
@@ -87,6 +96,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm
 

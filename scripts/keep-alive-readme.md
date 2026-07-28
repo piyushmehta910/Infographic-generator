@@ -34,9 +34,9 @@ Add this to your main server file (e.g., `server.js` or `index.js`):
 
 ```javascript
 // Add this to your existing server file
-if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
-  const { exec } = require('child_process');
-  exec('node scripts/keep-alive.js &', (error, stdout, stderr) => {
+if (process.env.NODE_ENV === "production" && process.env.RENDER_EXTERNAL_URL) {
+  const { exec } = require("child_process");
+  exec("node scripts/keep-alive.js &", (error, stdout, stderr) => {
     if (error) {
       console.error(`[KeepAlive] Failed to start: ${error.message}`);
       return;
@@ -60,23 +60,23 @@ npm install -g pm2
 module.exports = {
   apps: [
     {
-      name: 'infographic-generator',
-      script: 'npm',
-      args: 'run start',
+      name: "infographic-generator",
+      script: "npm",
+      args: "run start",
       env: {
-        NODE_ENV: 'production',
-        RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL
-      }
+        NODE_ENV: "production",
+        RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+      },
     },
     {
-      name: 'keep-alive',
-      script: 'node',
-      args: 'scripts/keep-alive.js',
+      name: "keep-alive",
+      script: "node",
+      args: "scripts/keep-alive.js",
       env: {
-        RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL
-      }
-    }
-  ]
+        RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+      },
+    },
+  ],
 };
 ```
 

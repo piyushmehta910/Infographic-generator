@@ -1,25 +1,28 @@
-import { AIGenerationRequest } from '@/lib/types';
+import { AIGenerationRequest } from "@/lib/types";
 
 /**
  * STEP 1: INPUT
  * STEP 2: ANALYZE the content through AI
  * STEP 3: IMPROVE the content through AI
  */
-export function buildContentAnalysisPrompt(request: AIGenerationRequest): string {
-  const { input, inputType, aspectRatio, theme, font, language, audience } = request;
+export function buildContentAnalysisPrompt(
+  request: AIGenerationRequest,
+): string {
+  const { input, inputType, aspectRatio, theme, font, language, audience } =
+    request;
 
-  let contentText = '';
+  let contentText = "";
   switch (inputType) {
-    case 'text':
+    case "text":
       contentText = `Raw text input:\n${input}`;
       break;
-    case 'idea':
+    case "idea":
       contentText = `Idea/topic:\n${input}`;
       break;
-    case 'image':
+    case "image":
       contentText = `Image uploaded - analyze and extract all relevant information`;
       break;
-    case 'image-url':
+    case "image-url":
       contentText = `Image URL: ${input} - analyze and extract all relevant information`;
       break;
     default:
@@ -142,20 +145,45 @@ Return ONLY valid JSON:
  * STEP 4: DESIGN — Ask AI how to design this in HTML and CSS in the best possible way
  * Each call must produce a UNIQUE design approach
  */
-export function buildDesignBlueprintPrompt(content: any, request: AIGenerationRequest): string {
+export function buildDesignBlueprintPrompt(
+  content: any,
+  request: AIGenerationRequest,
+): string {
   const { aspectRatio, font, language, audience } = request;
 
-  const dimensions = aspectRatio === '9:16' ? '1080×1920 (Story/Portrait)' :
-    aspectRatio === '16:9' ? '1920×1080 (Landscape)' :
-    aspectRatio === '4:5' ? '1080×1350 (Portrait)' :
-    aspectRatio === 'A4-P' ? '794×1123 (A4 Portrait)' :
-    aspectRatio === 'A4-L' ? '1123×794 (A4 Landscape)' :
-    aspectRatio === 'letter' ? '816×1056 (Letter)' :
-    '1080×1080 (Square)';
+  const dimensions =
+    aspectRatio === "9:16"
+      ? "1080×1920 (Story/Portrait)"
+      : aspectRatio === "16:9"
+        ? "1920×1080 (Landscape)"
+        : aspectRatio === "4:5"
+          ? "1080×1350 (Portrait)"
+          : aspectRatio === "A4-P"
+            ? "794×1123 (A4 Portrait)"
+            : aspectRatio === "A4-L"
+              ? "1123×794 (A4 Landscape)"
+              : aspectRatio === "letter"
+                ? "816×1056 (Letter)"
+                : "1080×1080 (Square)";
 
   // Generate a random design seed to ensure variety
   const seed = Math.floor(Math.random() * 10000);
-  const layouts = ['hero-card', 'split-layout', 'magazine-grid', 'card-based', 'asymmetric', 'Z-pattern', 'F-pattern', 'full-bleed', 'stacked-sections', 'dashboard-style', 'circular-flow', 'modular-grid', 'sidebar-layout', 'timeline-flow'];
+  const layouts = [
+    "hero-card",
+    "split-layout",
+    "magazine-grid",
+    "card-based",
+    "asymmetric",
+    "Z-pattern",
+    "F-pattern",
+    "full-bleed",
+    "stacked-sections",
+    "dashboard-style",
+    "circular-flow",
+    "modular-grid",
+    "sidebar-layout",
+    "timeline-flow",
+  ];
   const selectedLayout = layouts[seed % layouts.length];
 
   return `You are an EXPERT infographic designer and frontend developer.
@@ -177,9 +205,9 @@ ${JSON.stringify(content, null, 2)}
 
 ## CANVAS SPECS
 - Exact dimensions: ${dimensions}
-- Target audience: ${audience || 'General'}
-- Language: ${language || 'English'}
-- Base font: ${font || 'Inter'}
+- Target audience: ${audience || "General"}
+- Language: ${language || "English"}
+- Base font: ${font || "Inter"}
 
 ## VISUAL HIERARCHY (MANDATORY — specify EXACTLY)
 You MUST define the exact visual hierarchy — which element draws the eye first, second, third, and so on. For each level, specify the CSS techniques used:
@@ -326,19 +354,40 @@ Include CSS hover states, transitions, and subtle animation hints even though th
 export function buildHTMLGenerationPrompt(
   content: any,
   blueprint: any,
-  request: AIGenerationRequest
+  request: AIGenerationRequest,
 ): string {
   const { aspectRatio } = request;
 
-  let width = 1080, height = 1080;
+  let width = 1080,
+    height = 1080;
   switch (aspectRatio) {
-    case '9:16': width = 1080; height = 1920; break;
-    case '16:9': width = 1920; height = 1080; break;
-    case '4:5': width = 1080; height = 1350; break;
-    case 'A4-P': width = 794; height = 1123; break;
-    case 'A4-L': width = 1123; height = 794; break;
-    case 'letter': width = 816; height = 1056; break;
-    default: width = 1080; height = 1080;
+    case "9:16":
+      width = 1080;
+      height = 1920;
+      break;
+    case "16:9":
+      width = 1920;
+      height = 1080;
+      break;
+    case "4:5":
+      width = 1080;
+      height = 1350;
+      break;
+    case "A4-P":
+      width = 794;
+      height = 1123;
+      break;
+    case "A4-L":
+      width = 1123;
+      height = 794;
+      break;
+    case "letter":
+      width = 816;
+      height = 1056;
+      break;
+    default:
+      width = 1080;
+      height = 1080;
   }
 
   return `You are an EXPERT frontend developer creating a unique, production-quality HTML/CSS infographic.
@@ -501,7 +550,7 @@ OUTPUT ONLY THE HTML. No explanations. Start with <!DOCTYPE html>. End with </ht
 export function buildDesignRevisionPrompt(
   currentBlueprint: any,
   userFeedback: string,
-  content: any
+  content: any,
 ): string {
   return `You are an expert designer revising an infographic design based on feedback.
 

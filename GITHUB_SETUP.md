@@ -29,6 +29,7 @@ git push -u origin main
 ## Step 3: Authenticate
 
 When prompted:
+
 - **Username**: Your GitHub username
 - **Password**: Use a **Personal Access Token** (not your GitHub password)
   - Generate one at: https://github.com/settings/tokens

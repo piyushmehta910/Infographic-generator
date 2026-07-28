@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { TemplateProps } from '@/lib/types';
-import { getAlignmentStyle, getSpacingValue } from '@/services/template/templateEngine';
+import React from "react";
+import { TemplateProps } from "@/lib/types";
+import {
+  getAlignmentStyle,
+  getSpacingValue,
+} from "@/services/template/templateEngine";
 
 export const BusinessTemplate: React.FC<TemplateProps> = ({
   content,
@@ -18,13 +21,13 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
   return (
     <div
       style={{
-        width: '100%',
-        height: '100%',
+        width: "100%",
+        height: "100%",
         background: theme.colors.background,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        overflow: 'hidden',
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       {/* Corporate Header Bar */}
@@ -32,26 +35,26 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
         style={{
           background: `linear-gradient(90deg, ${theme.colors.accent}, ${theme.colors.accentLight})`,
           padding: `${spacing}px ${spacing * 2}px`,
-          color: '#ffffff',
+          color: "#ffffff",
         }}
       >
         <h1
           style={{
-            fontSize: isWide ? '38px' : '28px',
+            fontSize: isWide ? "38px" : "28px",
             fontWeight: 700,
             margin: 0,
             ...align,
           }}
-          onClick={() => onElementClick?.('title')}
+          onClick={() => onElementClick?.("title")}
         >
           {content.title}
         </h1>
         {content.subtitle && (
           <p
             style={{
-              fontSize: '16px',
+              fontSize: "16px",
               opacity: 0.9,
-              marginTop: '4px',
+              marginTop: "4px",
               ...align,
             }}
           >
@@ -65,8 +68,8 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
         style={{
           flex: 1,
           padding: `${spacing * 2}px`,
-          display: 'flex',
-          flexDirection: isWide ? 'row' : 'column',
+          display: "flex",
+          flexDirection: isWide ? "row" : "column",
           gap: `${spacing}px`,
         }}
       >
@@ -74,8 +77,8 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
         <div style={{ flex: isWide ? 0.4 : 1 }}>
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
               gap: `${spacing}px`,
             }}
           >
@@ -84,17 +87,30 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
                 key={stat.id}
                 style={{
                   background: theme.colors.backgroundSecondary,
-                  borderRadius: '8px',
+                  borderRadius: "8px",
                   padding: `${spacing}px`,
                   border: `1px solid ${theme.colors.border}`,
                   borderLeft: `4px solid ${theme.colors.accent}`,
                 }}
                 onClick={() => onElementClick?.(`stat-${stat.id}`)}
               >
-                <div style={{ fontSize: '24px', fontWeight: 700, color: theme.colors.accent }}>
-                  {stat.prefix}{stat.value}{stat.suffix}
+                <div
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: 700,
+                    color: theme.colors.accent,
+                  }}
+                >
+                  {stat.prefix}
+                  {stat.value}
+                  {stat.suffix}
                 </div>
-                <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: theme.colors.textSecondary,
+                  }}
+                >
                   {stat.label}
                 </div>
               </div>
@@ -116,17 +132,17 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
             >
               <h3
                 style={{
-                  fontSize: '15px',
+                  fontSize: "15px",
                   fontWeight: 600,
                   color: theme.colors.accent,
-                  marginBottom: '4px',
+                  marginBottom: "4px",
                 }}
               >
                 {section.title}
               </h3>
               <p
                 style={{
-                  fontSize: '13px',
+                  fontSize: "13px",
                   color: theme.colors.textSecondary,
                   lineHeight: 1.5,
                 }}
@@ -134,14 +150,14 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
                 {section.content}
               </p>
               {section.bullets && section.bullets.length > 0 && (
-                <ul style={{ margin: '4px 0 0', paddingLeft: '16px' }}>
+                <ul style={{ margin: "4px 0 0", paddingLeft: "16px" }}>
                   {section.bullets.slice(0, 3).map((bullet, i) => (
                     <li
                       key={i}
                       style={{
-                        fontSize: '12px',
+                        fontSize: "12px",
                         color: theme.colors.textSecondary,
-                        marginBottom: '2px',
+                        marginBottom: "2px",
                       }}
                     >
                       {bullet}
@@ -159,29 +175,30 @@ export const BusinessTemplate: React.FC<TemplateProps> = ({
         style={{
           padding: `${spacing}px ${spacing * 2}px`,
           borderTop: `2px solid ${theme.colors.accent}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           background: theme.colors.backgroundSecondary,
         }}
       >
         {content.timeline.length > 0 && (
-          <div style={{ fontSize: '12px', color: theme.colors.textSecondary }}>
-            {content.timeline[0].date} - {content.timeline[content.timeline.length - 1].date}
+          <div style={{ fontSize: "12px", color: theme.colors.textSecondary }}>
+            {content.timeline[0].date} -{" "}
+            {content.timeline[content.timeline.length - 1].date}
           </div>
         )}
         {content.callToAction && (
           <div
             style={{
-              padding: '8px 20px',
+              padding: "8px 20px",
               background: theme.colors.accent,
-              color: '#ffffff',
-              borderRadius: '6px',
-              fontSize: '14px',
+              color: "#ffffff",
+              borderRadius: "6px",
+              fontSize: "14px",
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
-            onClick={() => onElementClick?.('cta')}
+            onClick={() => onElementClick?.("cta")}
           >
             {content.callToAction}
           </div>

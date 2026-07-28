@@ -23,7 +23,7 @@ export interface Section {
   bullets?: string[];
   image?: string;
   icon?: string;
-  type?: 'text' | 'image' | 'bullets' | 'mixed';
+  type?: "text" | "image" | "bullets" | "mixed";
 }
 
 export interface Statistic {
@@ -54,18 +54,43 @@ export interface ContentMetadata {
 // --- Template Types ---
 
 export type TemplateCategory =
-  | 'business' | 'marketing' | 'sales' | 'finance' | 'startup'
-  | 'technology' | 'ai' | 'education' | 'healthcare' | 'medical'
-  | 'fitness' | 'food' | 'travel' | 'real-estate'
-  | 'timeline' | 'roadmap' | 'process' | 'comparison' | 'checklist'
-  | 'statistics' | 'flowchart' | 'swot' | 'pyramid' | 'circular'
-  | 'instagram-post' | 'instagram-carousel' | 'linkedin-post'
-  | 'facebook-post' | 'pinterest-pin' | 'youtube-thumbnail'
-  | 'poster' | 'flyer' | 'report' | 'certificate';
+  | "business"
+  | "marketing"
+  | "sales"
+  | "finance"
+  | "startup"
+  | "technology"
+  | "ai"
+  | "education"
+  | "healthcare"
+  | "medical"
+  | "fitness"
+  | "food"
+  | "travel"
+  | "real-estate"
+  | "timeline"
+  | "roadmap"
+  | "process"
+  | "comparison"
+  | "checklist"
+  | "statistics"
+  | "flowchart"
+  | "swot"
+  | "pyramid"
+  | "circular"
+  | "instagram-post"
+  | "instagram-carousel"
+  | "linkedin-post"
+  | "facebook-post"
+  | "pinterest-pin"
+  | "youtube-thumbnail"
+  | "poster"
+  | "flyer"
+  | "report"
+  | "certificate";
 
 export type AspectRatioId =
-  | '1:1' | '4:5' | '9:16' | '16:9'
-  | 'A4-P' | 'A4-L' | 'letter' | 'custom';
+  "1:1" | "4:5" | "9:16" | "16:9" | "A4-P" | "A4-L" | "letter" | "custom";
 
 export interface AspectRatio {
   id: AspectRatioId;
@@ -89,7 +114,7 @@ export interface TemplateConfig {
 
 export interface Placeholder {
   id: string;
-  type: 'text' | 'image' | 'stat' | 'list' | 'timeline' | 'cta';
+  type: "text" | "image" | "stat" | "list" | "timeline" | "cta";
   label: string;
   defaultValue: string;
   required: boolean;
@@ -104,9 +129,9 @@ export interface TemplateProps {
 }
 
 export interface TemplateSettings {
-  alignment: 'left' | 'center' | 'right' | 'justify';
-  verticalAlign: 'top' | 'middle' | 'bottom';
-  spacing: 'compact' | 'comfortable' | 'spacious';
+  alignment: "left" | "center" | "right" | "justify";
+  verticalAlign: "top" | "middle" | "bottom";
+  spacing: "compact" | "comfortable" | "spacious";
   padding: number;
   margin: number;
   roundedCorners: number;
@@ -119,10 +144,19 @@ export interface TemplateSettings {
 // --- Theme Types ---
 
 export type ThemeId =
-  | 'auto' | 'light' | 'dark' | 'minimal'
-  | 'glassmorphism' | 'neumorphism' | 'corporate'
-  | 'modern' | 'gradient' | 'midnight-blue'
-  | 'midnight-green' | 'material' | 'custom';
+  | "auto"
+  | "light"
+  | "dark"
+  | "minimal"
+  | "glassmorphism"
+  | "neumorphism"
+  | "corporate"
+  | "modern"
+  | "gradient"
+  | "midnight-blue"
+  | "midnight-green"
+  | "material"
+  | "custom";
 
 export interface Theme {
   id: ThemeId;
@@ -146,7 +180,8 @@ export interface ThemeColors {
 
 // --- Font Types ---
 
-export type FontId = 'inter' | 'poppins' | 'roboto' | 'manrope' | 'nunito' | 'dm-sans';
+export type FontId =
+  "inter" | "poppins" | "roboto" | "manrope" | "nunito" | "dm-sans";
 
 export interface Font {
   id: FontId;
@@ -157,7 +192,8 @@ export interface Font {
 
 // --- AI Provider Types ---
 
-export type AIProviderId = 'openai' | 'gemini' | 'claude' | 'openrouter' | 'groq' | 'nim';
+export type AIProviderId =
+  "openai" | "gemini" | "claude" | "openrouter" | "groq" | "nim";
 
 export interface AIProviderConfig {
   id: AIProviderId;
@@ -186,7 +222,7 @@ export interface AIModelOption {
 
 export interface AIGenerationRequest {
   input: string;
-  inputType: 'text' | 'idea' | 'image' | 'image-url' | 'design';
+  inputType: "text" | "idea" | "image" | "image-url" | "design";
   templateId?: string;
   theme?: ThemeId;
   aspectRatio?: AspectRatioId;
@@ -221,7 +257,7 @@ export interface AIGenerationResult {
 // --- Editor Types ---
 
 export interface EditorState {
-  mode: 'generating' | 'editing' | 'exporting';
+  mode: "generating" | "editing" | "exporting";
   selectedElement: string | null;
   zoom: number;
   showGrid: boolean;
@@ -239,7 +275,7 @@ export interface EditorHistoryEntry {
 
 export interface EditorElement {
   id: string;
-  type: 'text' | 'image' | 'shape' | 'icon' | 'chart' | 'stat';
+  type: "text" | "image" | "shape" | "icon" | "chart" | "stat";
   x: number;
   y: number;
   width: number;
@@ -270,7 +306,7 @@ export interface Project {
 
 export interface Asset {
   id: string;
-  type: 'icon' | 'illustration' | 'shape' | 'arrow' | 'pattern' | 'user-upload';
+  type: "icon" | "illustration" | "shape" | "arrow" | "pattern" | "user-upload";
   name: string;
   category: string;
   url: string;
@@ -280,7 +316,7 @@ export interface Asset {
 
 // --- Export Types ---
 
-export type ExportFormat = 'png' | 'svg' | 'pdf' | 'html' | 'json';
+export type ExportFormat = "png" | "svg" | "pdf" | "html" | "json";
 
 export interface ExportOptions {
   format: ExportFormat;
@@ -333,7 +369,7 @@ export interface UIState {
 
 export interface Toast {
   id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type: "success" | "error" | "info" | "warning";
   title: string;
   message?: string;
   duration?: number;

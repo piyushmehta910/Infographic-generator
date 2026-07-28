@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { BUILT_IN_TEMPLATES } from '@/services/template/templateEngine';
+import { NextResponse } from "next/server";
+import { BUILT_IN_TEMPLATES } from "@/services/template/templateEngine";
 
 export async function GET() {
   return NextResponse.json({

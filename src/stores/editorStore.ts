@@ -1,12 +1,12 @@
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import {
   InfographicContent,
   TemplateSettings,
   EditorState,
   EditorHistoryEntry,
-} from '@/lib/types';
-import { DEFAULT_TEMPLATE_SETTINGS } from '@/lib/constants';
+} from "@/lib/types";
+import { DEFAULT_TEMPLATE_SETTINGS } from "@/lib/constants";
 
 interface EditorStore {
   // State
@@ -20,7 +20,7 @@ interface EditorStore {
   setContent: (content: InfographicContent) => void;
   updateContent: (updates: Partial<InfographicContent>) => void;
   setSettings: (settings: Partial<TemplateSettings>) => void;
-  setMode: (mode: EditorState['mode']) => void;
+  setMode: (mode: EditorState["mode"]) => void;
   setZoom: (zoom: number) => void;
   selectElement: (elementId: string | null) => void;
   toggleGrid: () => void;
@@ -36,7 +36,7 @@ interface EditorStore {
 }
 
 const initialEditor: EditorState = {
-  mode: 'generating',
+  mode: "generating",
   selectedElement: null,
   zoom: 100,
   showGrid: false,
@@ -111,7 +111,10 @@ export const useEditorStore = create<EditorStore>()(
             description,
             snapshot: JSON.parse(JSON.stringify(state.content)),
           };
-          const newHistory = state.editor.history.slice(0, state.editor.historyIndex + 1);
+          const newHistory = state.editor.history.slice(
+            0,
+            state.editor.historyIndex + 1,
+          );
           newHistory.push(entry);
           if (newHistory.length > 50) newHistory.shift();
           return {
@@ -146,6 +149,6 @@ export const useEditorStore = create<EditorStore>()(
           };
         }),
     }),
-    { name: 'editor-store' }
-  )
+    { name: "editor-store" },
+  ),
 );
