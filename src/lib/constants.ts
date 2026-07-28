@@ -199,6 +199,20 @@ export const AI_PROVIDERS: AIProviderOption[] = [
       { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', contextWindow: 32768, maxOutput: 4096 },
     ],
   },
+  {
+    id: 'nim',
+    name: 'NVIDIA NIM',
+    requiresApiKey: true,
+    docsUrl: 'https://api.nvidia.com/v1/nim/keys',
+    models: [
+      { id: 'meta/llama3-70b-instruct', name: 'Llama 3 70B Instruct', contextWindow: 8192, maxOutput: 4096 },
+      { id: 'meta/llama3-8b-instruct', name: 'Llama 3 8B Instruct', contextWindow: 8192, maxOutput: 4096 },
+      { id: 'mistralai/mistral-7b-instruct-v0.2', name: 'Mistral 7B Instruct', contextWindow: 32768, maxOutput: 4096 },
+      { id: 'mistralai/mixtral-8x7b-instruct-v0.1', name: 'Mixtral 8x7B Instruct', contextWindow: 32768, maxOutput: 4096 },
+      { id: 'google/codegemma-7b-it', name: 'CodeGemma 7B', contextWindow: 8192, maxOutput: 4096 },
+      { id: 'nvidia/nemotron-4-340b-reward', name: 'Nemotron 4 340B Reward', contextWindow: 4096, maxOutput: 2048 },
+    ],
+  },
 ];
 
 export const TEMPLATE_CATEGORIES = [

@@ -127,12 +127,42 @@ class GroqProviderImpl implements AIProvider {
   }
 }
 
+class NIMProviderImpl implements AIProvider {
+  id: AIProviderId = 'nim';
+  async generate(prompt: string, apiKey: string, model: string, temperature: number, maxTokens: number): Promise<string> {
+    const response = await fetch('https://api.nvidia.com/v1/nim/inference', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model || 'meta/llama3-70b-instruct',
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: maxTokens,
+        stream: false
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`NVIDIA NIM API error: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+}
+
 const providerMap: Record<string, AIProvider> = {
   openai: new OpenAIProviderImpl(),
   gemini: new GeminiProviderImpl(),
   claude: new ClaudeProviderImpl(),
   openrouter: new OpenRouterProviderImpl(),
   groq: new GroqProviderImpl(),
+  nim: new NIMProviderImpl(),
 };
 
 function extractJSON(text: string): any {

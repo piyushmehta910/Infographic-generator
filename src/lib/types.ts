@@ -157,7 +157,7 @@ export interface Font {
 
 // --- AI Provider Types ---
 
-export type AIProviderId = 'openai' | 'gemini' | 'claude' | 'openrouter' | 'groq';
+export type AIProviderId = 'openai' | 'gemini' | 'claude' | 'openrouter' | 'groq' | 'nim';
 
 export interface AIProviderConfig {
   id: AIProviderId;
