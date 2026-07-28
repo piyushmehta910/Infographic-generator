@@ -55,7 +55,7 @@ ${contentText}
 17. **Extract ALL statistics** — any numbers, percentages, figures as standalone stat cards
 18. **Create timeline** — if any dates or chronological information exists
 19. **Create process steps** — if step-by-step information exists
-20. **Generate call-to-action** — compelling, action-oriented
+20. **Generate call-to-action** — compelling, action-oriented (ONLY if explicitly requested in the input content, otherwise leave empty)
 21. **Recommend 4-5 emoji icons** — that match the content's theme and tone
 22. **Recommend a coordinated color palette** — 5 colors (primary, secondary, accent, background, text) that work together harmoniously. Colors MUST be coordinated — use color theory principles (complementary, analogous, or triadic schemes). Do NOT pick random colors. Ensure the palette is cohesive and purposeful.
 23. **Verify WCAG AA contrast compliance** — ensure all text-to-background color combinations meet WCAG AA standards (minimum 4.5:1 for normal text, 3:1 for large text). Specify the contrast ratio for each color pair used.
@@ -349,6 +349,14 @@ export function buildHTMLGenerationPrompt(
 ## CONTENT (Use ALL of this data EXACTLY)
 ${JSON.stringify(content, null, 2)}
 
+## IMPORTANT: ASPECT RATIO REQUIREMENTS
+- The infographic MUST be designed specifically for ${width}x${height}px dimensions
+- Layout must be optimized for this exact aspect ratio (${aspectRatio})
+- Content arrangement should respect the canvas proportions
+- For portrait ratios (9:16, 4:5, A4-P), use vertical flow
+- For landscape ratios (16:9, A4-L, letter), use horizontal flow
+- For square ratios (1:1), use balanced symmetrical layout
+
 ## DESIGN BLUEPRINT (Follow this design)
 ${JSON.stringify(blueprint, null, 2)}
 
@@ -435,7 +443,7 @@ The generated HTML MUST include ALL of the following responsive CSS:
 2. STATISTICS: Visual stat cards with big numbers
 3. SECTIONS: 2-3 column grid of content cards with icons
 4. TIMELINE (if content has timeline data): Visual timeline
-5. CTA: Gradient button at bottom
+5. CTA: Gradient button at bottom (ONLY include if explicitly requested in content, otherwise omit)
 
 ## OUTPUT FORMAT
 \`\`\`html
