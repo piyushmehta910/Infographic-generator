@@ -59,6 +59,8 @@ export default function DashboardPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [templateSearch, setTemplateSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [showMobileProperties, setShowMobileProperties] = useState(false);
 
   // Initialize templates
   useEffect(() => {
@@ -73,6 +75,27 @@ export default function DashboardPage() {
       setEditableSubtitle(content.subtitle);
     }
   }, [content]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileViewport(window.innerWidth < 1024);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileViewport) {
+      useUIStore.setState({ sidebarOpen: false });
+      setShowMobileProperties(false);
+      return;
+    }
+
+    useUIStore.setState({ sidebarOpen: true });
+    setShowMobileProperties(false);
+  }, [isMobileViewport]);
 
   // AI Generation
   const handleGenerate = useCallback(async () => {
@@ -218,10 +241,22 @@ export default function DashboardPage() {
   const theme = getTheme(selectedTheme);
   const aspectRatio = getAspectRatio(selectedAspectRatio);
 
+  const showPropertiesPanel = content && (!isMobileViewport || showMobileProperties);
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Top Toolbar */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0 z-20">
+      <header className="h-14 bg-white border-b border-gray-200 flex items-center px-2 sm:px-4 gap-2 sm:gap-3 flex-shrink-0 z-20">
+        {isMobileViewport && (
+          <button
+            onClick={toggleSidebar}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Open controls"
+          >
+            <Menu className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
+
         <button
           onClick={() => router.push('/')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -238,40 +273,40 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 hidden sm:block" />
 
         {/* Undo/Redo */}
-        <button onClick={undo} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Undo">
+        <button onClick={undo} className="hidden sm:block p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Undo">
           <Undo2 className="w-4 h-4 text-gray-600" />
         </button>
-        <button onClick={redo} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Redo">
+        <button onClick={redo} className="hidden sm:block p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Redo">
           <Redo2 className="w-4 h-4 text-gray-600" />
         </button>
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 hidden sm:block" />
 
         {/* Zoom */}
-        <button onClick={() => setZoom(editor.zoom - 10)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => setZoom(editor.zoom - 10)} className="hidden sm:block p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
           <ZoomOut className="w-4 h-4 text-gray-600" />
         </button>
-        <span className="text-xs text-gray-500 w-10 text-center">{editor.zoom}%</span>
-        <button onClick={() => setZoom(editor.zoom + 10)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+        <span className="hidden sm:block text-xs text-gray-500 w-10 text-center">{editor.zoom}%</span>
+        <button onClick={() => setZoom(editor.zoom + 10)} className="hidden sm:block p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
           <ZoomIn className="w-4 h-4 text-gray-600" />
         </button>
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 hidden sm:block" />
 
         {/* Grid Toggles */}
         <button
           onClick={toggleGrid}
-          className={`p-1.5 rounded-lg transition-colors ${editor.showGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
+          className={`hidden sm:block p-1.5 rounded-lg transition-colors ${editor.showGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
           title="Toggle Grid"
         >
           <Grid3X3 className="w-4 h-4" />
         </button>
         <button
           onClick={toggleSnapToGrid}
-          className={`p-1.5 rounded-lg transition-colors ${editor.snapToGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
+          className={`hidden sm:block p-1.5 rounded-lg transition-colors ${editor.snapToGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
           title="Snap to Grid"
         >
           <Grid3x3 className="w-4 h-4" />
@@ -282,24 +317,36 @@ export default function DashboardPage() {
         {/* Actions */}
         <button
           onClick={() => setShowTemplates(!showTemplates)}
-          className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
+          className="px-2 sm:px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
         >
-          Templates
+          <span className="hidden sm:inline">Templates</span>
+          <Layout className="w-4 h-4 sm:hidden" />
         </button>
 
         <button
           onClick={() => setShowExport(!showExport)}
-          className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
+          className="px-2 sm:px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
         >
-          Export
+          <span className="hidden sm:inline">Export</span>
+          <Download className="w-4 h-4 sm:hidden" />
         </button>
 
         <button
           onClick={handleSave}
-          className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          className="hidden sm:block px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
           Save
         </button>
+
+        {content && isMobileViewport && (
+          <button
+            onClick={() => setShowMobileProperties(true)}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Edit content"
+          >
+            <Type className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
 
         <button
           onClick={() => setShowSettings(!showSettings)}
@@ -310,15 +357,19 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Left Sidebar - Input & Controls */}
         <AnimatePresence>
           {sidebarOpen && (
             <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 380, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0"
+              initial={isMobileViewport ? { x: -24, opacity: 0 } : { width: 0, opacity: 0 }}
+              animate={isMobileViewport ? { x: 0, opacity: 1 } : { width: 380, opacity: 1 }}
+              exit={isMobileViewport ? { x: -24, opacity: 0 } : { width: 0, opacity: 0 }}
+              className={`bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 ${
+                isMobileViewport
+                  ? 'fixed top-14 left-0 bottom-0 z-40 w-[90vw] max-w-sm shadow-2xl'
+                  : ''
+              }`}
             >
               <div className="p-4 space-y-4">
                 {/* Input Mode Tabs */}
@@ -496,16 +547,24 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
 
+        {isMobileViewport && sidebarOpen && (
+          <button
+            onClick={toggleSidebar}
+            className="fixed inset-0 top-14 bg-black/30 z-30"
+            aria-label="Close controls"
+          />
+        )}
+
         {/* Toggle Sidebar Button */}
         <button
           onClick={toggleSidebar}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-r-lg p-1.5 shadow-sm hover:bg-gray-50"
+          className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-r-lg p-1.5 shadow-sm hover:bg-gray-50"
         >
           {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
 
         {/* Canvas Area */}
-        <main className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center p-8 relative">
+        <main className="flex-1 overflow-auto bg-gray-100 flex items-start sm:items-center justify-center p-3 sm:p-8 relative">
           {/* Grid overlay */}
           {editor.showGrid && (
             <div
@@ -520,7 +579,7 @@ export default function DashboardPage() {
           {content ? (
             <div
               ref={canvasRef}
-              className="shadow-2xl rounded-lg overflow-hidden"
+              className="shadow-2xl rounded-lg overflow-hidden max-w-full"
             >
               <TemplateRenderer
                 content={content}
@@ -543,7 +602,7 @@ export default function DashboardPage() {
               <p className="text-gray-500 leading-relaxed">
                 Enter your content in the panel on the left, select a template and theme, then click Generate.
               </p>
-              <div className="mt-6 grid grid-cols-3 gap-4">
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {['1. Paste Content', '2. Choose Template', '3. Generate'].map((step) => (
                   <div key={step} className="text-sm text-gray-400 bg-white rounded-xl p-3 border border-gray-100">
                     {step}
@@ -556,18 +615,32 @@ export default function DashboardPage() {
 
         {/* Right Properties Panel */}
         <AnimatePresence>
-          {content && (
+          {showPropertiesPanel && (
             <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0"
+              initial={isMobileViewport ? { y: 30, opacity: 0 } : { width: 0, opacity: 0 }}
+              animate={isMobileViewport ? { y: 0, opacity: 1 } : { width: 320, opacity: 1 }}
+              exit={isMobileViewport ? { y: 30, opacity: 0 } : { width: 0, opacity: 0 }}
+              className={`bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0 ${
+                isMobileViewport
+                  ? 'fixed left-0 right-0 bottom-0 z-50 max-h-[78vh] rounded-t-2xl border-t shadow-2xl'
+                  : ''
+              }`}
             >
               <div className="p-4 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  <Type className="w-4 h-4" />
-                  Edit Content
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <Type className="w-4 h-4" />
+                    Edit Content
+                  </h3>
+                  {isMobileViewport && (
+                    <button
+                      onClick={() => setShowMobileProperties(false)}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  )}
+                </div>
 
                 {/* Title Edit */}
                 <div>
@@ -677,6 +750,14 @@ export default function DashboardPage() {
             </motion.aside>
           )}
         </AnimatePresence>
+
+        {isMobileViewport && showPropertiesPanel && (
+          <button
+            onClick={() => setShowMobileProperties(false)}
+            className="fixed inset-0 bg-black/30 z-40"
+            aria-label="Close properties panel"
+          />
+        )}
       </div>
 
       {/* Export Panel Modal */}

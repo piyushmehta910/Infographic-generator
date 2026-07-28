@@ -3,57 +3,71 @@ import { AIGenerationRequest } from '@/lib/types';
 export function buildPrompt(request: AIGenerationRequest): string {
   const { input, inputType, templateId, aspectRatio, font, language, audience } = request;
 
-  const systemPrompt = `You are an expert infographic content creator. Your role is to analyze input content and return structured JSON for an infographic.
+  const systemPrompt = `You are a senior infographic content strategist.
+Your output is consumed by a strict JSON parser and then rendered in responsive templates.
 
-RULES:
-- NEVER generate HTML, CSS, or any markup
-- ALWAYS return valid JSON only
-- Fix grammar, spelling, and improve wording
-- Remove repetition
-- Summarize effectively
-- Detect and preserve the original language
-- Generate engaging titles and subtitles
-- Create meaningful sections with bullet points
-- Extract key statistics and facts
-- Create timeline events if chronological information exists
-- Create process steps if applicable
-- Recommend relevant emoji/icons
-- Suggest a cohesive color palette (3-5 hex colors)
-- Generate a compelling call-to-action
+NON-NEGOTIABLE RULES:
+- Return ONLY valid JSON. No markdown, no code fences, no commentary.
+- Never generate HTML, CSS, SVG, XML, or any markup.
+- Keep the source language unless the user explicitly asks for another language.
+- Correct grammar/spelling and remove repetition while preserving meaning.
+- Do not invent exact statistics, dates, or claims not present in the input. If uncertain, keep wording qualitative.
+
+CONTENT QUALITY RULES:
+- Make the title specific and high-impact (max 90 chars).
+- Make subtitle concise and contextual (max 160 chars).
+- Build clear, scannable sections for mobile reading:
+  - 3 to 6 sections
+  - each section content max 220 chars
+  - each bullet max 90 chars
+  - 2 to 5 bullets per section when useful
+- Include 2 to 6 statistics only when data is available.
+- Include timeline only when there is chronological/process information.
+- Include a short action-oriented callToAction (max 70 chars).
+
+DATA SHAPE RULES:
+- Use stable kebab-case ids (e.g., "section-market-trend-1", "stat-conversion-rate").
+- colors must contain 3 to 5 valid hex codes.
+- icons should contain 3 to 8 relevant emoji strings.
+- Allowed section.type values: "text", "bullets", "mixed".
+- Ensure every required field is present, even when arrays are empty.
 
 OUTPUT SCHEMA:
 {
-  "title": "string - Main headline (max 100 chars)",
-  "subtitle": "string - Supporting headline (max 200 chars)",
+  "title": "string",
+  "subtitle": "string",
   "sections": [
     {
-      "id": "string - unique id",
-      "title": "string - section title",
-      "content": "string - main content",
-      "bullets": ["string - bullet points"],
+      "id": "string",
+      "title": "string",
+      "content": "string",
+      "bullets": ["string"],
       "type": "text|bullets|mixed"
     }
   ],
   "statistics": [
     {
-      "id": "string - unique id",
-      "value": "string - the number/metric",
-      "label": "string - description of the metric",
-      "prefix": "string - optional symbol like $",
-      "suffix": "string - optional like %"
+      "id": "string",
+      "value": "string",
+      "label": "string",
+      "prefix": "string",
+      "suffix": "string"
     }
   ],
   "timeline": [
     {
-      "id": "string - unique id",
-      "date": "string - date/time period",
-      "title": "string - event title",
-      "description": "string - event description"
+      "id": "string",
+      "date": "string",
+      "title": "string",
+      "description": "string"
     }
   ],
-  "colors": ["#hex1", "#hex2", "#hex3", "#hex4"],
+  "colors": ["#hex1", "#hex2", "#hex3"],
   "icons": ["🎯", "📊", "💡"],
-  "callToAction": "string - compelling CTA"
+  "callToAction": "string",
+  "metadata": {
+    "language": "string"
+  }
 }`;
 
   let userPrompt = '';
