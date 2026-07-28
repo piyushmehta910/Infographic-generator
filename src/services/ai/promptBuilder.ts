@@ -404,13 +404,14 @@ export function buildHTMLGenerationPrompt(
 ## CONTENT (Use ALL of this data EXACTLY)
 ${JSON.stringify(content, null, 2)}
 
-## IMPORTANT: ASPECT RATIO REQUIREMENTS
-- The infographic MUST be designed specifically for ${width}x${height}px dimensions
-- Layout must be optimized for this exact aspect ratio (${aspectRatio})
-- Content arrangement should respect the canvas proportions
-- For portrait ratios (9:16, 4:5, A4-P), use vertical flow
-- For landscape ratios (16:9, A4-L, letter), use horizontal flow
-- For square ratios (1:1), use balanced symmetrical layout
+## CRITICAL: ASPECT RATIO REQUIREMENTS - MUST BE FOLLOWED EXACTLY
+- The infographic canvas is EXACTLY ${width}x${height}px - this is NON-NEGOTIABLE
+- The HTML body must have: width: ${width}px; height: ${height}px; overflow: hidden;
+- ALL content must fit within these EXACT dimensions - NO EXCEPTIONS
+- If content doesn't fit, reduce font sizes, spacing, or remove elements - DO NOT let it overflow
+- For portrait ratios (9:16, 4:5, A4-P): Use vertical flow with compact spacing
+- For landscape ratios (16:9, A4-L, letter): Use horizontal flow with side-by-side layouts
+- For square ratios (1:1): Use balanced grid layout
 
 ## DESIGN BLUEPRINT (Follow this design)
 ${JSON.stringify(blueprint, null, 2)}
