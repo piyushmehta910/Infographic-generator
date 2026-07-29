@@ -590,10 +590,14 @@ export async function generateContent(
         processingTime: Date.now() - startTime,
       };
     } catch (error) {
-      // Final fallback: local content generation
-      const localResult = generateLocalContent(request, providerId, model, startTime);
-      localResult.error = error instanceof Error ? error.message : "Failed to generate infographic";
-      return localResult;
+      // Do NOT silently fall back - return the error so the user knows something went wrong
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate infographic",
+        provider: providerId,
+        model: model,
+        processingTime: Date.now() - startTime,
+      };
     }
   }
 
