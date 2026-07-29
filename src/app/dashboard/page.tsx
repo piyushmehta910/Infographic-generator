@@ -39,6 +39,15 @@ import {
   FontId,
 } from "@/lib/types";
 
+const PURPOSES = [
+  { id: "social-media", label: "Social Media", icon: "📱", desc: "Instagram, LinkedIn, Facebook posts" },
+  { id: "presentation", label: "Presentation", icon: "📊", desc: "Slides, decks, meetings" },
+  { id: "report", label: "Report", icon: "📄", desc: "Business reports, research papers" },
+  { id: "education", label: "Education", icon: "📚", desc: "Learning materials, tutorials" },
+  { id: "marketing", label: "Marketing", icon: "📢", desc: "Ads, campaigns, promotions" },
+  { id: "other", label: "Other", icon: "✨", desc: "Custom purpose" },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -82,6 +91,8 @@ export default function DashboardPage() {
   const [generationStep, setGenerationStep] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [purpose, setPurpose] = useState("");
+  const [showPurposeDialog, setShowPurposeDialog] = useState(false);
 
   const theme = getTheme("modern");
 
@@ -174,6 +185,12 @@ export default function DashboardPage() {
       return;
     }
 
+    // Show purpose dialog if not selected
+    if (!purpose) {
+      setShowPurposeDialog(true);
+      return;
+    }
+
     const activeConfig = getActiveConfig();
     if (!activeConfig?.apiKey) {
       showToast({
@@ -202,6 +219,9 @@ export default function DashboardPage() {
         input: inputType === "image" ? input : input,
         inputType: inputType as any,
         aspectRatio: aspectRatio.id,
+        aspectRatioWidth: aspectRatio.width,
+        aspectRatioHeight: aspectRatio.height,
+        purpose: purpose,
         theme: "modern",
         font: "inter" as FontId,
       };
@@ -248,7 +268,6 @@ export default function DashboardPage() {
               "Your AI-generated infographic is ready to view and export.",
           });
         } else {
-          // If no HTML was generated, use the content with our blank template
           const blankHtml = generateBlankHtml(result.content, theme);
           setGeneratedHtml(blankHtml);
           setCurrentHtml(blankHtml);
@@ -292,6 +311,7 @@ export default function DashboardPage() {
     theme,
     showToast,
     aspectRatio,
+    purpose,
   ]);
 
   const handleExport = useCallback(
@@ -309,7 +329,6 @@ export default function DashboardPage() {
             document.getElementById("infographic-canvas") ||
             document.querySelector('[data-infographic="true"]');
           if (!element) {
-            // Fallback: try to capture the iframe content
             const iframe = document.querySelector("iframe");
             if (iframe) {
               const dataUrl = await toPng(iframe, {
@@ -367,9 +386,6 @@ export default function DashboardPage() {
             link.click();
           }
         } else if (format === "pdf") {
-          // Convert to markdown first, then generate PDF
-          const markdown = `# ${content?.title || "Infographic"}\n\n${content?.subtitle || ""}\n\n## Statistics\n${content?.statistics?.map(s => `- **${s.value}** ${s.label}`).join("\n") || ""}\n\n## Sections\n${content?.sections?.map(s => `### ${s.icon || ""} ${s.title}\n${s.content}`).join("\n\n") || ""}\n\n${content?.callToAction ? `---\n${content.callToAction}` : ""}`;
-
           const { toPng } = await import("html-to-image");
           const { jsPDF } = await import("jspdf");
           const element =
@@ -430,6 +446,7 @@ export default function DashboardPage() {
     setGeneratedHtml("");
     setCurrentHtml("");
     setIsLoading(false);
+    setPurpose("");
     reset();
     showToast({
       type: "info",
@@ -438,15 +455,11 @@ export default function DashboardPage() {
     });
   }, [reset, showToast]);
 
-  const showPropertiesPanel =
-    content && (!isMobileViewport || showMobileProperties);
-
   return (
     <>
       <Toast />
       <div className="h-screen flex flex-col bg-gray-50">
         <header className="h-14 bg-white border-b border-gray-200 flex items-center px-2 sm:px-4 gap-2 sm:gap-3 flex-shrink-0 z-20">
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobilePanelOpen(true)}
             className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -503,7 +516,6 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex flex-1 overflow-hidden relative">
-          {/* Mobile Overlay */}
           {mobilePanelOpen && (
             <div
               className="md:hidden fixed inset-0 bg-black/50 z-30"
@@ -511,10 +523,8 @@ export default function DashboardPage() {
             />
           )}
 
-          {/* Left Panel - Input (Desktop + Mobile Drawer) */}
           <div className={`w-full md:w-[420px] bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 ${mobilePanelOpen ? "flex" : "hidden md:flex"} fixed md:relative inset-y-0 left-0 z-40 md:z-auto transition-transform duration-300 ${mobilePanelOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
             <div className="p-4 space-y-4 w-full">
-              {/* Mobile Close Button */}
               <div className="md:hidden flex justify-end mb-2">
                 <button
                   onClick={() => setMobilePanelOpen(false)}
@@ -541,11 +551,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
-                    <span>Click Generate and wait for AI</span>
+                    <span>Choose the purpose of your infographic</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
-                    <span>Download your infographic</span>
+                    <span>Click Generate and download</span>
                   </div>
                 </div>
               </div>
@@ -637,7 +647,31 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Loading State - Step by Step Progress */}
+                {/* Purpose Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    What is the purpose? {purpose && <span className="text-blue-600">({PURPOSES.find(p => p.id === purpose)?.label})</span>}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PURPOSES.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setPurpose(p.id)}
+                        className={`p-2.5 rounded-xl text-xs border-2 transition-all text-left ${
+                          purpose === p.id
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="text-base mb-1">{p.icon}</div>
+                        <div className="font-medium text-gray-900">{p.label}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">{p.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Loading State */}
                 {isLoading && (
                   <div className="space-y-4 py-6">
                     <div className="text-center mb-4">
@@ -654,7 +688,6 @@ export default function DashboardPage() {
                       <p className="text-gray-500 text-sm">{loadingMessage}</p>
                     </div>
 
-                    {/* Progress Bar */}
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs text-gray-500">
                         <span>Progress</span>
@@ -669,7 +702,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Step Indicators */}
                     <div className="space-y-2">
                       {generationSteps.map((step) => (
                         <div
@@ -704,18 +736,9 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex items-center justify-center gap-1 text-xs text-gray-400">
-                      <span
-                        className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "150ms" }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "300ms" }}
-                      />
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                     </div>
                   </div>
                 )}
@@ -770,7 +793,6 @@ export default function DashboardPage() {
                   </button>
                 )}
 
-                {/* Mobile Close Button at Bottom */}
                 <button
                   onClick={() => setMobilePanelOpen(false)}
                   className="md:hidden w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
@@ -783,7 +805,6 @@ export default function DashboardPage() {
 
           {/* Main Canvas */}
           <main className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center relative">
-            {/* Mobile Floating Action Button */}
             {!mobilePanelOpen && !generatedHtml && (
               <button
                 onClick={() => setMobilePanelOpen(true)}
@@ -814,7 +835,7 @@ export default function DashboardPage() {
                     Ready to Create
                   </h2>
                   <p className="text-sm sm:text-base text-gray-500 leading-relaxed mb-4">
-                    {`Tap the menu button or the floating button to start creating your infographic.`}
+                    Paste your content, choose a purpose and aspect ratio, then generate.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-400">
                     <div className="flex items-center gap-1.5">
@@ -833,6 +854,64 @@ export default function DashboardPage() {
           </main>
         </div>
       </div>
+
+      {/* Purpose Dialog Modal */}
+      <AnimatePresence>
+        {showPurposeDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+            onClick={() => setShowPurposeDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  🎯 What is the purpose of this infographic?
+                </h2>
+                <button
+                  onClick={() => setShowPurposeDialog(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                This helps AI design the perfect layout, colors, and style for your needs.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {PURPOSES.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setPurpose(p.id);
+                      setShowPurposeDialog(false);
+                    }}
+                    className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                  >
+                    <div className="text-2xl mb-2">{p.icon}</div>
+                    <div className="font-semibold text-gray-900">{p.label}</div>
+                    <div className="text-xs text-gray-500 mt-1">{p.desc}</div>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowPurposeDialog(false)}
+                className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Skip (AI will choose)
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Settings Modal */}
       <AnimatePresence>
@@ -992,7 +1071,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
                         <p className="text-xs text-amber-700">
-                          💡 <strong>Tip:</strong> Lower max tokens (256-1024) uses fewer credits and works well for most infographics. Increase only if content is being truncated.
+                          💡 <strong>Tip:</strong> Lower max tokens (256-1024) uses fewer credits.
                         </p>
                       </div>
                     </React.Fragment>
@@ -1030,8 +1109,7 @@ export default function DashboardPage() {
             >
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Layout className="w-5 h-5 text-blue-600" /> Select Aspect
-                  Ratio
+                  <Layout className="w-5 h-5 text-blue-600" /> Select Aspect Ratio
                 </h2>
                 <button
                   onClick={() => setShowAspectRatioModal(false)}
@@ -1059,13 +1137,12 @@ export default function DashboardPage() {
                         {ratio.label}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {ratio.id === "custom" ? "Custom dimensions" : `${ratio.width} × ${ratio.height}`}
+                        {ratio.id === "custom" ? "Custom dimensions" : `${ratio.width} × ${ratio.height}px`}
                       </div>
                     </button>
                   ))}
                 </div>
 
-                {/* Custom Size Section - Always visible when custom is selected */}
                 {aspectRatio.id === "custom" && (
                   <div className="space-y-3 pt-4 border-t border-gray-100">
                     <h3 className="font-semibold text-gray-800">Custom Size</h3>
@@ -1159,9 +1236,7 @@ export default function DashboardPage() {
                 >
                   <FileImage className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                   <div className="font-medium text-gray-900">PNG</div>
-                  <div className="text-xs text-gray-500">
-                    High quality image
-                  </div>
+                  <div className="text-xs text-gray-500">High quality image</div>
                 </button>
                 <button
                   onClick={() => handleExport("jpg")}
@@ -1169,9 +1244,7 @@ export default function DashboardPage() {
                 >
                   <FileImage className="w-8 h-8 text-green-600 mx-auto mb-2" />
                   <div className="font-medium text-gray-900">JPG</div>
-                  <div className="text-xs text-gray-500">
-                    Compressed image
-                  </div>
+                  <div className="text-xs text-gray-500">Compressed image</div>
                 </button>
                 <button
                   onClick={() => handleExport("pdf")}
@@ -1179,9 +1252,7 @@ export default function DashboardPage() {
                 >
                   <FileText className="w-8 h-8 text-red-600 mx-auto mb-2" />
                   <div className="font-medium text-gray-900">PDF</div>
-                  <div className="text-xs text-gray-500">
-                    Print-ready document
-                  </div>
+                  <div className="text-xs text-gray-500">Print-ready document</div>
                 </button>
                 <button
                   onClick={() => handleExport("json")}
@@ -1207,7 +1278,6 @@ export default function DashboardPage() {
 }
 
 function generateBlankHtml(content: InfographicContent, theme: any): string {
-  const isWide = true;
   const bgColor = theme?.colors?.background || "#ffffff";
   const textColor = theme?.colors?.text || "#0f172a";
   const accentColor = theme?.colors?.accent || "#3b82f6";

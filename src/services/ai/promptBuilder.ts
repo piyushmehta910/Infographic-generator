@@ -8,14 +8,27 @@ import { AIGenerationRequest } from "@/lib/types";
 export function buildContentAnalysisPrompt(
   request: AIGenerationRequest,
 ): string {
-  const { input, inputType, aspectRatio, theme, font, language, audience } = request;
+  const { input, inputType, aspectRatio, theme, font, language, audience, aspectRatioWidth, aspectRatioHeight, purpose } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const themeStr = theme || "modern";
   const fontStr = font || "Inter";
   const languageStr = language || "English";
   const audienceStr = audience || "General";
+  const purposeStr = purpose || "Not specified";
 
-  const metadata = `\n[Config: Aspect Ratio: ${aspectRatioStr} | Theme: ${themeStr} | Font: ${fontStr} | Language: ${languageStr} | Audience: ${audienceStr}]`;
+  // Derive exact canvas dimensions
+  const dimensionsStr =
+    aspectRatioWidth && aspectRatioHeight
+      ? `${aspectRatioWidth}×${aspectRatioHeight}px`
+      : aspectRatioStr === "9:16" ? "1080×1920px"
+      : aspectRatioStr === "16:9" ? "1920×1080px"
+      : aspectRatioStr === "4:5" ? "1080×1350px"
+      : aspectRatioStr === "A4-P" ? "794×1123px"
+      : aspectRatioStr === "A4-L" ? "1123×794px"
+      : aspectRatioStr === "letter" ? "816×1056px"
+      : "1080×1080px";
+
+  const metadata = `\n[Config: Aspect Ratio: ${aspectRatioStr} | Canvas: ${dimensionsStr} | Theme: ${themeStr} | Font: ${fontStr} | Language: ${languageStr} | Audience: ${audienceStr} | Purpose: ${purposeStr}]`;
 
   let contentText = "";
   switch (inputType) {
@@ -35,7 +48,20 @@ export function buildContentAnalysisPrompt(
       contentText = `Input:\n${input}`;
   }
 
-  return `You are an expert content analyst and editor following a precise 3-step process:
+  return `You are an expert content analyst and editor creating content for a PROFESSIONAL INFOGRAPHIC. Your output will be used to design a visual infographic layout.
+
+## CRITICAL: This content is for an INFOGRAPHIC — NOT a blog post, article, or document.
+- Content must be VISUALLY STRUCTURED for an infographic layout
+- Use short, scannable text blocks
+- Prioritize key statistics and data points
+- Create clear visual hierarchy in the content structure
+- Every section should work as a standalone visual card
+
+## CANVAS SPECIFICATIONS
+- Canvas dimensions: ${dimensionsStr}
+- Aspect ratio: ${aspectRatioStr}
+- Purpose: ${purposeStr}
+- Design every element to fit perfectly within these exact pixel dimensions
 
 ## STEP 1: INPUT — Receive the user's content
 ## STEP 2: ANALYZE — Analyze the content through AI — extract every key detail, fact, statistic, date, and theme

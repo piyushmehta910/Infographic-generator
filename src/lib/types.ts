@@ -48,7 +48,26 @@ export interface ContentMetadata {
   wordCount: number;
   readingTime: number;
   source?: string;
-  generatedAt: string;
+}
+
+// --- Aspect Ratio Types ---
+
+export type AspectRatioId =
+  | "1:1"
+  | "4:5"
+  | "9:16"
+  | "16:9"
+  | "A4-P"
+  | "A4-L"
+  | "letter"
+  | "custom";
+
+export interface AspectRatio {
+  id: AspectRatioId;
+  label: string;
+  ratio: string;
+  width: number;
+  height: number;
 }
 
 // --- Template Types ---
@@ -78,26 +97,16 @@ export type TemplateCategory =
   | "swot"
   | "pyramid"
   | "circular"
-  | "instagram-post"
+  | "instagram"
   | "instagram-carousel"
-  | "linkedin-post"
-  | "facebook-post"
-  | "pinterest-pin"
-  | "youtube-thumbnail"
+  | "linkedin"
+  | "facebook"
+  | "pinterest"
+  | "youtube"
   | "poster"
   | "flyer"
   | "report"
   | "certificate";
-
-export type AspectRatioId =
-  "1:1" | "4:5" | "9:16" | "16:9" | "A4-P" | "A4-L" | "letter" | "custom";
-
-export interface AspectRatio {
-  id: AspectRatioId;
-  label: string;
-  width: number;
-  height: number;
-}
 
 export interface TemplateConfig {
   id: string;
@@ -226,6 +235,9 @@ export interface AIGenerationRequest {
   templateId?: string;
   theme?: ThemeId;
   aspectRatio?: AspectRatioId;
+  aspectRatioWidth?: number;
+  aspectRatioHeight?: number;
+  purpose?: string;
   alignment?: string;
   font?: FontId;
   language?: string;
@@ -281,81 +293,22 @@ export interface EditorElement {
   width: number;
   height: number;
   rotation: number;
-  properties: Record<string, unknown>;
+  content: string;
+  style: Record<string, string>;
 }
 
-// --- Project Types ---
+// --- UI Types ---
 
-export interface Project {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  content: InfographicContent;
-  templateId?: string;
-  blueprint?: unknown;
-  html?: string;
-  theme: ThemeId;
-  aspectRatio: AspectRatioId;
-  settings: TemplateSettings;
-  thumbnail?: string;
-  tags: string[];
-}
-
-// --- Asset Types ---
-
-export interface Asset {
-  id: string;
-  type: "icon" | "illustration" | "shape" | "arrow" | "pattern" | "user-upload";
-  name: string;
-  category: string;
-  url: string;
-  svg?: string;
-  tags: string[];
-}
-
-// --- Export Types ---
-
-export type ExportFormat = "png" | "svg" | "pdf" | "html" | "json";
-
-export interface ExportOptions {
-  format: ExportFormat;
-  quality?: number;
-  scale?: number;
-  includeMetadata?: boolean;
-  fileName?: string;
-}
-
-// --- API Types ---
-
-export interface APIResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
+export interface ToastMessage {
+  type: "success" | "error" | "info" | "warning";
+  title: string;
   message?: string;
+  duration?: number;
 }
 
-export interface APIGenerateRequest {
-  text?: string;
-  idea?: string;
-  image?: string;
-  imageUrl?: string;
-  templateId?: string;
-  theme?: string;
-  aspectRatio?: string;
-  font?: string;
-  language?: string;
-  audience?: string;
-}
-
-export interface APIGenerateResponse {
+export interface Toast extends ToastMessage {
   id: string;
-  content: InfographicContent;
-  template: string;
-  preview?: string;
 }
-
-// --- Store Types ---
 
 export interface UIState {
   sidebarOpen: boolean;
@@ -367,10 +320,24 @@ export interface UIState {
   toast: Toast | null;
 }
 
-export interface Toast {
+export interface Project {
   id: string;
-  type: "success" | "error" | "info" | "warning";
   title: string;
-  message?: string;
-  duration?: number;
+  content: InfographicContent;
+  aspectRatio: AspectRatioId;
+  theme: ThemeId;
+  createdAt: string;
+  updatedAt: string;
+  thumbnail?: string;
+}
+
+// --- Export Types ---
+
+export type ExportFormat = "png" | "jpg" | "svg" | "pdf" | "html" | "json";
+
+export interface ExportOptions {
+  format: ExportFormat;
+  quality: number;
+  pixelRatio: number;
+  includeMetadata: boolean;
 }

@@ -7,14 +7,14 @@ import {
 } from "./types";
 
 export const ASPECT_RATIOS: Record<string, AspectRatio> = {
-  "1:1": { id: "1:1", label: "Square 1:1", width: 1080, height: 1080 },
-  "4:5": { id: "4:5", label: "Portrait 4:5", width: 1080, height: 1350 },
-  "9:16": { id: "9:16", label: "Story 9:16", width: 1080, height: 1920 },
-  "16:9": { id: "16:9", label: "Landscape 16:9", width: 1920, height: 1080 },
-  "A4-P": { id: "A4-P", label: "A4 Portrait", width: 794, height: 1123 },
-  "A4-L": { id: "A4-L", label: "A4 Landscape", width: 1123, height: 794 },
-  letter: { id: "letter", label: "Letter", width: 816, height: 1056 },
-  custom: { id: "custom", label: "Custom", width: 800, height: 800 },
+  "1:1": { id: "1:1", label: "Square 1:1", ratio: "1:1", width: 1080, height: 1080 },
+  "4:5": { id: "4:5", label: "Portrait 4:5", ratio: "4:5", width: 1080, height: 1350 },
+  "9:16": { id: "9:16", label: "Story 9:16", ratio: "9:16", width: 1080, height: 1920 },
+  "16:9": { id: "16:9", label: "Landscape 16:9", ratio: "16:9", width: 1920, height: 1080 },
+  "A4-P": { id: "A4-P", label: "A4 Portrait", ratio: "A4 Portrait", width: 794, height: 1123 },
+  "A4-L": { id: "A4-L", label: "A4 Landscape", ratio: "A4 Landscape", width: 1123, height: 794 },
+  letter: { id: "letter", label: "Letter", ratio: "Letter", width: 816, height: 1056 },
+  custom: { id: "custom", label: "Custom", ratio: "Custom", width: 800, height: 800 },
 };
 
 export const FONTS: Font[] = [
