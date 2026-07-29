@@ -30,7 +30,7 @@ import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
 import Toast from "@/components/ui/Toast";
 import { AIDesignRenderer } from "@/components/templates/AIDesignRenderer";
-import { generateContent } from "@/services/ai/provider";
+import { generateContent, setStoredProvidersGetter } from "@/services/ai/provider";
 import { getTheme, getAspectRatio } from "@/services/template/templateEngine";
 import { ASPECT_RATIOS, AI_PROVIDERS } from "@/lib/constants";
 import {
@@ -92,6 +92,11 @@ export default function DashboardPage() {
     { id: 3, label: "Generating HTML", icon: "⚡" },
     { id: 4, label: "Rendering Image", icon: "✨" },
   ];
+
+  // Wire up the stored providers getter for automatic fallback
+  useEffect(() => {
+    setStoredProvidersGetter(() => providers);
+  }, [providers]);
 
   useEffect(() => {
     const sampleContent: InfographicContent = {

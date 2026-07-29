@@ -293,8 +293,158 @@ function extractHTML(text: string): string {
   return html;
 }
 
+// Fallback model priorities for each provider (cheapest/most available first)
+const FALLBACK_MODELS: Record<string, string[]> = {
+  openrouter: [
+    "openrouter/free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "poolside/laguna-xs-2.1:free",
+    "openai/gpt-4o-mini",
+    "google/gemini-1.5-flash",
+  ],
+  openai: [
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4-turbo",
+  ],
+  gemini: [
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-pro",
+  ],
+  claude: [
+    "claude-3-haiku-20240307",
+    "claude-3-5-sonnet-20241022",
+  ],
+  groq: [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "mixtral-8x7b-32768",
+  ],
+};
+
+/**
+ * Try to call a provider with multiple model fallbacks.
+ * If one model fails due to credits/rates, try the next one.
+ */
+async function generateWithFallback(
+  provider: AIProvider,
+  prompt: string,
+  apiKey: string,
+  model: string,
+  temperature: number,
+  maxTokens: number,
+  providerId: string,
+): Promise<string> {
+  // Build the list of models to try: user's model first, then fallbacks
+  const fallbackModels = FALLBACK_MODELS[providerId] || [];
+  const modelsToTry = [
+    model,
+    ...fallbackModels.filter((m) => m !== model),
+  ].slice(0, 5); // Try up to 5 models
+
+  let lastError: string = "";
+
+  for (const currentModel of modelsToTry) {
+    try {
+      return await provider.generate(
+        prompt,
+        apiKey,
+        currentModel,
+        temperature,
+        maxTokens,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      lastError = msg;
+
+      // Only fallback on credit/rate-limit/402 errors
+      const isFallbackError =
+        msg.includes("402") ||
+        msg.includes("credits") ||
+        msg.includes("rate_limit") ||
+        msg.includes("429") ||
+        msg.includes("insufficient_quota") ||
+        msg.includes("insufficient credits");
+
+      if (!isFallbackError) {
+        // Non-recoverable error - throw immediately
+        throw error;
+      }
+      // Otherwise continue to next model
+    }
+  }
+
+  // All fallbacks failed - throw a helpful message
+  throw new Error(
+    `All models failed. Last error: ${lastError}. Try adding credits to your provider or switching to a different provider.`,
+  );
+}
+
+/**
+ * Try multiple providers in sequence until one works.
+ * Returns null if all providers fail.
+ */
+async function tryAllProviders(
+  prompt: string,
+  userApiKey: string,
+  userProviderId: AIProviderId,
+  userModel: string,
+  temperature: number,
+  maxTokens: number,
+  storedProviders: { id: AIProviderId; apiKey: string; model: string }[],
+): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
+  // 1. Try user's configured provider with fallback models
+  const userProvider = providerMap[userProviderId];
+  if (userProvider && userApiKey) {
+    try {
+      const text = await generateWithFallback(
+        userProvider,
+        prompt,
+        userApiKey,
+        userModel,
+        temperature,
+        maxTokens,
+        userProviderId,
+      );
+      return { text, provider: userProviderId, model: userModel };
+    } catch { /* Continue to other providers */ }
+  }
+
+  // 2. Try other providers that have API keys configured
+  const providerPriority: AIProviderId[] = ["openrouter", "openai", "gemini", "groq", "claude"];
+  for (const pid of providerPriority) {
+    if (pid === userProviderId) continue; // Already tried
+
+    const storedProvider = storedProviders.find((p) => p.id === pid);
+    if (!storedProvider?.apiKey) continue;
+
+    const fallbackProvider = providerMap[pid];
+    if (!fallbackProvider) continue;
+
+    try {
+      const text = await generateWithFallback(
+        fallbackProvider,
+        prompt,
+        storedProvider.apiKey,
+        storedProvider.model || FALLBACK_MODELS[pid]?.[0] || "",
+        temperature,
+        maxTokens,
+        pid,
+      );
+      return { text, provider: pid, model: storedProvider.model };
+    } catch { /* Continue to next provider */ }
+  }
+
+  return null; // All providers failed
+}
+
 /**
  * Main pipeline: Content Analysis -> Design Blueprint -> HTML Generation
+ * Automatically falls back between models and providers on failure.
  */
 export async function generateContent(
   request: AIGenerationRequest,
@@ -306,7 +456,6 @@ export async function generateContent(
 ): Promise<AIGenerationResult> {
   const startTime = Date.now();
 
-  // For design mode, use the full AI pipeline
   if (
     request.inputType === "design" ||
     request.inputType === "text" ||
@@ -315,23 +464,13 @@ export async function generateContent(
     request.inputType === "image-url"
   ) {
     if (!apiKey || apiKey.trim() === "") {
-      return {
-        success: false,
-        error:
-          "AI generation requires an API key. Please configure your AI provider in Settings.",
-        provider: "local" as AIProviderId,
-        processingTime: Date.now() - startTime,
-      };
+      // Try local generation if no API key
+      return generateLocalContent(request, providerId, model, startTime);
     }
 
     const provider = providerMap[providerId];
     if (!provider) {
-      return {
-        success: false,
-        error: `Unknown AI provider: ${providerId}`,
-        provider: providerId,
-        processingTime: Date.now() - startTime,
-      };
+      return generateLocalContent(request, providerId, model, startTime);
     }
 
     try {
@@ -339,14 +478,42 @@ export async function generateContent(
       // STEP 1: Content Analysis & Correction
       // ============================================
       const contentPrompt = buildContentAnalysisPrompt(request);
-      const contentResponse = await generateWithRetry(
-        provider,
-        contentPrompt,
-        apiKey,
-        model,
-        0.9,
-        2048,
-      );
+      let contentResponse: string;
+      let usedProvider: AIProviderId = providerId;
+      let usedModel: string = model;
+
+      try {
+        // Try with fallbacks
+        contentResponse = await generateWithFallback(
+          provider,
+          contentPrompt,
+          apiKey,
+          model,
+          0.5,
+          Math.min(maxTokens, 1024),
+          providerId,
+        );
+      } catch (primaryError) {
+        // If primary fails, try all providers with API keys
+        const storedProviders = getStoredProviders?.() || [];
+        const fallback = await tryAllProviders(
+          contentPrompt,
+          apiKey,
+          providerId,
+          model,
+          0.5,
+          Math.min(maxTokens, 1024),
+          storedProviders as any,
+        );
+        if (fallback) {
+          contentResponse = fallback.text;
+          usedProvider = fallback.provider;
+          usedModel = fallback.model;
+        } else {
+          throw primaryError;
+        }
+      }
+
       const contentResult = extractJSON(contentResponse);
 
       // If content is incomplete, return the questions for the user to answer
@@ -355,8 +522,8 @@ export async function generateContent(
           success: false,
           error: "CONTENT_INCOMPLETE",
           content: contentResult,
-          provider: providerId,
-          model,
+          provider: usedProvider,
+          model: usedModel,
           processingTime: Date.now() - startTime,
         };
       }
@@ -368,13 +535,14 @@ export async function generateContent(
         contentResult.correctedContent,
         request,
       );
-      const blueprintResponse = await generateWithRetry(
-        provider,
+      const blueprintResponse = await generateWithFallback(
+        providerMap[usedProvider] || provider,
         blueprintPrompt,
         apiKey,
-        model,
-        1.0,
-        4096,
+        usedModel,
+        0.5,
+        Math.min(maxTokens, 2048),
+        usedProvider,
       );
       const blueprint = extractJSON(blueprintResponse);
 
@@ -386,13 +554,14 @@ export async function generateContent(
         blueprint,
         request,
       );
-      const htmlResponse = await generateWithRetry(
-        provider,
+      const htmlResponse = await generateWithFallback(
+        providerMap[usedProvider] || provider,
         htmlPrompt,
         apiKey,
-        model,
-        0.9,
-        maxTokens,
+        usedModel,
+        0.5,
+        Math.min(maxTokens, 2048),
+        usedProvider,
       );
       const html = extractHTML(htmlResponse);
 
@@ -405,36 +574,40 @@ export async function generateContent(
           statistics: contentResult.correctedContent.statistics,
           timeline: contentResult.correctedContent.timeline,
           colors: [
-            blueprint.colorPalette.primary,
-            blueprint.colorPalette.secondary,
-            blueprint.colorPalette.accent,
-            blueprint.colorPalette.background,
-            blueprint.colorPalette.text,
+            blueprint.colorPalette?.primary || "#3b82f6",
+            blueprint.colorPalette?.secondary || "#8b5cf6",
+            blueprint.colorPalette?.accent || "#ec4899",
+            blueprint.colorPalette?.background || "#ffffff",
+            blueprint.colorPalette?.text || "#0f172a",
           ],
           icons: contentResult.correctedContent.suggestedIcons,
           callToAction: contentResult.correctedContent.callToAction,
         },
         generatedHtml: html,
         blueprint: blueprint,
-        provider: providerId,
-        model,
+        provider: usedProvider,
+        model: usedModel,
         processingTime: Date.now() - startTime,
       };
     } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate infographic",
-        provider: providerId,
-        processingTime: Date.now() - startTime,
-      };
+      // Final fallback: local content generation
+      const localResult = generateLocalContent(request, providerId, model, startTime);
+      localResult.error = error instanceof Error ? error.message : "Failed to generate infographic";
+      return localResult;
     }
   }
 
   // For other modes, use local generation (backward compatibility)
   return generateLocalContent(request, providerId, model, startTime);
+}
+
+// Global variable for accessing stored providers (set by dashboard)
+let getStoredProviders: (() => { id: AIProviderId; apiKey: string; model: string }[]) | null = null;
+
+export function setStoredProvidersGetter(
+  getter: () => { id: AIProviderId; apiKey: string; model: string }[],
+) {
+  getStoredProviders = getter;
 }
 
 /**
