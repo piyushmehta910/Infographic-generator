@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
   const [input, setInput] = useState("");
   const [inputType, setInputType] = useState<
-    "text" | "idea" | "image" | "image-url"
+    "text" | "image" | "image-url"
   >("text");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState("");
@@ -84,8 +84,18 @@ export default function DashboardPage() {
   const [customWidth, setCustomWidth] = useState(800);
   const [customHeight, setCustomHeight] = useState(800);
   const [showAspectRatioModal, setShowAspectRatioModal] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   const theme = getTheme("modern");
+
+  const generationSteps = [
+    { id: 0, label: "Analyzing Content", icon: "📝" },
+    { id: 1, label: "Structuring Data", icon: "🧠" },
+    { id: 2, label: "Designing Layout", icon: "🎨" },
+    { id: 3, label: "Generating HTML", icon: "⚡" },
+    { id: 4, label: "Rendering Image", icon: "✨" },
+  ];
 
   useEffect(() => {
     const sampleContent: InfographicContent = {
@@ -146,14 +156,6 @@ export default function DashboardPage() {
       });
       return;
     }
-    if (inputType === "idea" && !input.trim()) {
-      showToast({
-        type: "error",
-        title: "Input Required",
-        message: "Please enter an idea.",
-      });
-      return;
-    }
     if (inputType === "image" && !imageFile) {
       showToast({
         type: "error",
@@ -186,10 +188,14 @@ export default function DashboardPage() {
     setLoadingMessage("Analyzing content...");
     setGeneratedHtml("");
     setCurrentHtml("");
+    setGenerationStep(0);
+    setGenerationProgress(0);
 
     try {
-      // Step 1: Input
-      setLoadingMessage("AI is analyzing your content...");
+      // Step 1: Analyzing Content
+      setGenerationStep(0);
+      setGenerationProgress(10);
+      setLoadingMessage("Analyzing your content...");
 
       const request: AIGenerationRequest = {
         input: inputType === "image" ? input : input,
@@ -199,8 +205,10 @@ export default function DashboardPage() {
         font: "inter" as FontId,
       };
 
-      // Step 2-3: AI analyzes, improves, creates blueprint
-      setLoadingMessage("Improving & structuring content...");
+      // Step 2: Structuring Data
+      setGenerationStep(1);
+      setGenerationProgress(30);
+      setLoadingMessage("Structuring & improving content...");
 
       const result = await generateContent(
         request,
@@ -211,14 +219,23 @@ export default function DashboardPage() {
         activeConfig.maxTokens,
       );
 
-      // Step 4-6: AI designs & generates
+      // Step 3: Designing Layout
+      setGenerationStep(2);
+      setGenerationProgress(50);
       setLoadingMessage("Designing your infographic...");
 
       if (result.success && result.content) {
         setContent(result.content);
 
-        // Step 5-6: Generation + Preview
-        setLoadingMessage("Generating final image...");
+        // Step 4: Generating HTML
+        setGenerationStep(3);
+        setGenerationProgress(75);
+        setLoadingMessage("Generating HTML code...");
+
+        // Step 5: Rendering
+        setGenerationStep(4);
+        setGenerationProgress(90);
+        setLoadingMessage("Rendering final image...");
 
         if (result.generatedHtml) {
           setGeneratedHtml(result.generatedHtml);
@@ -259,8 +276,11 @@ export default function DashboardPage() {
         showToast({ type: "error", title: "Generation Failed", message: msg });
       }
     } finally {
+      setGenerationProgress(100);
       setIsLoading(false);
       setLoadingMessage("");
+      setGenerationStep(0);
+      setGenerationProgress(0);
     }
   }, [
     input,
@@ -270,10 +290,11 @@ export default function DashboardPage() {
     getActiveConfig,
     theme,
     showToast,
+    aspectRatio,
   ]);
 
   const handleExport = useCallback(
-    async (format: "png" | "jpg" | "svg" | "json") => {
+    async (format: "png" | "jpg" | "svg" | "pdf" | "json") => {
       const canvas =
         document.getElementById("infographic-canvas") ||
         document.querySelector(".template-canvas-container iframe") ||
@@ -343,6 +364,36 @@ export default function DashboardPage() {
             link.download = `${content?.title || "infographic"}.jpg`;
             link.href = dataUrl;
             link.click();
+          }
+        } else if (format === "pdf") {
+          // Convert to markdown first, then generate PDF
+          const markdown = `# ${content?.title || "Infographic"}\n\n${content?.subtitle || ""}\n\n## Statistics\n${content?.statistics?.map(s => `- **${s.value}** ${s.label}`).join("\n") || ""}\n\n## Sections\n${content?.sections?.map(s => `### ${s.icon || ""} ${s.title}\n${s.content}`).join("\n\n") || ""}\n\n${content?.callToAction ? `---\n${content.callToAction}` : ""}`;
+
+          const { toPng } = await import("html-to-image");
+          const { jsPDF } = await import("jspdf");
+          const element =
+            document.getElementById("infographic-canvas") ||
+            document.querySelector('[data-infographic="true"]') ||
+            document.querySelector("iframe");
+
+          if (element) {
+            const dataUrl = await toPng(element as HTMLElement, {
+              quality: 1,
+              pixelRatio: 2,
+            });
+            const img = new Image();
+            img.src = dataUrl;
+            await new Promise((resolve) => {
+              img.onload = resolve;
+            });
+
+            const pdf = new jsPDF({
+              orientation: aspectRatio.width > aspectRatio.height ? "landscape" : "portrait",
+              unit: "px",
+              format: [aspectRatio.width, aspectRatio.height],
+            });
+            pdf.addImage(dataUrl, "PNG", 0, 0, aspectRatio.width, aspectRatio.height);
+            pdf.save(`${content?.title || "infographic"}.pdf`);
           }
         } else if (format === "json") {
           const blob = new Blob(
@@ -449,21 +500,33 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <Wand2 className="w-5 h-5 text-blue-600" />
                   <h3 className="font-semibold text-gray-800">
-                    AI Infographic Generator
+                    Create Your Infographic
                   </h3>
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Paste content, describe an idea, or upload an image. AI will
-                  analyze, design, and generate a professional infographic
-                  automatically.
-                </p>
+                <div className="space-y-2 text-xs text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                    <span>Paste content or upload an image</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                    <span>Select your aspect ratio</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
+                    <span>Click Generate and wait for AI</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
+                    <span>Download your infographic</span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4">
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
                   {[
                     { id: "text", icon: FileText, label: "Text" },
-                    { id: "idea", icon: Lightbulb, label: "Idea" },
                     { id: "image", icon: ImageIcon, label: "Image" },
                     { id: "image-url", icon: Globe, label: "URL" },
                   ].map((mode) => (
@@ -495,37 +558,6 @@ export default function DashboardPage() {
                       rows={8}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
-                  </div>
-                )}
-
-                {inputType === "idea" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Describe your idea
-                    </label>
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="e.g., Create an infographic explaining climate change..."
-                      rows={5}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        "Benefits of physiotherapy",
-                        "How blockchain works",
-                        "Renewable energy overview",
-                        "Remote work statistics",
-                      ].map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          onClick={() => setInput(suggestion)}
-                          className="px-3 py-1.5 bg-gray-100 rounded-full text-xs text-gray-600 hover:bg-gray-200 transition-colors"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 )}
 
@@ -564,7 +596,7 @@ export default function DashboardPage() {
                 {inputType === "image-url" && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
-                      Image URL
+                      URL
                     </label>
                     <input
                       value={imageUrl}
@@ -573,36 +605,77 @@ export default function DashboardPage() {
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-400">
-                      AI will analyze the image for content and style
+                      Paste any image URL - AI will analyze it
                     </p>
                   </div>
                 )}
 
-                {/* Loading State */}
+                {/* Loading State - Step by Step Progress */}
                 {isLoading && (
-                  <div className="space-y-3 text-center py-6">
-                    <motion.div
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ repeat: Infinity, duration: 1.5 }}
-                      className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto"
-                    >
-                      <Zap className="w-8 h-8 text-white" />
-                    </motion.div>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      AI is Creating
-                    </h3>
-                    <p className="text-gray-500 text-sm">{loadingMessage}</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-4 overflow-hidden">
+                  <div className="space-y-4 py-6">
+                    <div className="text-center mb-4">
                       <motion.div
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 h-full rounded-full"
-                        animate={{ width: ["0%", "100%"] }}
-                        transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                      />
+                        animate={{ scale: [1, 1.05, 1] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                      >
+                        <Zap className="w-8 h-8 text-white" />
+                      </motion.div>
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        AI is Creating
+                      </h3>
+                      <p className="text-gray-500 text-sm">{loadingMessage}</p>
                     </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Progress</span>
+                        <span>{generationProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <motion.div
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 h-full rounded-full"
+                          animate={{ width: `${generationProgress}%` }}
+                          transition={{ duration: 0.5, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Step Indicators */}
+                    <div className="space-y-2">
+                      {generationSteps.map((step) => (
+                        <div
+                          key={step.id}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${
+                            generationStep === step.id
+                              ? "bg-blue-50 border border-blue-200"
+                              : generationStep > step.id
+                                ? "bg-green-50 opacity-60"
+                                : "bg-gray-50 opacity-40"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
+                            generationStep === step.id
+                              ? "bg-blue-600 text-white"
+                              : generationStep > step.id
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-300 text-gray-500"
+                          }`}>
+                            {generationStep > step.id ? "✓" : step.icon}
+                          </div>
+                          <span className={`text-sm font-medium ${
+                            generationStep === step.id ? "text-blue-700" : "text-gray-600"
+                          }`}>
+                            {step.label}
+                          </span>
+                          {generationStep === step.id && (
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-auto" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
                     <div className="flex items-center justify-center gap-1 text-xs text-gray-400">
                       <span
                         className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
@@ -693,19 +766,18 @@ export default function DashboardPage() {
                     <Wand2 className="w-12 h-12 text-blue-600" />
                   </div>
                   <h2 className="text-2xl font-bold text-gray-800 mb-3">
-                    AI Infographic Generator
+                    Ready to Create
                   </h2>
                   <p className="text-gray-500 leading-relaxed mb-4">
-                    Enter your content on the left, click "Generate
-                    Infographic", and AI will create a professional design
-                    automatically.
+                    Paste your content on the left, choose an aspect ratio, and
+                    click Generate to create your infographic.
                   </p>
                   <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
                     <div className="flex items-center gap-1.5">
-                      <Brain className="w-4 h-4" /> AI Designs
+                      <Brain className="w-4 h-4" /> AI Powered
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Download className="w-4 h-4" /> PNG Export
+                      <Download className="w-4 h-4" /> Multiple Formats
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4" /> Instant
@@ -877,8 +949,12 @@ export default function DashboardPage() {
                     <button
                       key={key}
                       onClick={() => {
-                        setAspectRatioState(ratio);
-                        setShowAspectRatioModal(false);
+                        if (ratio.id === "custom") {
+                          setAspectRatioState(ratio);
+                        } else {
+                          setAspectRatioState(ratio);
+                          setShowAspectRatioModal(false);
+                        }
                       }}
                       className={`p-4 border-2 rounded-xl hover:border-blue-500 transition-colors text-center ${aspectRatio.id === ratio.id ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
                     >
@@ -886,13 +962,13 @@ export default function DashboardPage() {
                         {ratio.label}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {ratio.width} × {ratio.height}
+                        {ratio.id === "custom" ? "Custom dimensions" : `${ratio.width} × ${ratio.height}`}
                       </div>
                     </button>
                   ))}
                 </div>
 
-                {/* Custom Size Section */}
+                {/* Custom Size Section - Always visible when custom is selected */}
                 {aspectRatio.id === "custom" && (
                   <div className="space-y-3 pt-4 border-t border-gray-100">
                     <h3 className="font-semibold text-gray-800">Custom Size</h3>
@@ -998,6 +1074,16 @@ export default function DashboardPage() {
                   <div className="font-medium text-gray-900">JPG</div>
                   <div className="text-xs text-gray-500">
                     Compressed image
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleExport("pdf")}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-red-500 transition-colors text-center"
+                >
+                  <FileText className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                  <div className="font-medium text-gray-900">PDF</div>
+                  <div className="text-xs text-gray-500">
+                    Print-ready document
                   </div>
                 </button>
                 <button
