@@ -937,6 +937,59 @@ export default function DashboardPage() {
                           ))}
                         </select>
                       </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-1.5">
+                            Temperature: {provider.temperature}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={provider.temperature}
+                            onChange={(e) =>
+                              setProvider({
+                                ...provider,
+                                temperature: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-full accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Precise</span>
+                            <span>Creative</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-1.5">
+                            Max Tokens: {provider.maxTokens}
+                          </label>
+                          <input
+                            type="range"
+                            min="256"
+                            max="4096"
+                            step="256"
+                            value={provider.maxTokens}
+                            onChange={(e) =>
+                              setProvider({
+                                ...provider,
+                                maxTokens: parseInt(e.target.value),
+                              })
+                            }
+                            className="w-full accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>256</span>
+                            <span>4096</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
+                        <p className="text-xs text-amber-700">
+                          💡 <strong>Tip:</strong> Lower max tokens (256-1024) uses fewer credits and works well for most infographics. Increase only if content is being truncated.
+                        </p>
+                      </div>
                     </React.Fragment>
                   ))}
               </div>
