@@ -9,7 +9,6 @@ import {
   Settings,
   ArrowLeft,
   FileText,
-  Lightbulb,
   Upload,
   X,
   AlertCircle,
@@ -22,13 +21,7 @@ import {
   Globe,
   RotateCcw,
   Wand2,
-  Undo2,
-  Redo2,
-  ZoomOut,
-  ZoomIn,
-  Grid3X3,
   Layout,
-  Type,
 } from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
