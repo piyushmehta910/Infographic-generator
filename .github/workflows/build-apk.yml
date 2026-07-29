@@ -1,0 +1,92 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "tools platform-tools build-tools;34.0.0 platforms;android-34"
+
+      - name: Install PWABuilder CLI
+        run: npm install -g @bubblewrap/cli
+
+      - name: Generate TWA project
+        run: |
+          bubblewrap init --manifest https://infographic-ai.vercel.app/manifest.json
+        continue-on-error: true
+
+      - name: Build APK
+        run: |
+          bubblewrap build --skipSigning
+        continue-on-error: true
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infographic-ai-apk
+          path: |
+            app-release-unsigned.apk
+            *.apk
+          retention-days: 30
+
+      - name: Create Release with APK
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            app-release-unsigned.apk
+            *.apk
+          body: |
+            ## InfoGraphic AI - Android APK
+
+            Download the Android APK below to install InfoGraphic AI on your device.
+
+            ### Installation Instructions:
+            1. Download the APK file
+            2. Enable "Install from unknown sources" in your Android settings
+            3. Tap the APK file to install
+            4. Open InfoGraphic AI from your app drawer
+
+            ### Features:
+            - AI-powered infographic generation
+            - Multiple input types (text, image, URL)
+            - Multiple aspect ratios
+            - Export as PNG, JPG, PDF, JSON
+            - Offline support (PWA)
+            - Mobile-optimized UI
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

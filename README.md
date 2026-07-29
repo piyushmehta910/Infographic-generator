@@ -2,6 +2,16 @@
 
 A production-ready AI-powered infographic generator built with Next.js 15, TypeScript, and Tailwind CSS. Transform text, ideas, and images into beautiful, professional infographics.
 
+## 📱 Download Android App
+
+[![Download APK](https://img.shields.io/badge/Download-APK-green?style=for-the-badge&logo=android&logoColor=white)](https://github.com/piyushmehta910/Infographic-generator/releases/latest)
+
+> **Install on Android**: Download the APK from the [Releases page](https://github.com/piyushmehta910/Infographic-generator/releases/latest), enable "Install from unknown sources" in settings, and tap to install.
+
+## 🌐 Live Demo
+
+[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://infographic-ai.vercel.app)
+
 ## Core Philosophy
 
 > **AI generates structured content, not HTML.**
@@ -12,9 +22,8 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 ### Input Methods
 
 - **Text**: Paste notes, articles, reports, blog posts, research, scripts
-- **Idea**: Describe a concept and AI generates comprehensive content
 - **Image Upload**: Drag & drop or browse (PNG, JPG, WEBP)
-- **Image URL**: Paste a publicly accessible image URL for AI analysis
+- **URL**: Paste a publicly accessible image URL for AI analysis
 
 ### AI Processing
 
@@ -59,10 +68,17 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 ### Export Formats
 
 - PNG (High resolution, 2x pixel ratio)
-- SVG (Vector format)
-- PDF (Document format)
-- HTML (Self-contained)
+- JPG (Compressed image)
+- PDF (Print-ready document)
 - JSON (Project data)
+
+### Mobile & PWA
+
+- 📱 **Fully responsive** - Works on mobile, tablet, and desktop
+- 🔄 **PWA support** - Install as an app on any device
+- 📲 **Android APK** - Native Android app via TWA
+- 💾 **Offline support** - Service worker caching
+- 🎨 **Mobile-optimized UI** - Slide-in drawer, floating action button
 
 ### Editor Features
 
@@ -181,6 +197,32 @@ vercel
 ```
 
 The `vercel.json` file is already configured for optimal deployment.
+
+### Android APK Build
+
+The APK is automatically built via GitHub Actions when you create a tag:
+
+```bash
+# Create a release tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers the APK build workflow which:
+1. Builds the Next.js app
+2. Generates a TWA (Trusted Web Activity) project
+3. Compiles the Android APK
+4. Creates a GitHub Release with the APK download
+
+You can also manually trigger the workflow from the Actions tab.
+
+#### Manual APK Build with PWABuilder
+
+1. Deploy the app to Vercel
+2. Go to [PWABuilder](https://www.pwabuilder.com)
+3. Enter your deployed URL
+4. Click "Build My PWA" → Android
+5. Download the generated APK
 
 ## API Keys
 

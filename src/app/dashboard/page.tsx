@@ -22,6 +22,8 @@ import {
   RotateCcw,
   Wand2,
   Layout,
+  Menu,
+  Smartphone,
 } from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
@@ -79,6 +81,7 @@ export default function DashboardPage() {
   const [showAspectRatioModal, setShowAspectRatioModal] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   const theme = getTheme("modern");
 
@@ -437,7 +440,16 @@ export default function DashboardPage() {
     <>
       <Toast />
       <div className="h-screen flex flex-col bg-gray-50">
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0 z-20">
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-2 sm:px-4 gap-2 sm:gap-3 flex-shrink-0 z-20">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobilePanelOpen(true)}
+            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Menu"
+          >
+            <Menu className="w-5 h-5 text-gray-600" />
+          </button>
+
           <button
             onClick={() => router.push("/")}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -450,22 +462,22 @@ export default function DashboardPage() {
             <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-sm bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="font-bold text-sm bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent hidden sm:inline">
               InfoGraphic AI
             </span>
           </div>
 
-          <div className="w-px h-6 bg-gray-200" />
+          <div className="w-px h-6 bg-gray-200 hidden sm:block" />
           <div className="flex-1" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {generatedHtml && (
               <button
                 onClick={() => setShowExport(true)}
-                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
+                className="px-2 sm:px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
               >
-                <Download className="w-3.5 h-3.5 inline mr-1" />
-                Export
+                <Download className="w-3.5 h-3.5 inline sm:mr-1" />
+                <span className="hidden sm:inline">Export</span>
               </button>
             )}
             <button
@@ -485,10 +497,27 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Panel - Input */}
-          <div className="w-[420px] bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 hidden md:flex">
-            <div className="p-4 space-y-4">
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Mobile Overlay */}
+          {mobilePanelOpen && (
+            <div
+              className="md:hidden fixed inset-0 bg-black/50 z-30"
+              onClick={() => setMobilePanelOpen(false)}
+            />
+          )}
+
+          {/* Left Panel - Input (Desktop + Mobile Drawer) */}
+          <div className={`w-full md:w-[420px] bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 ${mobilePanelOpen ? "flex" : "hidden md:flex"} fixed md:relative inset-y-0 left-0 z-40 md:z-auto transition-transform duration-300 ${mobilePanelOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+            <div className="p-4 space-y-4 w-full">
+              {/* Mobile Close Button */}
+              <div className="md:hidden flex justify-end mb-2">
+                <button
+                  onClick={() => setMobilePanelOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Wand2 className="w-5 h-5 text-blue-600" />
@@ -711,12 +740,12 @@ export default function DashboardPage() {
                 <button
                   onClick={handleGenerate}
                   disabled={isLoading}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      {loadingMessage}
+                      <span className="truncate">{loadingMessage}</span>
                     </>
                   ) : (
                     <>
@@ -729,23 +758,41 @@ export default function DashboardPage() {
                 {generatedHtml && !isLoading && (
                   <button
                     onClick={() => setShowExport(true)}
-                    className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm"
                   >
                     <Download className="w-4 h-4" />
                     Download Infographic
                   </button>
                 )}
+
+                {/* Mobile Close Button at Bottom */}
+                <button
+                  onClick={() => setMobilePanelOpen(false)}
+                  className="md:hidden w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                >
+                  View Canvas
+                </button>
               </div>
             </div>
           </div>
 
           {/* Main Canvas */}
           <main className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center relative">
-            <div className="flex items-center justify-center min-h-full w-full p-4">
+            {/* Mobile Floating Action Button */}
+            {!mobilePanelOpen && !generatedHtml && (
+              <button
+                onClick={() => setMobilePanelOpen(true)}
+                className="md:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg flex items-center justify-center"
+                title="Create"
+              >
+                <Wand2 className="w-6 h-6" />
+              </button>
+            )}
+            <div className="flex items-center justify-center min-h-full w-full p-2 sm:p-4">
               {generatedHtml ? (
                 <div
                   ref={canvasRef}
-                  className="shadow-2xl rounded-lg overflow-hidden"
+                  className="shadow-2xl rounded-lg overflow-hidden w-full"
                   style={{ maxWidth: "100%" }}
                 >
                   <AIDesignRenderer
@@ -754,18 +801,17 @@ export default function DashboardPage() {
                   />
                 </div>
               ) : (
-                <div className="text-center max-w-md">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200/30">
-                    <Wand2 className="w-12 h-12 text-blue-600" />
+                <div className="text-center max-w-md px-4">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200/30">
+                    <Wand2 className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-3">
                     Ready to Create
                   </h2>
-                  <p className="text-gray-500 leading-relaxed mb-4">
-                    Paste your content on the left, choose an aspect ratio, and
-                    click Generate to create your infographic.
+                  <p className="text-sm sm:text-base text-gray-500 leading-relaxed mb-4">
+                    {`Tap the menu button or the floating button to start creating your infographic.`}
                   </p>
-                  <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
+                  <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-400">
                     <div className="flex items-center gap-1.5">
                       <Brain className="w-4 h-4" /> AI Powered
                     </div>

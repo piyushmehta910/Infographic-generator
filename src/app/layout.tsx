@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,6 +6,12 @@ export const metadata: Metadata = {
   description:
     "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
   keywords: "infographic, AI, generator, design, template, visual, content",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "InfoGraphic AI",
+  },
   openGraph: {
     title: "InfoGraphic AI - AI-Powered Infographic Generator",
     description:
@@ -23,6 +29,13 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#3b82f6",
 };
 
 export default function RootLayout({
@@ -46,6 +59,24 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-white dark:bg-surface-950 text-surface-900 dark:text-surface-50 antialiased">
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    function(registration) {
+                      console.log('ServiceWorker registration successful');
+                    },
+                    function(err) {
+                      console.log('ServiceWorker registration failed: ', err);
+                    }
+                  );
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

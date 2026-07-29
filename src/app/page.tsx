@@ -244,14 +244,14 @@ export default function LandingPage() {
               AI-Powered Infographic Generator
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-gray-900 leading-tight mb-6">
               Turn Ideas Into
               <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
                 Stunning Infographics
               </span>
             </h1>
 
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
               Transform text, ideas, and images into beautiful, professional
               infographics. AI structures your content — you have full control
               over the design.
@@ -260,21 +260,21 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => router.push("/dashboard")}
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-lg font-semibold hover:shadow-xl hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-base sm:text-lg font-semibold hover:shadow-xl hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
               >
                 Create Your First Infographic
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
                 onClick={() => router.push("/dashboard")}
-                className="px-8 py-4 border-2 border-gray-200 text-gray-700 rounded-full text-lg font-semibold hover:border-gray-300 transition-all"
+                className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-200 text-gray-700 rounded-full text-base sm:text-lg font-semibold hover:border-gray-300 transition-all"
               >
                 View Templates
               </button>
             </div>
 
             {/* Stats */}
-            <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+            <div className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 max-w-3xl mx-auto">
               {[
                 { value: "8+", label: "Templates" },
                 { value: "5", label: "AI Providers" },
@@ -282,10 +282,10 @@ export default function LandingPage() {
                 { value: "12", label: "Themes" },
               ].map((stat) => (
                 <div key={stat.label}>
-                  <div className="text-3xl font-bold text-gray-900">
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-gray-500">{stat.label}</div>
+                  <div className="text-xs sm:text-sm text-gray-500">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -294,19 +294,19 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="py-20 bg-gray-50">
+      <section id="features" className="py-12 sm:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Complete Design Control
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
               A flexible platform where you control every aspect of your
               infographic design.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -331,19 +331,19 @@ export default function LandingPage() {
       </section>
 
       {/* Templates Preview */}
-      <section id="templates" className="py-20">
+      <section id="templates" className="py-12 sm:py-20">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Flexible Design Options
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
               Choose from professional templates or create your own custom
               design. All options are fully responsive.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {templates.map((template) => (
               <motion.div
                 key={template.name}
@@ -377,10 +377,10 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="py-20 bg-gray-50">
+      <section id="faq" className="py-12 sm:py-20 bg-gray-50">
         <div className="max-w-3xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Design Flexibility FAQ
             </h2>
           </div>
@@ -426,23 +426,33 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20">
+      <section className="py-12 sm:py-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 rounded-3xl p-12 md:p-20 text-white">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 rounded-3xl p-8 sm:p-12 md:p-20 text-white">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
               Ready to Design?
             </h2>
-            <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
               Start creating custom infographics with full design control. No
               design skills required.
             </p>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="px-8 py-4 bg-white text-gray-900 rounded-full text-lg font-semibold hover:shadow-xl transition-all inline-flex items-center gap-2"
-            >
-              Get Started Free
-              <ArrowRight className="w-5 h-5" />
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-gray-900 rounded-full text-base sm:text-lg font-semibold hover:shadow-xl transition-all inline-flex items-center justify-center gap-2"
+              >
+                Get Started Free
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <a
+                href="https://github.com/piyushmehta910/Infographic-generator/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-white/10 backdrop-blur border-2 border-white/30 text-white rounded-full text-base sm:text-lg font-semibold hover:bg-white/20 transition-all inline-flex items-center justify-center gap-2"
+              >
+                📱 Download Android App
+              </a>
+            </div>
           </div>
         </div>
       </section>
