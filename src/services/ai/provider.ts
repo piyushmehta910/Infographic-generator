@@ -254,15 +254,18 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
     const contentPrompt = buildContentAnalysisPrompt(request);
     let contentResponse: string, usedProvider: AIProviderId = providerId, usedModel: string = model;
 
-    try {
-      contentResponse = await generateWithFallback(provider, contentPrompt, apiKey, model, 0.5, Math.min(maxTokens, 1024), providerId);
-    } catch (primaryError) {
-      // If user's provider fails, try ALL other configured providers
-      const storedProviders = getStoredProviders?.() || [];
-      const fallback = await tryAllProviders(contentPrompt, apiKey, providerId, model, 0.5, Math.min(maxTokens, 1024), storedProviders as any);
-      if (fallback) { contentResponse = fallback.text; usedProvider = fallback.provider; usedModel = fallback.model; }
-      else throw primaryError;
-    }
+      try {
+        console.log(`Step 1: Trying ${providerId}/${model}...`);
+        contentResponse = await generateWithFallback(provider, contentPrompt, apiKey, model, 0.5, Math.min(maxTokens, 1024), providerId);
+        console.log(`Step 1: Success with ${providerId}/${model}`);
+      } catch (primaryError) {
+        // If user's provider fails, try ALL other configured providers
+        const storedProviders = getStoredProviders?.() || [];
+        console.log(`Step 1: Primary provider failed, trying fallbacks...`);
+        const fallback = await tryAllProviders(contentPrompt, apiKey, providerId, model, 0.5, Math.min(maxTokens, 1024), storedProviders as any);
+        if (fallback) { contentResponse = fallback.text; usedProvider = fallback.provider; usedModel = fallback.model; console.log(`Step 1: Fallback success with ${fallback.provider}/${fallback.model}`); }
+        else { console.error(`Step 1: All providers failed`); throw primaryError; }
+      }
 
     const contentResult = extractJSON(contentResponse);
 
@@ -274,9 +277,12 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
     let blueprintResponse: string;
 
     try {
+      console.log(`Step 2: Trying ${usedProvider}/${usedModel} for blueprint...`);
       blueprintResponse = await generateWithFallback(providerMap[usedProvider] || provider, blueprintPrompt, apiKey, usedModel, 0.5, Math.min(maxTokens, 2048), usedProvider);
+      console.log(`Step 2: Blueprint success with ${usedProvider}/${usedModel}`);
     } catch (blueprintError) {
       // If blueprint fails, create a simple default blueprint
+      console.error(`Step 2: Blueprint failed, using default fallback:`, blueprintError);
       const aspectRatio = request.aspectRatio || "1:1";
       const dimensions = aspectRatio === "9:16" ? "1080×1920" : aspectRatio === "16:9" ? "1920×1080" : aspectRatio === "4:5" ? "1080×1350" : "1080×1080";
       blueprintResponse = JSON.stringify({
@@ -315,9 +321,12 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
     let htmlResponse: string;
 
     try {
+      console.log(`Step 3: Trying ${usedProvider}/${usedModel} for HTML generation...`);
       htmlResponse = await generateWithFallback(providerMap[usedProvider] || provider, htmlPrompt, apiKey, usedModel, 0.5, Math.min(maxTokens, 4096), usedProvider);
+      console.log(`Step 3: HTML generation success with ${usedProvider}/${usedModel}, length: ${htmlResponse.length}`);
     } catch (htmlError) {
       // If HTML generation fails, use local fallback
+      console.error(`Step 3: HTML generation failed:`, htmlError);
       return generateLocalContent(request, providerId, model, startTime);
     }
 
@@ -349,6 +358,7 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
     };
   } catch (error) {
     // Final fallback: local generation with HTML
+    console.error("Pipeline failed, using local fallback:", error);
     return generateLocalContent(request, providerId, model, startTime);
   }
 }
