@@ -233,7 +233,10 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
       generatedHtml: html, blueprint, provider: usedProvider, model: usedModel, processingTime: Date.now() - startTime,
     };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Failed to generate infographic", provider: providerId, model, processingTime: Date.now() - startTime };
+    // If ALL AI providers fail, fall back to local generation with HTML
+    const localResult = generateLocalContent(request, providerId, model, startTime);
+    localResult.error = error instanceof Error ? error.message : "AI generation failed, using local fallback";
+    return localResult;
   }
 }
 
