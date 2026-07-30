@@ -276,9 +276,78 @@ const providerMap: Record<string, AIProvider> = {
 // Note: Using 'any' here because AI API responses have dynamic, unpredictable structure
 // The JSON is validated at runtime through usage, not at compile time
 function extractJSON(text: string): any {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON found in AI response");
-  return JSON.parse(jsonMatch[0]);
+  // Remove markdown code blocks if present
+  let cleaned = text.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+
+  // Try to find JSON object
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    // Try to find JSON array
+    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (!arrayMatch) throw new Error("No JSON found in AI response");
+    try {
+      return JSON.parse(arrayMatch[0]);
+    } catch {
+      throw new Error("Invalid JSON in AI response");
+    }
+  }
+
+  let jsonStr = jsonMatch[0];
+
+  // Fix common JSON issues from AI responses
+  // 1. Remove trailing commas before } or ]
+  jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
+  // 2. Fix single quotes to double quotes
+  jsonStr = jsonStr.replace(/'/g, '"');
+  // 3. Remove any text before the first { and after the last }
+  const firstBrace = jsonStr.indexOf("{");
+  const lastBrace = jsonStr.lastIndexOf("}");
+  if (firstBrace > 0) jsonStr = jsonStr.substring(firstBrace);
+  if (lastBrace >= 0 && lastBrace < jsonStr.length - 1) {
+    jsonStr = jsonStr.substring(0, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseError) {
+    // Last resort: try to extract key-value pairs manually
+    try {
+      // Attempt to fix incomplete JSON by finding the last valid structure
+      const lines = jsonStr.split("\n");
+      const validLines: string[] = [];
+      let braceCount = 0;
+      let bracketCount = 0;
+
+      for (const line of lines) {
+        validLines.push(line);
+        for (const char of line) {
+          if (char === "{") braceCount++;
+          if (char === "}") braceCount--;
+          if (char === "[") bracketCount++;
+          if (char === "]") bracketCount--;
+        }
+        // If we've closed all open structures, try parsing what we have
+        if (braceCount === 0 && bracketCount === 0 && validLines.length > 1) {
+          const partial = validLines.join("\n");
+          try {
+            return JSON.parse(partial);
+          } catch {
+            // Continue to next line
+          }
+        }
+      }
+
+      throw parseError;
+    } catch {
+      throw new Error(
+        `Failed to parse JSON from AI response. Response starts with: ${text.substring(0, 200)}...`,
+      );
+    }
+  }
 }
 
 function extractHTML(text: string): string {

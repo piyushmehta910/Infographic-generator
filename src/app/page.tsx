@@ -68,16 +68,16 @@ const features = [
   },
 ];
 
-const templates = [
+const showcaseDesigns = [
   {
-    name: "Modern",
-    desc: "Clean & minimal",
-    color: "from-violet-500 to-purple-600",
+    name: "Business Report",
+    desc: "Data-driven layout",
+    color: "from-blue-600 to-blue-800",
   },
   {
-    name: "Business",
-    desc: "Corporate & professional",
-    color: "from-blue-600 to-blue-800",
+    name: "Social Media",
+    desc: "Instagram & LinkedIn",
+    color: "from-pink-500 to-rose-600",
   },
   {
     name: "Timeline",
@@ -85,36 +85,36 @@ const templates = [
     color: "from-emerald-500 to-teal-600",
   },
   {
-    name: "Comparison",
-    desc: "Side-by-side",
+    name: "Statistics",
+    desc: "Data visualization",
     color: "from-orange-500 to-red-600",
   },
   {
     name: "Technology",
-    desc: "Tech-forward",
+    desc: "Tech-focused design",
     color: "from-cyan-500 to-blue-600",
   },
   {
-    name: "Startup",
-    desc: "Energetic & modern",
-    color: "from-pink-500 to-rose-600",
-  },
-  {
     name: "Education",
-    desc: "Learning-focused",
+    desc: "Learning materials",
     color: "from-green-500 to-emerald-600",
   },
   {
     name: "Marketing",
-    desc: "Social-optimized",
+    desc: "Campaign visuals",
     color: "from-indigo-500 to-purple-600",
+  },
+  {
+    name: "Healthcare",
+    desc: "Medical infographics",
+    color: "from-violet-500 to-purple-600",
   },
 ];
 
 const faqs = [
   {
     q: "How does the AI generate infographics?",
-    a: "AI analyzes your content and returns structured JSON. Our template engine then renders that JSON into a beautiful HTML/CSS infographic. AI never generates HTML directly.",
+    a: "AI analyzes your content, structures it into clean JSON, then designs and generates a complete HTML/CSS infographic tailored to your content and intent. Every design is unique — no templates needed.",
   },
   {
     q: "Do I need an API key?",
@@ -133,8 +133,8 @@ const faqs = [
     a: "Your API keys stay in your browser. Content is sent directly to your chosen AI provider. We never store your content on our servers.",
   },
   {
-    q: "Can I use my own template?",
-    a: "Yes! The template system is extensible. You can add custom HTML/CSS templates to the template library.",
+    q: "Do I need to choose a template?",
+    a: "No! AI generates a unique design every time based on your content and purpose. Just describe what you want to create, and AI handles the design automatically.",
   },
 ];
 
@@ -167,10 +167,10 @@ export default function LandingPage() {
                 Features
               </a>
               <a
-                href="#templates"
+                href="#showcase"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Templates
+                Showcase
               </a>
               <a
                 href="#faq"
@@ -213,8 +213,8 @@ export default function LandingPage() {
                 <a href="#features" className="block text-gray-600 py-2">
                   Features
                 </a>
-                <a href="#templates" className="block text-gray-600 py-2">
-                  Templates
+                <a href="#showcase" className="block text-gray-600 py-2">
+                  Showcase
                 </a>
                 <a href="#faq" className="block text-gray-600 py-2">
                   FAQ
@@ -269,17 +269,17 @@ export default function LandingPage() {
                 onClick={() => router.push("/dashboard")}
                 className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-200 text-gray-700 rounded-full text-base sm:text-lg font-semibold hover:border-gray-300 transition-all"
               >
-                View Templates
+                View Showcase
               </button>
             </div>
 
             {/* Stats */}
             <div className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 max-w-3xl mx-auto">
               {[
-                { value: "8+", label: "Templates" },
+                { value: "∞", label: "AI Designs" },
                 { value: "5", label: "AI Providers" },
                 { value: "5", label: "Export Formats" },
-                { value: "12", label: "Themes" },
+                { value: "8", label: "Aspect Ratios" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <div className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -330,32 +330,33 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Templates Preview */}
-      <section id="templates" className="py-12 sm:py-20">
+      {/* AI Design Showcase */}
+      <section id="showcase" className="py-12 sm:py-20">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Flexible Design Options
+              AI-Generated Design Showcase
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
-              Choose from professional templates or create your own custom
-              design. All options are fully responsive.
+              Every infographic is uniquely designed by AI based on your content
+              and intent. No templates needed — just describe what you want.
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {templates.map((template) => (
+            {showcaseDesigns.map((design) => (
               <motion.div
-                key={template.name}
+                key={design.name}
                 whileHover={{ y: -4 }}
                 className="rounded-2xl overflow-hidden shadow-sm border border-gray-100 group cursor-pointer"
+                onClick={() => router.push("/dashboard")}
               >
                 <div
-                  className={`h-40 bg-gradient-to-br ${template.color} flex items-center justify-center`}
+                  className={`h-40 bg-gradient-to-br ${design.color} flex items-center justify-center`}
                 >
                   <div className="text-white text-center">
-                    <div className="text-2xl font-bold">{template.name}</div>
-                    <div className="text-sm opacity-80">{template.desc}</div>
+                    <div className="text-2xl font-bold">{design.name}</div>
+                    <div className="text-sm opacity-80">{design.desc}</div>
                   </div>
                 </div>
                 <div className="p-4">

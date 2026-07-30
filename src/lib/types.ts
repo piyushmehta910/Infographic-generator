@@ -244,6 +244,7 @@ export interface AIGenerationRequest {
   audience?: string;
   imageData?: string;
   imageUrl?: string;
+  userIntent?: string;
 }
 
 export interface AIGenerationResult {

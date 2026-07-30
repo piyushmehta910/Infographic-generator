@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [purpose, setPurpose] = useState("");
   const [showPurposeDialog, setShowPurposeDialog] = useState(false);
+  const [userIntent, setUserIntent] = useState("");
 
   const theme = getTheme("modern");
 
@@ -224,6 +225,7 @@ export default function DashboardPage() {
         purpose: purpose,
         theme: "modern",
         font: "inter" as FontId,
+        userIntent: userIntent || undefined,
       };
 
       // Step 2: Structuring Data
@@ -646,6 +648,23 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 )}
+
+                {/* User Intent Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Design Intent <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <textarea
+                    value={userIntent}
+                    onChange={(e) => setUserIntent(e.target.value)}
+                    placeholder="e.g., 'Make it look like a modern tech startup infographic with dark theme' or 'Use bold colors and large statistics' or leave empty for AI to decide..."
+                    rows={3}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="text-xs text-gray-400">
+                    Tell AI how you want the design to look. If empty, AI will create a design based on your content.
+                  </p>
+                </div>
 
                 {/* Purpose Selection */}
                 <div className="space-y-2">

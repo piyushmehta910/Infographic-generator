@@ -8,13 +8,14 @@ import { AIGenerationRequest } from "@/lib/types";
 export function buildContentAnalysisPrompt(
   request: AIGenerationRequest,
 ): string {
-  const { input, inputType, aspectRatio, theme, font, language, audience, aspectRatioWidth, aspectRatioHeight, purpose } = request;
+  const { input, inputType, aspectRatio, theme, font, language, audience, aspectRatioWidth, aspectRatioHeight, purpose, userIntent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const themeStr = theme || "modern";
   const fontStr = font || "Inter";
   const languageStr = language || "English";
   const audienceStr = audience || "General";
   const purposeStr = purpose || "Not specified";
+  const userIntentStr = userIntent || "No specific design intent provided - create a design based on the content";
 
   // Derive exact canvas dimensions
   const dimensionsStr =
@@ -181,7 +182,7 @@ export function buildDesignBlueprintPrompt(
   content: unknown,
   request: AIGenerationRequest,
 ): string {
-  const { aspectRatio, font, language, audience } = request;
+  const { aspectRatio, font, language, audience, userIntent } = request;
 
   const dimensions =
     aspectRatio === "9:16"
@@ -234,6 +235,9 @@ You must create a COMPLETELY UNIQUE design blueprint. Do NOT repeat any design p
 
 ## CONTENT TO VISUALIZE
 ${JSON.stringify(content, null, 2)}
+
+## USER DESIGN INTENT (CRITICAL — Follow this if provided)
+${userIntent || "No specific design intent provided — create a unique design based on the content"}
 
 ## CANVAS SPECS
 - Exact dimensions: ${dimensions}
@@ -388,7 +392,7 @@ export function buildHTMLGenerationPrompt(
   blueprint: any,
   request: AIGenerationRequest,
 ): string {
-  const { aspectRatio } = request;
+  const { aspectRatio, userIntent } = request;
 
   let width = 1080,
     height = 1080;
