@@ -386,7 +386,40 @@ function generateLocalContent(request: AIGenerationRequest, providerId: AIProvid
     callToAction: "Get Started Today →",
   };
 
-  return { success: true, content, provider: "local" as AIProviderId, model: "local-generator", processingTime: Date.now() - startTime };
+  // Generate simple HTML fallback
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 1080px; height: 1080px; overflow: hidden; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 48px; display: flex; flex-direction: column; gap: 32px; }
+    h1 { font-size: 56px; font-weight: 800; background: linear-gradient(90deg, #fff, #e0e7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
+    .subtitle { font-size: 20px; opacity: 0.9; font-weight: 400; }
+    .stats { display: flex; gap: 16px; margin-top: 8px; }
+    .stat { flex: 1; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.2); }
+    .stat-value { font-size: 42px; font-weight: 800; }
+    .stat-label { font-size: 14px; opacity: 0.8; margin-top: 8px; }
+    .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; }
+    .section { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px; border: 1px solid rgba(255,255,255,0.2); }
+    .section h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .section p { font-size: 15px; line-height: 1.6; opacity: 0.9; }
+    .cta { margin-top: auto; text-align: center; padding: 20px; background: rgba(255,255,255,0.2); border-radius: 16px; font-size: 18px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>${title}</h1>
+    <p class="subtitle">${content.subtitle}</p>
+  </div>
+  ${content.statistics.length > 0 ? `<div class="stats">${content.statistics.slice(0, 3).map(s => `<div class="stat"><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>`).join("")}</div>` : ""}
+  ${content.sections.length > 0 ? `<div class="sections">${content.sections.slice(0, 4).map(s => `<div class="section"><h3>${s.icon || ""} ${s.title}</h3><p>${s.content}</p></div>`).join("")}</div>` : ""}
+  ${content.callToAction ? `<div class="cta">${content.callToAction}</div>` : ""}
+</body>
+</html>`;
+
+  return { success: true, content, generatedHtml: html, provider: "local" as AIProviderId, model: "local-generator", processingTime: Date.now() - startTime };
 }
 
 export async function analyzeImage(imageData: string, apiKey: string, providerId: AIProviderId, model: string): Promise<any> {
