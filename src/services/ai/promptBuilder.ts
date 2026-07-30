@@ -215,69 +215,41 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
     default: width = 1080; height = 1080;
   }
 
-  return `You are an EXPERT frontend developer. Generate a production-quality HTML/CSS infographic following the design blueprint EXACTLY.
+  return `## STEP 3: HTML/CSS GENERATION
+You are an EXPERT frontend developer. Your job is to translate the design blueprint into actual HTML/CSS code.
 
-## STEP 3: HTML/CSS GENERATION
-Use the design blueprint below to generate the actual HTML/CSS code. The blueprint tells you HOW to design it - now implement it.
+### ⚠️ CRITICAL RULE: FOLLOW THE BLUEPRINT EXACTLY
+The blueprint below is your DESIGN DECISION. You MUST implement it exactly:
+- Use the EXACT layout style specified
+- Use the EXACT color palette specified
+- Use the EXACT typography specified
+- Follow the EXACT visual hierarchy specified
+- Apply the EXACT spacing system specified
+- Use the EXACT card style, stats style, and icon style specified
+- Implement the EXACT background treatment specified
 
-## CONTENT (Use ALL of this data EXACTLY)
+### CONTENT TO DISPLAY
 ${JSON.stringify(content, null, 2)}
 
-## DESIGN BLUEPRINT (Follow this design EXACTLY)
+### DESIGN DECISION (FOLLOW THIS EXACTLY)
 ${JSON.stringify(blueprint, null, 2)}
 
-## CRITICAL: CANVAS DIMENSIONS - MUST BE EXACT
-- Canvas: ${width}px WIDTH × ${height}px HEIGHT
-- HTML body: width: ${width}px; height: ${height}px; overflow: hidden;
-- ALL content MUST fit within these exact dimensions - NO EXCEPTIONS
-- If content doesn't fit, reduce font sizes and spacing - DO NOT overflow
-- For portrait (9:16, 4:5): Vertical flow with compact spacing
-- For landscape (16:9, A4-L): Horizontal flow with side-by-side layouts
-- For square (1:1): Balanced grid layout
+### CANVAS DIMENSIONS
+- Width: ${width}px
+- Height: ${height}px
+- HTML/body: width: ${width}px; height: ${height}px; overflow: hidden;
+- ALL content MUST fit - reduce sizes if needed, never overflow
 
-## CSS REQUIREMENTS (ALL MANDATORY)
-1. CSS custom properties for colors in :root
-2. Google Fonts: @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap')
-3. 8px grid spacing - ALL padding/margin/gap must be multiples of 8
-4. clamp() for ALL font sizes
-5. Gradient text for title: background-clip: text; -webkit-background-clip: text; color: transparent;
-6. CSS Grid & Flexbox for layouts
-7. Media queries: @media (max-width: 768px) and @media (max-width: 320px)
-8. Self-contained - NO external dependencies (except Google Fonts)
-9. Hover states with transitions
-10. box-shadow with explicit values for depth
+### IMPLEMENTATION RULES
+1. CSS custom properties for ALL colors from blueprint
+2. Google Fonts: Inter (400, 600, 800 only)
+3. 8px grid spacing
+4. Gradient text for title
+5. CSS Grid/Flexbox
+6. Media queries for responsiveness
 
-## HTML STRUCTURE
-1. HEADER: Title (gradient text) + subtitle
-2. STATISTICS: Visual stat cards with big numbers (font-weight: 800)
-3. SECTIONS: 2-3 column grid of content cards with icons
-4. TIMELINE: If content has timeline data
-5. CTA: Only if content.callToAction is not empty
-
-## OUTPUT FORMAT
-\`\`\`html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-    :root { --color-primary: #...; --color-secondary: #...; --color-accent: #...; --color-background: #...; --color-text: #...; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: ${width}px; height: ${height}px; overflow: hidden; font-family: 'Inter', sans-serif; }
-    /* COMPLETE STYLING */
-  </style>
-</head>
-<body>
-  <div class="container">
-    <!-- COMPLETE HTML -->
-  </div>
-</body>
-</html>
-\`\`\`
-
-OUTPUT ONLY THE HTML. Start with <!DOCTYPE html>. End with </html>. Make it look professionally designed, not AI-generated.`;
+### OUTPUT FORMAT
+Start with <!DOCTYPE html>. Output ONLY the complete HTML file. No markdown, no explanations.`;
 }
 
 /**
