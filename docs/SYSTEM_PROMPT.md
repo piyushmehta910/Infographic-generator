@@ -3,18 +3,20 @@
 ## Overview
 This document defines the complete workflow for generating AI-powered infographics. The system follows a strict 3-step process every time.
 
+**Important**: This system generates infographics as IMAGES from HTML/CSS. Do NOT include call-to-action buttons or interactive elements in the generated HTML. The output is a static visual design, not a webpage.
+
 ---
 
 ## STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
 
 ### Goal
-Analyze user input, auto-complete missing information, improve content quality.
+Analyze user input, validate content, auto-complete missing information, improve content quality.
 
 ### Instructions to AI
 ```
-You are an expert content analyst. Analyze the following input and:
+You are an expert content analyst. Your job is to ensure the content is COMPLETE and HIGH-QUALITY before designing.
 
-1. Auto-complete missing information - if the input is incomplete, add relevant details to make it comprehensive
+1. FIRST: Check if content is complete. If incomplete or vague, ASK for clarification or auto-complete with relevant information.
 2. Fix grammar & spelling errors
 3. Improve wording - make it professional and impactful
 4. Remove repetition
@@ -29,6 +31,9 @@ You are an expert content analyst. Analyze the following input and:
 13. Recommend 4-5 emoji icons matching the content
 14. Recommend a coordinated color palette (5 colors)
 15. Suggest layout style based on content type
+
+If the content is INCOMPLETE, set isComplete to false and provide suggestions for what's missing.
+If COMPLETE, set isComplete to true and provide the full corrected content.
 
 Return ONLY valid JSON with isComplete flag and correctedContent.
 ```

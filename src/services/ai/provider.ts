@@ -348,7 +348,7 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
           contentResult.correctedContent.suggestedColors?.text || "#0f172a",
         ],
         icons: contentResult.correctedContent.suggestedIcons,
-        callToAction: contentResult.correctedContent.callToAction,
+        callToAction: "",
       },
       generatedHtml: html,
       blueprint,
@@ -386,7 +386,7 @@ function generateLocalContent(request: AIGenerationRequest, providerId: AIProvid
     callToAction: "Get Started Today →",
   };
 
-  // Generate simple HTML fallback
+  // Generate simple HTML fallback (NO CTA - this is for image generation, not a webpage)
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -405,7 +405,6 @@ function generateLocalContent(request: AIGenerationRequest, providerId: AIProvid
     .section { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px; border: 1px solid rgba(255,255,255,0.2); }
     .section h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
     .section p { font-size: 15px; line-height: 1.6; opacity: 0.9; }
-    .cta { margin-top: auto; text-align: center; padding: 20px; background: rgba(255,255,255,0.2); border-radius: 16px; font-size: 18px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -415,7 +414,6 @@ function generateLocalContent(request: AIGenerationRequest, providerId: AIProvid
   </div>
   ${content.statistics.length > 0 ? `<div class="stats">${content.statistics.slice(0, 3).map(s => `<div class="stat"><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>`).join("")}</div>` : ""}
   ${content.sections.length > 0 ? `<div class="sections">${content.sections.slice(0, 4).map(s => `<div class="section"><h3>${s.icon || ""} ${s.title}</h3><p>${s.content}</p></div>`).join("")}</div>` : ""}
-  ${content.callToAction ? `<div class="cta">${content.callToAction}</div>` : ""}
 </body>
 </html>`;
 

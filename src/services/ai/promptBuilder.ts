@@ -36,9 +36,13 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest): string
   return `You are an expert content analyst creating content for a PROFESSIONAL INFOGRAPHIC.
 
 ## YOUR TASK (3-STEPS)
-1. **AUTO-COMPLETE**: If the input is incomplete or lacking detail, add relevant information to make it comprehensive. Fill in any gaps.
+1. **VALIDATE**: FIRST check if the content is complete. If incomplete or vague, auto-complete with relevant details.
 2. **IMPROVE**: Fix grammar, spelling, wording. Remove repetition. Make it professional and impactful.
 3. **STRUCTURE**: Organize into sections, extract statistics, create timeline if applicable.
+
+## IMPORTANT
+- If content is INCOMPLETE, set isComplete to false and provide suggestions
+- If COMPLETE, set isComplete to true and provide full corrected content
 
 ## CANVAS SPECIFICATIONS
 - Canvas: ${dimensionsStr}
@@ -247,6 +251,14 @@ ${JSON.stringify(blueprint, null, 2)}
 4. Gradient text for title
 5. CSS Grid/Flexbox
 6. Media queries for responsiveness
+
+### ⚠️ CRITICAL: NO CALL-TO-ACTION BUTTONS
+This is an IMAGE/GENERIC DESIGN, not a webpage. Do NOT include:
+- No CTA buttons
+- No "Click here" links
+- No interactive elements
+- No buttons of any kind
+Just pure visual design content.
 
 ### OUTPUT FORMAT
 Start with <!DOCTYPE html>. Output ONLY the complete HTML file. No markdown, no explanations.`;
