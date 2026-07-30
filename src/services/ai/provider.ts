@@ -396,10 +396,10 @@ const FALLBACK_MODELS: Record<string, string[]> = {
 };
 
 /**
- * Try to call a provider with multiple model fallbacks.
- * If one model fails due to credits/rates, try the next one.
+ * Try ALL models for a provider IN PARALLEL.
+ * Returns the first successful result, or throws if all fail.
  */
-async function generateWithFallback(
+async function generateWithFallbackParallel(
   provider: AIProvider,
   prompt: string,
   apiKey: string,
@@ -408,56 +408,56 @@ async function generateWithFallback(
   maxTokens: number,
   providerId: string,
 ): Promise<string> {
-  // Build the list of models to try: user's model first, then fallbacks
   const fallbackModels = FALLBACK_MODELS[providerId] || [];
   const modelsToTry = [
     model,
     ...fallbackModels.filter((m) => m !== model),
-  ].slice(0, 5); // Try up to 5 models
+  ];
 
-  let lastError: string = "";
-
-  for (const currentModel of modelsToTry) {
+  // Try ALL models in parallel - first one to succeed wins
+  const promises = modelsToTry.map(async (currentModel) => {
     try {
-      return await provider.generate(
+      const result = await provider.generate(
         prompt,
         apiKey,
         currentModel,
         temperature,
         maxTokens,
       );
+      return { success: true as const, result, model: currentModel };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "";
-      lastError = msg;
-
-      // Only fallback on credit/rate-limit/402 errors
-      const isFallbackError =
-        msg.includes("402") ||
-        msg.includes("credits") ||
-        msg.includes("rate_limit") ||
-        msg.includes("429") ||
-        msg.includes("insufficient_quota") ||
-        msg.includes("insufficient credits");
-
-      if (!isFallbackError) {
-        // Non-recoverable error - throw immediately
-        throw error;
-      }
-      // Otherwise continue to next model
+      return { 
+        success: false as const, 
+        error: error instanceof Error ? error.message : "Unknown error",
+        model: currentModel 
+      };
     }
+  });
+
+  // Wait for all to complete, then find first success
+  const results = await Promise.all(promises);
+  const successResult = results.find(r => r.success);
+  
+  if (successResult && successResult.success) {
+    return successResult.result;
   }
 
-  // All fallbacks failed - throw a helpful message
+  // All failed - collect errors
+  const errors = results
+    .filter(r => !r.success)
+    .map(r => `${r.model}: ${(r as any).error}`)
+    .join("; ");
+  
   throw new Error(
-    `All models failed. Last error: ${lastError}. Try adding credits to your provider or switching to a different provider.`,
+    `All ${modelsToTry.length} models failed for ${providerId}. Errors: ${errors}`,
   );
 }
 
 /**
- * Try multiple providers in sequence until one works.
- * Returns null if all providers fail.
+ * Try ALL providers that have API keys IN PARALLEL.
+ * Returns the first successful result from any provider/model combination.
  */
-async function tryAllProviders(
+async function tryAllProvidersParallel(
   prompt: string,
   userApiKey: string,
   userProviderId: AIProviderId,
@@ -466,49 +466,57 @@ async function tryAllProviders(
   maxTokens: number,
   storedProviders: { id: AIProviderId; apiKey: string; model: string }[],
 ): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
-  // 1. Try user's configured provider with fallback models
+  // Build list of all provider+model combinations to try
+  const allAttempts: Promise<{ text: string; provider: AIProviderId; model: string } | null>[] = [];
+
+  // 1. User's provider with ALL its models
   const userProvider = providerMap[userProviderId];
   if (userProvider && userApiKey) {
-    try {
-      const text = await generateWithFallback(
-        userProvider,
-        prompt,
-        userApiKey,
-        userModel,
-        temperature,
-        maxTokens,
-        userProviderId,
+    const fallbackModels = FALLBACK_MODELS[userProviderId] || [];
+    const userModels = [userModel, ...fallbackModels.filter(m => m !== userModel)];
+    
+    for (const m of userModels) {
+      allAttempts.push(
+        userProvider.generate(prompt, userApiKey, m, temperature, maxTokens)
+          .then(text => ({ text, provider: userProviderId, model: m }))
+          .catch(() => null)
       );
-      return { text, provider: userProviderId, model: userModel };
-    } catch { /* Continue to other providers */ }
+    }
   }
 
-  // 2. Try other providers that have API keys configured
-  const providerPriority: AIProviderId[] = ["openrouter", "openai", "gemini", "groq", "claude"];
+  // 2. All other providers with API keys and ALL their models
+  const providerPriority: AIProviderId[] = ["openrouter", "openai", "gemini", "groq", "claude", "nim"];
   for (const pid of providerPriority) {
-    if (pid === userProviderId) continue; // Already tried
-
+    if (pid === userProviderId) continue;
+    
     const storedProvider = storedProviders.find((p) => p.id === pid);
     if (!storedProvider?.apiKey) continue;
-
+    
     const fallbackProvider = providerMap[pid];
     if (!fallbackProvider) continue;
 
-    try {
-      const text = await generateWithFallback(
-        fallbackProvider,
-        prompt,
-        storedProvider.apiKey,
-        storedProvider.model || FALLBACK_MODELS[pid]?.[0] || "",
-        temperature,
-        maxTokens,
-        pid,
+    const fallbackModels = FALLBACK_MODELS[pid] || [];
+    const modelsToTry = [
+      storedProvider.model || fallbackModels[0] || "",
+      ...fallbackModels.filter(m => m !== storedProvider.model),
+    ];
+
+    for (const m of modelsToTry) {
+      allAttempts.push(
+        fallbackProvider.generate(prompt, storedProvider.apiKey, m, temperature, maxTokens)
+          .then(text => ({ text, provider: pid, model: m }))
+          .catch(() => null)
       );
-      return { text, provider: pid, model: storedProvider.model };
-    } catch { /* Continue to next provider */ }
+    }
   }
 
-  return null; // All providers failed
+  if (allAttempts.length === 0) return null;
+
+  // Run ALL attempts in parallel, return first success
+  const results = await Promise.all(allAttempts);
+  const successResult = results.find(r => r !== null);
+  
+  return successResult || null;
 }
 
 /**
@@ -552,8 +560,8 @@ export async function generateContent(
       let usedModel: string = model;
 
       try {
-        // Try with fallbacks
-        contentResponse = await generateWithFallback(
+        // Try with parallel fallbacks (tries ALL models simultaneously)
+        contentResponse = await generateWithFallbackParallel(
           provider,
           contentPrompt,
           apiKey,
@@ -563,9 +571,9 @@ export async function generateContent(
           providerId,
         );
       } catch (primaryError) {
-        // If primary fails, try all providers with API keys
+        // If primary fails, try ALL providers with ALL models IN PARALLEL
         const storedProviders = getStoredProviders?.() || [];
-        const fallback = await tryAllProviders(
+        const fallback = await tryAllProvidersParallel(
           contentPrompt,
           apiKey,
           providerId,
@@ -604,7 +612,7 @@ export async function generateContent(
         contentResult.correctedContent,
         request,
       );
-      const blueprintResponse = await generateWithFallback(
+      const blueprintResponse = await generateWithFallbackParallel(
         providerMap[usedProvider] || provider,
         blueprintPrompt,
         apiKey,
@@ -623,7 +631,7 @@ export async function generateContent(
         blueprint,
         request,
       );
-      const htmlResponse = await generateWithFallback(
+      const htmlResponse = await generateWithFallbackParallel(
         providerMap[usedProvider] || provider,
         htmlPrompt,
         apiKey,
