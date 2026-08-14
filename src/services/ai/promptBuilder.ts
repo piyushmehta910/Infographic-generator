@@ -1,9 +1,11 @@
 import { AIGenerationRequest } from "@/lib/types";
 
-/**
- * STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
- * First ask AI to analyze, auto-complete missing info, and improve content
- */
+// ============================================================
+// STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
+// Analyze the input. If it is brief, thin, or missing structure,
+// AUTO-COMPLETE it with accurate, relevant, professional content so
+// the downstream designer always has rich material to work with.
+// ============================================================
 export function buildContentAnalysisPrompt(request: AIGenerationRequest): string {
   const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, purpose, userIntent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
@@ -15,14 +17,14 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest): string
 
   const dimensionsStr =
     aspectRatioWidth && aspectRatioHeight
-      ? `${aspectRatioWidth}×${aspectRatioHeight}px`
-      : aspectRatioStr === "9:16" ? "1080×1920px"
-      : aspectRatioStr === "16:9" ? "1920×1080px"
-      : aspectRatioStr === "4:5" ? "1080×1350px"
-      : aspectRatioStr === "A4-P" ? "794×1123px"
-      : aspectRatioStr === "A4-L" ? "1123×794px"
-      : aspectRatioStr === "letter" ? "816×1056px"
-      : "1080×1080px";
+      ? `${aspectRatioWidth}x${aspectRatioHeight}px`
+      : aspectRatioStr === "9:16" ? "1080x1920px"
+      : aspectRatioStr === "16:9" ? "1920x1080px"
+      : aspectRatioStr === "4:5" ? "1080x1350px"
+      : aspectRatioStr === "A4-P" ? "794x1123px"
+      : aspectRatioStr === "A4-L" ? "1123x794px"
+      : aspectRatioStr === "letter" ? "816x1056px"
+      : "1080x1080px";
 
   let contentText = "";
   switch (inputType) {
@@ -33,181 +35,153 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest): string
     default: contentText = `Input:\n${input}`;
   }
 
-  return `You are an expert content analyst creating content for a PROFESSIONAL INFOGRAPHIC.
+  return `You are a senior content strategist preparing material for a PROFESSIONAL INFOGRAPHIC.
 
-## YOUR TASK (3-STEPS)
-1. **VALIDATE**: FIRST check if the content is complete. If incomplete or vague, auto-complete with relevant details.
-2. **IMPROVE**: Fix grammar, spelling, wording. Remove repetition. Make it professional and impactful.
-3. **STRUCTURE**: Organize into sections, extract statistics, create timeline if applicable.
+## YOUR JOB
+Analyze the source input, then produce a COMPLETE, clean, publication-ready content package. This content will be rendered as a gorgeous visual design, so quality and completeness are critical.
 
-## IMPORTANT
-- If content is INCOMPLETE, set isComplete to false and provide suggestions
-- If COMPLETE, set isComplete to true and provide full corrected content
+## PROCESS
+1. **UNDERSTAND** the source. What is the core message, audience, and data?
+2. **AUTO-COMPLETE** - This is MANDATORY. If the source is brief, vague, or missing structure, use accurate general knowledge to EXPAND it into a rich, relevant, well-structured infographic. Never leave gaps. Never output placeholders.
+3. **REFINE** - Fix grammar/spelling, remove repetition and fluff, write punchy, high-impact copy.
+4. **STRUCTURE** - Organize everything into ordered sections, extract real statistics, and create a timeline/process when it fits.
 
-## CANVAS SPECIFICATIONS
-- Canvas: ${dimensionsStr}
-- Aspect Ratio: ${aspectRatioStr}
-- Purpose: ${purposeStr}
+## ABSOLUTE RULES (a violation breaks the design)
+- NEVER return empty arrays for sections/statistics/timeline. Always provide real content.
+- NEVER use filler like "TBD", "Lorem ipsum", "placeholder", "...", "text", or empty strings in title, subtitle, section titles or content.
+- Title: max 8 words, engaging, specific (never generic like "Infographic").
+- Subtitle: max 14 words, supports the title.
+- Sections: 4 to 6. Each needs "title", "content" (1-2 sentences), "bullets" (2-4 specific points), a "type" of "text"|"mixed", and an "icon" as a SHORT DESCRIPTIVE KEYWORD (e.g. "growth", "sales", "bulb", "chart", "users") - NOT an emoji.
+- Statistics: 3 to 4 with realistic "value" strings and short "label"s. Prefer numbers with units (e.g. "95%", "3.2x", "120M+").
+- Timeline: 2 to 5 items only if the content has a progression/steps/history; otherwise [].
+- Language: match the source language when detectable, otherwise ${languageStr}.
+
+## CANVAS
+- Canvas: ${dimensionsStr}, Aspect Ratio: ${aspectRatioStr}
+- Font preference: ${fontStr}, Purpose: ${purposeStr}
+- Audience: ${audienceStr}
 - Design Intent: ${userIntentStr}
 
-## INPUT CONTENT
+## SOURCE
 ${contentText}
 
-## OUTPUT FORMAT - Return ONLY valid JSON:
+## OUTPUT FORMAT - Return ONLY valid JSON, no markdown:
 {
   "isComplete": true,
   "primaryAudience": "string",
-  "keyMessage": "string",
+  "keyMessage": "one crisp sentence",
   "dataDensity": "info-rich|minimal|balanced",
   "correctedContent": {
-    "title": "UNIQUE, ENGAGING TITLE (max 10 words)",
-    "subtitle": "Supporting subtitle (max 15 words)",
+    "title": "string",
+    "subtitle": "string",
     "sections": [
-      {
-        "id": "section-1",
-        "title": "Section Title",
-        "content": "Well-written paragraph",
-        "bullets": ["Key point 1", "Key point 2", "Key point 3"],
-        "icon": "📊",
-        "type": "mixed"
-      }
+      { "id": "section-1", "title": "string", "content": "string", "bullets": ["string"], "icon": "keyword", "type": "mixed" }
     ],
     "statistics": [
-      { "id": "stat-1", "value": "95%", "label": "Label", "prefix": "", "suffix": "%", "icon": "📈" }
+      { "id": "stat-1", "value": "95%", "label": "string", "prefix": "", "suffix": "%", "icon": "keyword" }
     ],
     "timeline": [
-      { "id": "t-1", "date": "2024", "title": "Milestone", "description": "Description", "icon": "📍" }
+      { "id": "t-1", "date": "2024", "title": "string", "description": "string", "icon": "keyword" }
     ],
-    "suggestedIcons": ["📊", "📈", "💡", "🎯"],
-    "suggestedColors": {
-      "primary": "#hex",
-      "secondary": "#hex",
-      "accent": "#hex",
-      "background": "#hex",
-      "text": "#hex"
-    },
-    "callToAction": "→",
-    "language": "detected-language",
-    "wordCount": 0,
-    "summary": "One sentence summary"
+    "suggestedIcons": ["keyword1", "keyword2", "keyword3", "keyword4"],
+    "suggestedColors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex", "background": "#hex", "text": "#hex" },
+    "callToAction": "",
+    "language": "detected-language"
   }
 }`;
 }
 
-/**
- * STEP 2: DESIGN BLUEPRINT
- * Ask AI how to design this content as HTML/CSS - get the design plan
- */
+// ============================================================
+// STEP 2: DESIGN BLUEPRINT
+// Ask AI HOW to design the content as premium HTML/CSS that fits
+// the canvas. This becomes the exact design contract for Step 3.
+// ============================================================
 export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest): string {
   const { aspectRatio, font, language, audience, userIntent } = request;
+  const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
+  const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
   const dimensions =
-    aspectRatio === "9:16" ? "1080×1920 (Story/Portrait)"
-    : aspectRatio === "16:9" ? "1920×1080 (Landscape)"
-    : aspectRatio === "4:5" ? "1080×1350 (Portrait)"
-    : aspectRatio === "A4-P" ? "794×1123 (A4 Portrait)"
-    : aspectRatio === "A4-L" ? "1123×794 (A4 Landscape)"
-    : aspectRatio === "letter" ? "816×1056 (Letter)"
-    : "1080×1080 (Square)";
+    aspectRatio === "9:16" ? "1080x1920 (Tall Story/Portrait)"
+    : aspectRatio === "16:9" ? "1920x1080 (Wide Landscape)"
+    : aspectRatio === "4:5" ? "1080x1350 (Portrait)"
+    : aspectRatio === "A4-P" ? "794x1123 (A4 Portrait)"
+    : aspectRatio === "A4-L" ? "1123x794 (A4 Landscape)"
+    : aspectRatio === "letter" ? "816x1056 (Letter)"
+    : "1080x1080 (Square)";
 
-  const seed = Math.floor(Math.random() * 10000);
-  const layouts = ["hero-card", "split-layout", "magazine-grid", "card-based", "asymmetric", "Z-pattern", "full-bleed", "stacked-sections", "dashboard-style", "circular-flow", "modular-grid", "timeline-flow"];
-  const selectedLayout = layouts[seed % layouts.length];
+  const layoutGuidance = isPortrait
+    ? "PORTRAIT: stack sections vertically top-to-bottom; a strong header block on top, stats in a row, then a clean vertical flow of cards. Keep vertical rhythm tight so everything fits without scrolling."
+    : isWide
+    ? "WIDE: use a bold left header column and a right content zone, or a strong full-width hero with a multi-column grid below. Balance horizontal space."
+    : "SQUARE: balanced all-around; header on top, stats band, and a tidy grid that fills the square without overflow.";
 
-  return `You are an EXPERT infographic designer and frontend developer.
+  return `You are a world-class visual designer and frontend engineer. Your job: produce a COMPLETE design blueprint for a BEAUTIFUL, premium infographic that will be hand-coded into HTML/CSS.
 
-## YOUR TASK: Design a complete HTML/CSS layout for this infographic content
-Plan the EXACT layout, colors, typography, and visual hierarchy. This blueprint will be used to generate the actual HTML/CSS.
+The design MUST look modern, intentional and expensive - never generic, never cluttered, never flat.
 
-🎲 DESIGN SEED: ${seed}
-🎯 SUGGESTED LAYOUT: ${selectedLayout}
+## DESIGN PRINCIPLES (non-negotiable)
+1. **Cohesive palette** - Pick 4-5 harmonious colors that match the content theme. Use a dominant color, 1 accent, and neutrals with real contrast between text and background (never dark-on-dark or light-on-light for body text).
+2. **Strong hierarchy** - A clear hero (title) that pops, obvious 1st/2nd/3rd reading order, big stats that command attention.
+3. **Generous, structured spacing** - 8px grid; consistent gutters; breathing room between blocks (balanced empty areas are good, NOT cramped).
+4. **Refined details** - subtle gradients, soft shadows, rounded corners, tasteful decorations (badge, chip, divider, geometric accents, number callouts). Avoid flat rectangles with no styling.
+5. **Typography** - 1 display font for headings + Inter for body (2 weights max for headings, 1 for body). Sizes that are readable at the given canvas resolution.
+6. **Layout fits the orientation** (see below).
+
+## ORIENTATION GUIDANCE
+${layoutGuidance}
+
+## ANTI-PATTERNS - NEVER design:
+- The default bootstrap "blue gradient button" look
+- More than 2-3 font families or weights mixed randomly
+- Emoji as icons (we use crisp keywords rendered as SVG/geometric marks)
+- Text so small it is unreadable
+- Unbalanced whitespace or floating empty regions
+- Clashing, loud rainbow palettes with no logic
 
 ## CONTENT TO DESIGN
 ${JSON.stringify(content, null, 2)}
 
-## USER DESIGN INTENT (CRITICAL - Follow this if provided)
-${userIntent || "No specific design intent - create a unique design based on the content"}
+## USER DESIGN INTENT (follow it if provided)
+${userIntent || "No specific design intent - craft a unique look that matches the content"}
 
 ## CANVAS SPECS
 - Canvas: ${dimensions}
-- Base font: ${font || "Inter"}
+- Font: ${font || "Inter"}
 - Language: ${language || "English"}
 - Audience: ${audience || "General"}
 
-## DESIGN REQUIREMENTS
-1. **Layout**: Choose ONE unique layout style
-2. **Color Palette**: 5 coordinated colors based on content theme
-3. **Typography**: Exactly 3 font weights (400, 600, 800)
-4. **Spacing**: 8px grid system - ALL values must be multiples of 8
-5. **Hero Moment**: Bold first element that immediately communicates purpose
-6. **Visual Hierarchy**: Define exact 1st, 2nd, 3rd draw with CSS techniques
-7. **Card Style**: Unique card treatment
-8. **Icon Style**: Consistent style throughout
-9. **Stats Display**: Big numbers that pop
-10. **Background**: Not plain - use gradient, pattern, or texture
-
-## ANTI-PATTERNS - DO NOT:
-- No generic blue gradients
-- No flat, lifeless designs
-- No more than 3 font weights
-- No inconsistent icon styles
-- No arbitrary spacing (must be 8px grid)
-
-## OUTPUT FORMAT - Return ONLY valid JSON:
+## OUTPUT FORMAT - Return ONLY valid JSON, no markdown:
 {
-  "designConcept": "UNIQUE design concept description",
-  "layoutStyle": "${selectedLayout}",
-  "heroMoment": "description with specific CSS",
-  "visualHierarchy": {
-    "1st": "element + CSS technique",
-    "2nd": "element + CSS technique", 
-    "3rd": "element + CSS technique"
-  },
-  "sectionCount": 4,
-  "readingFlow": "how the eye moves",
-  "spacingSystem": "8px grid",
-  "colorPalette": {
-    "primary": "#hex",
-    "secondary": "#hex",
-    "accent": "#hex",
-    "background": "#hex",
-    "text": "#hex"
-  },
-  "typography": {
-    "headingFont": "Inter",
-    "bodyFont": "Inter",
-    "headingSize": "32-48px",
-    "bodySize": "13-16px",
-    "headingWeight": "800",
-    "subheadingWeight": "600",
-    "bodyWeight": "400",
-    "style": "modern|corporate|playful|elegant|bold|minimal|tech|creative"
-  },
-  "icons": {
-    "style": "emoji-in-circle|emoji-in-square|emoji-alone|emoji-with-bg",
-    "consistency": "ALL icons use same style",
-    "perSection": ["icon1", "icon2", "icon3", "icon4"]
-  },
-  "cardStyle": "unique card treatment",
+  "designConcept": "one-line concept for the look and feel",
+  "layoutStyle": "descriptive layout approach for THIS orientation",
+  "heroMoment": "concrete CSS technique for the title hero",
+  "visualHierarchy": { "1st": "element + technique", "2nd": "element + technique", "3rd": "element + technique" },
+  "readingFlow": "how the eye moves across the canvas",
+  "spacingSystem": "8px grid with exact gutters",
+  "colorPalette": { "primary": "#hex", "secondary": "#hex", "accent": "#hex", "background": "#hex", "text": "#hex" },
+  "typography": { "headingFont": "Google font name", "bodyFont": "Inter", "headingSize": "px", "bodySize": "px", "headingWeight": "800", "subheadingWeight": "600", "bodyWeight": "400", "style": "modern|corporate|playful|elegant|bold|minimal|tech|creative" },
+  "icons": { "style": "crisp-svg|geometric-marker|minimal-line", "consistency": "ALL icons use the same stroke/weight", "perSection": ["keyword1","keyword2","keyword3","keyword4"] },
+  "cardStyle": "tangible CSS treatment (bg, radius, shadow, border)",
   "spacing": "8px-grid-based",
-  "alignment": "left|center|right",
-  "statsStyle": "big-numbers|progress-bars|circular-rings|metric-tiles|icon-badges",
-  "decorations": ["2-3 decorative elements"],
-  "background": "unique background treatment",
-  "header": "unique header styling",
-  "cta": "unique CTA treatment",
-  "specialFeatures": "what makes this unique",
-  "animationHints": ["hover states", "transitions", "entrance animations"]
+  "alignment": "left|center",
+  "statsStyle": "big-numbers|metric-tiles|progress-bars|circular-rings",
+  "decorations": ["2-3 concrete decorative elements"],
+  "background": "concrete, non-flat background treatment",
+  "header": "concrete header treatment",
+  "cta": "no CTA buttons - it is a static image",
+  "specialFeatures": "what makes this design feel premium & unique",
+  "animationHints": []
 }`;
 }
 
-/**
- * STEP 3: HTML/CSS GENERATION
- * Use the design blueprint to generate actual HTML/CSS code
- */
+// ============================================================
+// STEP 3: HTML/CSS GENERATION
+// Translate the blueprint into hand-coded HTML/CSS that EXACTLY
+// fills the canvas and never clips or looks unfinished.
+// ============================================================
 export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest): string {
-  const { aspectRatio } = request;
-
+  const aspectRatio = request.aspectRatio || "1:1";
   let width = 1080, height = 1080;
   switch (aspectRatio) {
     case "9:16": width = 1080; height = 1920; break;
@@ -218,54 +192,49 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
     case "letter": width = 816; height = 1056; break;
     default: width = 1080; height = 1080;
   }
+  if (request.aspectRatioWidth && request.aspectRatioHeight) {
+    width = request.aspectRatioWidth;
+    height = request.aspectRatioHeight;
+  }
 
   return `## STEP 3: HTML/CSS GENERATION
-You are an EXPERT frontend developer. Your job is to translate the design blueprint into actual HTML/CSS code.
+You are a senior frontend engineer. Build the COMPLETE HTML/CSS for this infographic. It will be rendered inside a fixed-size canvas, so it MUST fit perfectly and look polished.
 
-### ⚠️ CRITICAL RULE: FOLLOW THE BLUEPRINT EXACTLY
-The blueprint below is your DESIGN DECISION. You MUST implement it exactly:
-- Use the EXACT layout style specified
-- Use the EXACT color palette specified
-- Use the EXACT typography specified
-- Follow the EXACT visual hierarchy specified
-- Apply the EXACT spacing system specified
-- Use the EXACT card style, stats style, and icon style specified
-- Implement the EXACT background treatment specified
-
-### CONTENT TO DISPLAY
-${JSON.stringify(content, null, 2)}
-
-### DESIGN DECISION (FOLLOW THIS EXACTLY)
+### THE DESIGN CONTRACT (FOLLOW EXACTLY)
+Use the blueprint's colors, typography, layout, spacing, card style, stats style, background and decorations verbatim:
 ${JSON.stringify(blueprint, null, 2)}
 
-### CANVAS DIMENSIONS
+### CONTENT TO DISPLAY (ALL of it - nothing empty)
+${JSON.stringify(content, null, 2)}
+
+### CANVAS DIMENSIONS (MUST match exactly; content must FIT - do not overflow or clip)
 - Width: ${width}px
 - Height: ${height}px
-- HTML/body: width: ${width}px; height: ${height}px; overflow: hidden;
-- ALL content MUST fit - reduce sizes if needed, never overflow
+- Set html & body to exactly these dimensions, overflow hidden, no scrollbars.
 
-### IMPLEMENTATION RULES
-1. CSS custom properties for ALL colors from blueprint
-2. Google Fonts: Inter (400, 600, 800 only)
-3. 8px grid spacing
-4. Gradient text for title
-5. CSS Grid/Flexbox
-6. Media queries for responsiveness
+### QUALITY CHECKLIST (every item is mandatory)
+1. Self-contained, valid HTML + CSS in one file starting with <!DOCTYPE html>.
+2. Load fonts via Google Fonts <link> (the blueprint heading font + Inter). Use at most 2 font families and 3 weights total.
+3. Readable body text (13px minimum at the canvas resolution, generous line-height).
+4. Real contrast between text and background (use the blueprint palette; tweak shade if needed).
+5. Use CSS custom properties (--primary, --secondary, --accent, --bg, --text, etc.).
+6. Consistent spacing on an 8px grid.
+7. Gradient text or styled hero for the title so it feels premium.
+8. Fully styled cards (border-radius + shadow + subtle background) - no bare flat boxes.
+9. Icons: render as inline SVG or clean geometric marks from the blueprint keywords. NO EMOJI anywhere.
+10. Layout matches the orientation (portrait stacks vertically; wide uses a side column or multi-column grid).
+11. For portrait/wide, make sure longer content fits by using flexbox/grid with controlled font sizes - reduce sizes gracefully rather than clipping text.
+12. Background is not plain white - apply the blueprint treatment (gradient, mesh, pattern, shapes).
 
-### ⚠️ CRITICAL: NO CALL-TO-ACTION BUTTONS
-This is an IMAGE/GENERIC DESIGN, not a webpage. Do NOT include:
-- No CTA buttons
-- No "Click here" links
-- No interactive elements
-- No buttons of any kind
-Just pure visual design content.
+### CRITICAL - NO CALL-TO-ACTION
+This is a static image/generic design, NOT a webpage. Do NOT include any buttons, links, "Click here", forms, or interactive controls. Pure visual design only.
 
 ### OUTPUT FORMAT
-Start with <!DOCTYPE html>. Output ONLY the complete HTML file. No markdown, no explanations.`;
+Start with <!DOCTYPE html>. Output ONLY the complete HTML file. No markdown, no explanations, no code fences.`;
 }
 
 /**
- * Revision prompt for user feedback
+ * Revision prompt for design feedback (unused in the main flow)
  */
 export function buildDesignRevisionPrompt(currentBlueprint: any, userFeedback: string, content: any): string {
   return `You are an expert designer revising an infographic design based on feedback.
