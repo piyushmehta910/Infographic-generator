@@ -103,7 +103,28 @@ export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      {/* SEO: structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            name: "InfoGraphic AI",
+            applicationCategory: "DesignApplication",
+            operatingSystem: "Web, Android",
+            description:
+              "AI-powered infographic generator. Create beautiful, professional infographics from text, ideas, or images.",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          }),
+        }}
+      />
+      {/* Accessibility: skip to main content for keyboard users */}
+      <a href="#main" className="skip-link">
+        Skip to main content
+      </a>
+      <div id="main" className="min-h-screen bg-white">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -127,7 +148,7 @@ export default function LandingPage() {
                 Get Started
               </button>
             </div>
-            <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label={isMenuOpen ? "Close menu" : "Open menu"} aria-expanded={isMenuOpen}>
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
@@ -324,6 +345,7 @@ export default function LandingPage() {
           <p>© 2026 InfoGraphic AI. Built with Next.js, TypeScript, and Tailwind CSS.</p>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

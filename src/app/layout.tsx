@@ -1,12 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_APP_URL || "https://infographic-ai.vercel.app";
+
 export const metadata: Metadata = {
-  title: "InfoGraphic AI - AI-Powered Infographic Generator",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "InfoGraphic AI - AI-Powered Infographic Generator",
+    template: "%s | InfoGraphic AI",
+  },
   description:
     "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
   keywords: "infographic, AI, generator, design, template, visual, content",
   manifest: "/manifest.json",
+  alternates: {
+    canonical: "/",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -18,12 +28,23 @@ export const metadata: Metadata = {
       "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
     type: "website",
     locale: "en_US",
+    url: siteUrl,
+    siteName: "InfoGraphic AI",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "InfoGraphic AI - AI-Powered Infographic Generator",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "InfoGraphic AI - AI-Powered Infographic Generator",
     description:
       "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
