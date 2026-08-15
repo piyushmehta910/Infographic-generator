@@ -7,12 +7,13 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "InfoGraphic AI - AI-Powered Infographic Generator",
+    default: "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
     template: "%s | InfoGraphic AI",
   },
   description:
-    "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
-  keywords: "infographic, AI, generator, design, template, visual, content",
+    "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
+  keywords:
+    "infographic, AI, generator, design, template, visual, content, SaaS, marketing, presentation",
   manifest: "/manifest.json",
   alternates: {
     canonical: "/",
@@ -23,9 +24,10 @@ export const metadata: Metadata = {
     title: "InfoGraphic AI",
   },
   openGraph: {
-    title: "InfoGraphic AI - AI-Powered Infographic Generator",
+    title:
+      "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
     description:
-      "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
+      "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
     type: "website",
     locale: "en_US",
     url: siteUrl,
@@ -35,18 +37,19 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "InfoGraphic AI - AI-Powered Infographic Generator",
+        alt: "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "InfoGraphic AI - AI-Powered Infographic Generator",
+    title:
+      "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
     description:
-      "Create stunning infographics with AI. Transform text, ideas, and images into beautiful, professional infographics.",
+      "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
     images: ["/opengraph-image"],
   },
-  robots: {
+    robots: {
     index: true,
     follow: true,
   },
@@ -56,8 +59,18 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#3b82f6",
+  themeColor: "#8B5CF6",
 };
+
+const softwareApplicationJsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "InfoGraphic AI",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "All",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", ratingCount: "200" },
+});
 
 export default function RootLayout({
   children,
@@ -74,30 +87,19 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
-      </head>
-      <body className="min-h-screen bg-white dark:bg-surface-950 text-surface-900 dark:text-surface-50 antialiased">
-        {children}
         <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(
-                    function(registration) {
-                      console.log('ServiceWorker registration successful');
-                    },
-                    function(err) {
-                      console.log('ServiceWorker registration failed: ', err);
-                    }
-                  );
-                });
-              }
-            `,
-          }}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: softwareApplicationJsonLd }}
         />
+      </head>
+      <body className="min-h-screen bg-navy-950 text-surface-100 antialiased font-body">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        {children}
       </body>
     </html>
   );

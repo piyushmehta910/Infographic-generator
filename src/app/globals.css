@@ -2,137 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Manrope:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap");
 
-/* Universal box-sizing */
-* {
-  box-sizing: border-box;
+/* ============================================================
+   InfoGraphic AI — Dark Premium Brand Design System
+   ============================================================ */
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+/* Base dark theme (premium SaaS) */
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  scroll-padding-top: 4rem;
 }
 
 body {
-  background: #f3f4f6;
-  color: #111827;
   margin: 0;
   padding: 0;
-}
-
-/* Ensure all text content has proper contrast */
-.template-canvas * {
-  color: inherit;
-}
-
-/* Fix all input fields to have dark text always */
-input,
-textarea,
-select {
-  color: #111827 !important;
-  background: #ffffff !important;
-  border: 1px solid #d1d5db !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #6b7280 !important;
-  opacity: 1 !important;
-}
-
-/* Prevent text from inheriting wrong colors inside the canvas */
-.template-canvas-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.template-canvas {
-  line-height: 1.2;
-}
-
-.template-canvas h1,
-.template-canvas h2,
-.template-canvas h3,
-.template-canvas p,
-.template-canvas span,
-.template-canvas div,
-.template-canvas li {
-  color: inherit;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-/* Toast animations */
-@keyframes slideIn {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.toast-enter {
-  animation: slideIn 0.3s ease-out;
-}
-
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --accent: #3b82f6;
-  --accent-light: #dbeafe;
-  --border: #e2e8f0;
-  --shadow: rgba(0, 0, 0, 0.1);
-  --card-bg: #ffffff;
-}
-
-[data-theme="dark"] {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --accent: #60a5fa;
-  --accent-light: #1e3a5f;
-  --border: #334155;
-  --shadow: rgba(0, 0, 0, 0.3);
-  --card-bg: #1e293b;
-}
-
-html {
-  overflow-x: hidden;
-  scroll-behavior: smooth;
+  font-family: var(--font-body);
+  @apply bg-navy-950 text-surface-100 antialiased;
+  background:
+    radial-gradient(1200px 600px at 70% -10%, color-mix(in srgb, #8b5cf6 18%, transparent) 0%),
+    radial-gradient(800px 400px at 20% 110%, color-mix(in srgb, #10b981 14%, transparent) 0%),
+    linear-gradient(180deg, #0f172a 0%, #020617 100%);
 }
 
 /* ============================================================
-   Accessibility
+   Brand utilities
    ============================================================ */
-/* Visible focus indicator for keyboard users (WCAG 2.4.7 / 2.4.11).
-   Only shown on keyboard focus, not mouse clicks. */
-:focus-visible {
-  outline: 3px solid #2563eb;
-  outline-offset: 2px;
-  border-radius: 4px;
+
+/* Glassmorphism card (branded) */
+.glass-card {
+  background: color-mix(in srgb, #ffffff 6%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
-/* Skip link: hidden until focused, then appears for keyboard users */
+/* Stronger glass variant for sidebars/modals */
+.glass-panel {
+  background: color-mix(in srgb, #ffffff 4%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  backdrop-filter: blur(16px) saturate(200%);
+  -webkit-backdrop-filter: blur(16px) saturate(200%);
+}
+
+/* Brand gradients */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #8b5cf6 0%, #10b981 100%);
+}
+.bg-brand-gradient-warm {
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 60%, #10b981 100%);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* ============================================================
+   Focus indicators & accessibility
+   ============================================================ */
+:focus-visible {
+  outline: 3px solid #a78bfa;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 1000;
   padding: 10px 16px;
-  background: #2563eb;
+  background: #8b5cf6;
   color: #fff;
   border-radius: 0 0 8px 0;
   font-weight: 600;
@@ -141,7 +88,6 @@ html {
   left: 0;
 }
 
-/* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -151,60 +97,52 @@ html {
   }
 }
 
-@media (max-width: 768px) {
-  body {
-    font-size: 14px;
-  }
-  header {
-    min-height: 48px;
-  }
-  .template-canvas-container {
-    max-height: 55vh;
-  }
-  button {
-    min-height: 44px;
-  }
-  .sidebar-mobile {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 85vw;
-    max-width: 320px;
-    height: 100vh;
-    z-index: 50;
-    background-color: #ffffff;
-    box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  }
-}
-
-@media (max-width: 480px) {
-  header {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-  .sidebar-mobile {
-    width: 100vw;
-  }
-  .template-canvas-container {
-    padding: 4px;
-  }
-}
-
-.mobile-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 49;
-}
-
+/* Touch targets (≥44px) */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Form fields readable in dark mode */
+input, textarea, select {
+  @apply bg-navy-800/60 border-navy-700 text-surface-100 placeholder-surface-400/70;
+}
+
+/* ============================================================
+   Shared micro-interaction helpers
+   ============================================================ */
+.anim-gradient-x {
+  background-size: 300% 300%;
+  animation: gradient-x 8s ease infinite;
+}
+@keyframes gradient-x {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Canvas color reset (inframes are self-contained) */
+.template-canvas * {
+  color: inherit;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+  header { min-height: 48px; }
+  .sidebar-mobile {
+    position: fixed;
+    top: 0; left: 0;
+    width: 85vw; max-width: 320px; height: 100vh;
+    z-index: 50;
+    background-color: #0f172a;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,.45), 0 10px 10px -5px rgba(0,0,0,.4);
+  }
+  button { min-height: 44px; }
+}
+@media (max-width: 480px) {
+  header { padding-left: 8px; padding-right: 8px; }
+  .sidebar-mobile { width: 100vw; }
 }
 
 @supports (padding-top: env(safe-area-inset-top)) {
@@ -212,7 +150,9 @@ html {
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  header {
-    padding-top: env(safe-area-inset-top);
-  }
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }

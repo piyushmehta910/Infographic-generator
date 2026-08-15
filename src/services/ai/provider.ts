@@ -11,6 +11,7 @@ import {
   buildDesignRevisionPrompt,
   buildImageAnalysisPrompt,
 } from "./promptBuilder";
+import { validateOutline } from "@/lib/schemas";
 
 export interface AIProvider {
   id: AIProviderId;
@@ -303,6 +304,82 @@ function normalizeContent(cr: any, request: AIGenerationRequest) {
   };
 }
 
+// Resolve the exact px canvas size for a request (used for validation).
+function computeCanvasPx(request: AIGenerationRequest): { width: number; height: number } {
+  if (request.aspectRatioWidth && request.aspectRatioHeight) {
+    return { width: request.aspectRatioWidth, height: request.aspectRatioHeight };
+  }
+  switch (request.aspectRatio) {
+    case "9:16": return { width: 1080, height: 1920 };
+    case "16:9": return { width: 1920, height: 1080 };
+    case "4:5": return { width: 1080, height: 1350 };
+    case "A4-P": return { width: 794, height: 1123 };
+    case "A4-L": return { width: 1123, height: 794 };
+    case "letter": return { width: 816, height: 1056 };
+    default: return { width: 1080, height: 1080 };
+  }
+}
+
+// Strip ```html ... ``` or ``` ... ``` wrappers (client-side cleanup).
+function stripMarkdown(html: string): string {
+  return html
+    .replace(/^```html\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+// Dependency-free sanitizer: remove scripts, event handlers, and javascript: URLs.
+function sanitizeHTML(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<script[^>]*\/?>/gi, "")
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s*javascript\s*:\s*/gi, "");
+}
+
+// Post-generation validation (see infographic-complete-system-v2.md §8).
+function validateInfographicHTML(rawHtml: string, expectedWidth: number, expectedHeight: number) {
+  const t = stripMarkdown(rawHtml);
+  const checks = {
+    hasDoctype: /<!doctype\s+html/i.test(t),
+    hasHtmlTag: /<html/i.test(t),
+    hasSubstance: t.split(/\s+/).length > 10,
+    noPlaceholders: !/lorem ipsum|sample text|your content here|\bplaceholder\b|example stat|dummy data|#todo/i.test(t),
+    noMarkdown: !t.includes("```"),
+    correctSize: t.includes(`${expectedWidth}px`) && t.includes(`${expectedHeight}px`),
+    noExternalImages: !/<img[^>]+src\s*=\s*["']http/i.test(t),
+    noScriptTags: !/<script/i.test(t),
+    noEventHandlers: !/\son\w+\s*=/i.test(t),
+  };
+  const critical =
+    checks.hasDoctype && checks.hasHtmlTag && checks.noPlaceholders && checks.noMarkdown && checks.hasSubstance;
+  return { pass: critical, checks };
+}
+
+// Build a targeted revision prompt from the failing validation checks.
+function buildRetrySuffix(checks: Record<string, boolean>, width: number, height: number): string {
+  const fixes: string[] = [];
+  if (!checks.noPlaceholders)
+    fixes.push("The output still contains PLACEHOLDER text (lorem ipsum / sample / example / your content here / etc). Replace ALL of it with real content from the original input.");
+  if (!checks.hasDoctype || !checks.hasHtmlTag)
+    fixes.push("Return a complete, valid HTML document that starts with <!DOCTYPE html> and contains <html>.");
+  if (!checks.noMarkdown)
+    fixes.push("No markdown fences or explanations. Output the raw HTML only.");
+  if (!checks.correctSize)
+    fixes.push(`The outer container MUST be exactly ${width}px x ${height}px with overflow:hidden and nothing clipped or overlapping.`);
+  if (!checks.hasSubstance)
+    fixes.push("The document appears empty. Include all outline sections and real content.");
+  const base = [
+    "",
+    "REVISION: Your previous output was rejected by automated validation.",
+    ...fixes,
+    "Use the design contract's palette, typography, spacing and background verbatim.",
+    "Visualize every statistic. No CTA buttons. No emoji icons.",
+  ];
+  return base.join("\n");
+}
+
 /**
  * MAIN PIPELINE: 3-STEP WORKFLOW
  * 1. Content Analysis & Auto-completion
@@ -337,7 +414,39 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
         else { console.error(`Step 1: All providers failed`); throw primaryError; }
       }
 
-    const contentResult = extractJSON(contentResponse);
+    let contentResult = extractJSON(contentResponse);
+
+    // ============================================
+    // STEP 1.5a: ZOD VALIDATION (single stricter retry)
+    // Rejects malformed/placeholder outlines before they reach the designer.
+    // ============================================
+    const outlineCheck = validateOutline(contentResult);
+    if (!outlineCheck.ok) {
+      console.warn("Step 1: Outline validation failed, retrying once.", outlineCheck.errors);
+      const fixPrompt =
+        contentPrompt +
+        "\n\nVALIDATION ERROR: " +
+        outlineCheck.errors.join("; ") +
+        "\nRewrite the outline JSON so every required field is present, non-empty, and contains REAL content derived from the source input (no placeholders, no empty arrays). Return ONLY valid JSON.";
+      try {
+        const strictContentResponse = await generateWithFallback(
+          providerMap[usedProvider] || provider,
+          fixPrompt,
+          apiKey,
+          usedModel,
+          0.4,
+          Math.min(maxTokens, 1024),
+          usedProvider,
+        );
+        const strictResult = extractJSON(strictContentResponse);
+        if (validateOutline(strictResult).ok) {
+          contentResult = strictResult;
+          console.log("Step 1: Outline retry produced valid JSON.");
+        }
+      } catch (retryError) {
+        console.warn("Step 1: Outline retry failed, continuing with first result.", retryError);
+      }
+    }
 
     // ============================================
     // STEP 1.5: NORMALIZE CONTENT
@@ -406,7 +515,38 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
       return generateLocalContent(request, providerId, model, startTime);
     }
 
-    const html = extractHTML(htmlResponse);
+    let html = extractHTML(htmlResponse);
+
+    // Post-generation validation: retry once with a stricter prompt on failure,
+    // then degrade gracefully to the local fallback so we never show broken HTML.
+    const canvasPx = computeCanvasPx(request);
+    const validation = validateInfographicHTML(html, canvasPx.width, canvasPx.height);
+    if (!validation.pass) {
+      console.warn("Step 3: Validation failed, retrying once with stricter prompt.", validation.checks);
+      try {
+        const strictResponse = await generateWithFallback(
+          providerMap[usedProvider] || provider,
+          htmlPrompt + buildRetrySuffix(validation.checks, canvasPx.width, canvasPx.height),
+          apiKey,
+          usedModel,
+          0.3,
+          Math.min(maxTokens, 4096),
+          usedProvider,
+        );
+        const stricterHtml = extractHTML(strictResponse);
+        if (validateInfographicHTML(stricterHtml, canvasPx.width, canvasPx.height).pass) {
+          html = stricterHtml;
+        } else {
+          return generateLocalContent(request, providerId, model, startTime);
+        }
+      } catch (strictError) {
+        console.error("Step 3: Strict retry failed, using local fallback.", strictError);
+        return generateLocalContent(request, providerId, model, startTime);
+      }
+    }
+
+    // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
+    html = sanitizeHTML(html);
 
     return {
       success: true,

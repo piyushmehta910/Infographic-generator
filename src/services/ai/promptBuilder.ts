@@ -97,7 +97,7 @@ ${contentText}
 // the canvas. This becomes the exact design contract for Step 3.
 // ============================================================
 export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest): string {
-  const { aspectRatio, font, language, audience, userIntent } = request;
+  const { aspectRatio, font, language, audience, userIntent, purpose } = request;
   const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
   const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
@@ -121,12 +121,12 @@ export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerati
 The design MUST look modern, intentional and expensive - never generic, never cluttered, never flat.
 
 ## DESIGN PRINCIPLES (non-negotiable)
-1. **Cohesive palette** - Pick 4-5 harmonious colors that match the content theme. Use a dominant color, 1 accent, and neutrals with real contrast between text and background (never dark-on-dark or light-on-light for body text).
+1. **Cohesive palette (60-30-10)** - Build a 4-5 color palette that matches the content theme: a DOMINANT shade for ~60% of large fills/background, a SECONDARY for ~30% (cards/sections), and an ACCENT for ~10% (key numbers, highlights). Neutrals for text. Guarantee WCAG AA contrast (>=4.5:1) between body text and its background; never dark-on-dark or light-on-light for body text.
 2. **Strong hierarchy** - A clear hero (title) that pops, obvious 1st/2nd/3rd reading order, big stats that command attention.
 3. **Generous, structured spacing** - 8px grid; consistent gutters; breathing room between blocks (balanced empty areas are good, NOT cramped).
 4. **Refined details** - subtle gradients, soft shadows, rounded corners, tasteful decorations (badge, chip, divider, geometric accents, number callouts). Avoid flat rectangles with no styling.
-5. **Typography** - 1 display font for headings + Inter for body (2 weights max for headings, 1 for body). Sizes that are readable at the given canvas resolution.
-6. **Layout fits the orientation** (see below).
+5. **Typography** - Max 2 font families (1 display for headings + 1 body). Use weight and size for hierarchy, never font variety. Use at most 3 text colors total. Headings 2 weights max, body 1 weight. Sizes must be readable at the canvas resolution.
+6. **Layout fits purpose + orientation** (see below).
 
 ## ORIENTATION GUIDANCE
 ${layoutGuidance}
@@ -138,6 +138,24 @@ ${layoutGuidance}
 - Text so small it is unreadable
 - Unbalanced whitespace or floating empty regions
 - Clashing, loud rainbow palettes with no logic
+
+## LAYOUT BY PURPOSE (pick the template that fits, then adapt to orientation)
+- timeline/history: vertical timeline with connected nodes, alternating content, dates emphasized.
+- comparison vs: 2-3 clear columns with contrasting headers and a visual divider.
+- statistics/data: 3-6 large-number cards with icons, progress bars, or mini charts.
+- process/how-to: numbered steps with connecting arrows, horizontal or vertical.
+- listicle/tips: numbered or icon cards in a tidy grid.
+- educational/explainer: header + two-column (text | visual) or full-width sections.
+- social/marketing: bold headline, one hero stat, punchy sub-points, branded colors.
+Chosen purpose: ${purpose || "auto (pick the most fitting template)"}
+
+## STYLE INJECTION (apply the matching direction from the user's design intent)
+- minimal/clean: generous whitespace, thin 1px borders, near-monochrome palette, large padding.
+- neon/cyberpunk: dark background, bright neon accents, subtle glow via text/box-shadow.
+- corporate/professional: blues + grays, structured grid, no decorative fluff.
+- warm/friendly: warm oranges + creams, rounded corners (12px+), playful marks.
+- dark/elegant: deep charcoal, gold or soft-white accents, refined spacing.
+User design intent: "${userIntent || "none - craft a custom premium look"}"
 
 ## CONTENT TO DESIGN
 ${JSON.stringify(content, null, 2)}
@@ -211,6 +229,7 @@ ${JSON.stringify(content, null, 2)}
 - Width: ${width}px
 - Height: ${height}px
 - Set html & body to exactly these dimensions, overflow hidden, no scrollbars.
+- Print ratios (A4/Letter): keep the same px dimensions (96dpi) but use generous margins so nothing is cut off when printed.
 
 ### QUALITY CHECKLIST (every item is mandatory)
 1. Self-contained, valid HTML + CSS in one file starting with <!DOCTYPE html>.
@@ -225,6 +244,7 @@ ${JSON.stringify(content, null, 2)}
 10. Layout matches the orientation (portrait stacks vertically; wide uses a side column or multi-column grid).
 11. For portrait/wide, make sure longer content fits by using flexbox/grid with controlled font sizes - reduce sizes gracefully rather than clipping text.
 12. Background is not plain white - apply the blueprint treatment (gradient, mesh, pattern, shapes).
+13. VISUALIZE DATA: every statistic must be drawn as a visual element (big number, progress bar, donut via SVG, or an icon counter) - never a lone plain number with no treatment.
 
 ### CRITICAL - NO CALL-TO-ACTION
 This is a static image/generic design, NOT a webpage. Do NOT include any buttons, links, "Click here", forms, or interactive controls. Pure visual design only.
