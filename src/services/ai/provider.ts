@@ -403,6 +403,50 @@ function buildRetrySuffix(checks: Record<string, boolean>, width: number, height
   return base.join("\n");
 }
 
+// Grade the visual richness of generated HTML to pick the best among attempts.
+function scoreInfographicHTML(rawHtml: string): { score: number; metrics: Record<string, number | boolean> } {
+  const t = stripMarkdown(rawHtml);
+  const styleTag = t.match(/<style[\s\S]*?<\/style>/i)?.[0] || "";
+  const allText = styleTag + " " + t;
+
+  const cssProps = (styleTag.match(/[a-zA-Z-]+\s*:/g) || []).length;
+  const colors = (allText.match(/#[0-9a-f]{3,8}\b/gi) || []).length;
+  const gradients = (allText.match(/gradient/gi) || []).length;
+  const cards = (allText.match(/border-?radius|box-shadow|backdrop-filter/gi) || []).length;
+  const containers = (t.match(/<(?:div|section|main|article|header|footer|aside|table)\b/gi) || []).length;
+  const headings = (t.match(/<h[1-6]\b/gi) || []).length;
+  const bodyWords = t.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w: string) => w.length > 2).length;
+  const hasViz = /progress|bar|donut|circle|ring|chart|radial|linear|width:\s*\d+%/i.test(t);
+  const hasStyle = styleTag.length > 50;
+
+  let score = 0;
+  score += Math.min(cssProps / 12, 1) * 20;          // CSS richness (max 20)
+  score += Math.min(colors / 4, 1) * 15;              // Color usage (max 15)
+  score += Math.min((gradients * 2) / 3, 1) * 10;     // Gradients (max 10)
+  score += Math.min(cards / 4, 1) * 15;               // Card styling (max 15)
+  score += Math.min(containers / 3, 1) * 10;          // Structural depth (max 10)
+  score += Math.min(headings / 2, 1) * 5;             // Visual hierarchy (max 5)
+  score += bodyWords > 30 ? 10 : bodyWords > 15 ? 6 : bodyWords > 5 ? 3 : 1;  // Substance (max 10)
+  score += hasViz ? 10 : 0;                            // Data visualization (max 10)
+  score += hasStyle ? 5 : 0;                           // Has real <style> (max 5)
+
+  return { score: Math.round(score), metrics: { cssProps, colors, gradients, cards, containers, headings, bodyWords, hasViz, hasStyle } };
+}
+
+// Build a targeted improvement hint for low-scoring attempts.
+function buildQualitySuffix(metrics: Record<string, number | boolean>, attempt: number, prevScore: number): string {
+  const hints: string[] = ["", `### QUALITY IMPROVEMENT (attempt ${attempt + 1}, previous score ${prevScore}/100)`];
+  if ((metrics.cssProps as number) < 12) hints.push("- Add MUCH more CSS: define layout (grid/flex), spacing, colors, and styling for every element in a rich <style> block.");
+  if ((metrics.colors as number) < 4) hints.push("- Use at least 4 distinct colors from a cohesive palette (primary, secondary, accent, background, text).");
+  if ((metrics.gradients as number) === 0) hints.push("- Add a gradient background (not flat) or gradient accents on cards so the design looks premium.");
+  if ((metrics.cards as number) < 4) hints.push("- Style each section inside a card with border-radius, box-shadow, and a colored background.");
+  if ((metrics.containers as number) < 3) hints.push("- Structure with <div>/<section> containers in a grid/flex layout for a clean visual hierarchy.");
+  hints.push("- Visualize EVERY statistic as a progress bar, big number with accent, or simple CSS bar.");
+  hints.push("- Use a non-white, non-flat background (gradient, mesh, or pattern).");
+  return hints.join("\n");
+}
+
+/**
 /**
  * MAIN PIPELINE: 3-STEP WORKFLOW
  * 1. Content Analysis & Auto-completion
@@ -538,35 +582,64 @@ export async function generateContent(request: AIGenerationRequest, apiKey: stri
       return generateLocalContent(request, providerId, model, startTime);
     }
 
-    let html = extractHTML(htmlResponse);
+    let html: string;
 
-    // Post-generation validation: retry once with a stricter prompt on failure,
-    // then degrade gracefully to the local fallback so we never show broken HTML.
     const canvasPx = computeCanvasPx(request);
-    const validation = validateInfographicHTML(html, canvasPx.width, canvasPx.height);
-    if (!validation.pass) {
-      console.warn("Step 3: Validation failed, retrying once with stricter prompt.", validation.checks);
+    const attempts = 3;
+    let bestHtml = "";
+    let bestScore = -1;
+
+    // Run up to {attempts} generations, score each, keep the best.
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      let candidateResponse: string;
+      const promptForAttempt = attempt === 0
+        ? htmlPrompt
+        : htmlPrompt + (bestScore >= 0
+            ? buildQualitySuffix(scoreInfographicHTML(bestHtml).metrics, attempt, bestScore)
+            : buildRetrySuffix({ hasDoctype: false, hasHtmlTag: false, noPlaceholders: false, noMarkdown: false, correctSize: false, hasSubstance: false, hasStyleBlock: false, hasColorAndShape: false, hasStructuredLayout: false } as Record<string, boolean>, canvasPx.width, canvasPx.height));
+
       try {
-        const strictResponse = await generateWithFallback(
+        console.log(`Step 3: Attempt ${attempt + 1}/${attempts} with ${usedProvider}/${usedModel}...`);
+        candidateResponse = await generateWithFallback(
           providerMap[usedProvider] || provider,
-          htmlPrompt + buildRetrySuffix(validation.checks, canvasPx.width, canvasPx.height),
+          promptForAttempt,
           apiKey,
           usedModel,
-          0.3,
+          0.3 + attempt * 0.05, // slightly increase temp each retry for diversity
           Math.min(maxTokens, 4096),
           usedProvider,
         );
-        const stricterHtml = extractHTML(strictResponse);
-        if (validateInfographicHTML(stricterHtml, canvasPx.width, canvasPx.height).pass) {
-          html = stricterHtml;
-        } else {
-          return generateLocalContent(request, providerId, model, startTime);
-        }
-      } catch (strictError) {
-        console.error("Step 3: Strict retry failed, using local fallback.", strictError);
+      } catch {
+        if (attempt < attempts - 1) continue; // try next attempt
+        console.error(`Step 3: All ${attempts} attempts failed, using local fallback.`);
         return generateLocalContent(request, providerId, model, startTime);
       }
+
+      const candidate = extractHTML(candidateResponse);
+      const val = validateInfographicHTML(candidate, canvasPx.width, canvasPx.height);
+      if (!val.pass) {
+        console.log(`Step 3: Attempt ${attempt + 1} failed validation, trying next.`);
+        if (attempt < attempts - 1) continue;
+        console.warn(`Step 3: All ${attempts} attempts failed validation, using local fallback.`);
+        return generateLocalContent(request, providerId, model, startTime);
+      }
+
+      const scored = scoreInfographicHTML(candidate);
+      console.log(`Step 3: Attempt ${attempt + 1} score: ${scored.score}/100`);
+      if (scored.score > bestScore) {
+        bestHtml = candidate;
+        bestScore = scored.score;
+      }
     }
+
+    // If the best score is too low, fall back to the premium local generator.
+    if (bestScore < 50) {
+      console.warn(`Step 3: Best score ${bestScore}/100 below threshold, using local fallback.`);
+      return generateLocalContent(request, providerId, model, startTime);
+    }
+
+    html = bestHtml;
+    console.log(`Step 3: Selected best attempt with score ${bestScore}/100 (length: ${html.length})`);
 
     // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
     html = sanitizeHTML(html);
