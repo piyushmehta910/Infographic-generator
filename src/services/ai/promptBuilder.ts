@@ -246,6 +246,14 @@ ${JSON.stringify(content, null, 2)}
 12. Background is not plain white - apply the blueprint treatment (gradient, mesh, pattern, shapes).
 13. VISUALIZE DATA: every statistic must be drawn as a visual element (big number, progress bar, donut via SVG, or an icon counter) - never a lone plain number with no treatment.
 
+### MANADATORY STRUCTURE (fail hard if you skip this)
+The output MUST be a designed visual layout, not prose. Concretely:
+- Include a <style> block in <head> with real CSS rules (colors, layout, spacing).
+- Use <div>, <section>, <main> containers to build a structured grid/flex layout with styled cards (border-radius + shadow + colored background).
+- Every section and statistic lives inside a styled container/card - never render content as a bare sequence of <p> or plain text on the canvas.
+- The body must have a non-flat background treatment (gradient, colored band, mesh, or pattern).
+If your output could be described as "a wall of text" or "a plain reading document", it is WRONG - rebuild it as a designed infographic.
+
 ### CRITICAL - NO CALL-TO-ACTION
 This is a static image/generic design, NOT a webpage. Do NOT include any buttons, links, "Click here", forms, or interactive controls. Pure visual design only.
 

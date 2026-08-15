@@ -351,9 +351,23 @@ function validateInfographicHTML(rawHtml: string, expectedWidth: number, expecte
     noExternalImages: !/<img[^>]+src\s*=\s*["']http/i.test(t),
     noScriptTags: !/<script/i.test(t),
     noEventHandlers: !/\son\w+\s*=/i.test(t),
+    // NEW: the output must contain REAL visual/CSS design, not plain prose.
+    hasStyleBlock: /<style[\s\S]*?<\/style>/i.test(t),
+    hasColorAndShape: /(?:#[0-9a-f]{3,8}\b|rgba?\(|hsl\(|(?:background|color)\s*:)/i.test(t) &&
+      /(?:border-?radius|box-shadow|padding|margin|grid-template|display\s*:\s*(?:flex|grid)|position\s*:\s*(?:absolute|relative|fixed))/i.test(t),
+    hasStructuredLayout: /<(?:div|section|main|article|header|footer|aside|table|ul|ol)\b/i.test(t) &&
+      /<(?:h[1-6]|p|span|li|td|th)\b/i.test(t),
   };
+  // A valid infographic must be a designed HTML document with styling.
   const critical =
-    checks.hasDoctype && checks.hasHtmlTag && checks.noPlaceholders && checks.noMarkdown && checks.hasSubstance;
+    checks.hasDoctype &&
+    checks.hasHtmlTag &&
+    checks.noPlaceholders &&
+    checks.noMarkdown &&
+    checks.hasSubstance &&
+    checks.hasStyleBlock &&
+    checks.hasColorAndShape &&
+    checks.hasStructuredLayout;
   return { pass: critical, checks };
 }
 
@@ -370,6 +384,15 @@ function buildRetrySuffix(checks: Record<string, boolean>, width: number, height
     fixes.push(`The outer container MUST be exactly ${width}px x ${height}px with overflow:hidden and nothing clipped or overlapping.`);
   if (!checks.hasSubstance)
     fixes.push("The document appears empty. Include all outline sections and real content.");
+  if (!checks.hasStyleBlock || !checks.hasColorAndShape || !checks.hasStructuredLayout) {
+    fixes.push(
+      "Your previous output was plain prose, NOT a designed infographic. " +
+      "Rewrite it as a real visual layout: include a <style> block with actual CSS, " +
+      "a non-flat background (gradient/color), styled cards with border-radius & shadow, " +
+      "and a grid/flex layout. Structure content with <div>/<section> containers, headings, " +
+      "and cards — never a bare wall of <p> paragraphs. Always honor the exact canvas size."
+    );
+  }
   const base = [
     "",
     "REVISION: Your previous output was rejected by automated validation.",
