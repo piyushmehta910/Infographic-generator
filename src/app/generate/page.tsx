@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Loader2, Settings, Sparkles } from "lucide-react";
 import InputPanel, { InputTab } from "@/components/generate/InputPanel";
@@ -25,10 +25,11 @@ const LOADING_STEPS = [
 ];
 
 export default function GeneratePage() {
-  const { setContent, setGenerating } = useEditorStore();
+  const { setContent, setGenerating, setGenerationContext } = useEditorStore();
   const { showToast } = useUIStore();
   const providers = useAIStore((s) => s.providers);
   const activeConfig = useAIStore((s) => s.getActiveConfig());
+  const generatingRef = useRef(false);
 
   const [input, setInput] = useState("");
   const [inputType, setInputType] = useState<InputTab>("text");
@@ -60,6 +61,10 @@ export default function GeneratePage() {
       : [userIntent, `Use a ${density} layout density.`].filter(Boolean).join(" ");
 
   const handleGenerate = useCallback(async () => {
+    if (generatingRef.current) {
+      showToast({ type: "info", title: "Already generating", message: "One generation at a time — please wait." });
+      return;
+    }
     if (!hasContent) {
       showToast({ type: "error", title: "Input required", message: "Please provide some content before generating." });
       return;
@@ -77,6 +82,7 @@ export default function GeneratePage() {
       audience: "general",
       userIntent: effectiveUserIntent || undefined,
     };
+    generatingRef.current = true;
     setIsGenerating(true);
     setHtml(null);
     setStep(0);
@@ -98,6 +104,18 @@ export default function GeneratePage() {
       if (res.success && res.generatedHtml) {
         setHtml(res.generatedHtml);
         if (res.content) setContent(res.content);
+        setGenerationContext({
+          request,
+          content: res.content ?? null,
+          blueprint: res.blueprint ?? null,
+          html: res.generatedHtml,
+          provider: res.provider,
+          model: res.model,
+          steps: res.steps,
+          processingTime: res.processingTime,
+          usedFallback: res.usedFallback,
+          createdAt: Date.now(),
+        });
         showToast({
           type: "success",
           title: res.usedFallback ? "Generated (offline mode)" : "Infographic ready!",
@@ -110,11 +128,12 @@ export default function GeneratePage() {
       showToast({ type: "error", title: "Generation failed", message: e?.message || "Please try again." });
     } finally {
       clearInterval(iv);
+      generatingRef.current = false;
       setIsGenerating(false);
       setGenerating(false);
       setStep(0);
     }
-  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, showToast]);
+  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast]);
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {

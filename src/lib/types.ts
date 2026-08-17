@@ -209,6 +209,11 @@ export interface AIGenerationResult {
   /** True when output came from the local generator (no AI call). */
   usedFallback?: boolean;
   blueprint?: unknown;
+  /** Ordered record of the pipeline phases that ran. */
+  steps?: Array<{
+    name: string;
+    status: "completed" | "fallback";
+  }>;
   concepts?: Array<{
     id: string;
     title: string;
@@ -218,6 +223,24 @@ export interface AIGenerationResult {
     vibe: string;
     keyFeatures: string[];
   }>;
+}
+
+/**
+ * The full pipeline context of one generation, kept together so the user's
+ * request, completed content, design blueprint, and final HTML/CSS stay
+ * linked in the same place (e.g. persisted per user/browser).
+ */
+export interface GenerationContext {
+  request: AIGenerationRequest;
+  content: InfographicContent | null;
+  blueprint: unknown;
+  html: string | null;
+  provider?: AIProviderId;
+  model?: string;
+  steps?: AIGenerationResult["steps"];
+  processingTime?: number;
+  usedFallback?: boolean;
+  createdAt: number;
 }
 
 // --- Toast Types ---

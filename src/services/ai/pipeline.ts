@@ -37,16 +37,57 @@ const HTML_TOKEN_CAP = 4096;
 const MAX_HTML_ATTEMPTS = 3;
 const MIN_QUALITY_SCORE = 50;
 
+/** Prevents two pipeline runs at the same time (one generation at a time). */
+let generationInFlight = false;
+
+const THEME_FALLBACK: Record<
+  string,
+  { primary: string; secondary: string; accent: string; background: string; text: string }
+> = {
+  light: { primary: "#6366f1", secondary: "#8b5cf6", accent: "#ec4899", background: "#ffffff", text: "#0f172a" },
+  dark: { primary: "#8b5cf6", secondary: "#10b981", accent: "#f59e0b", background: "#0f172a", text: "#f1f5f9" },
+  minimal: { primary: "#0f172a", secondary: "#64748b", accent: "#8b5cf6", background: "#f8fafc", text: "#0f172a" },
+  glassmorphism: { primary: "#ffffff", secondary: "#a78bfa", accent: "#34d399", background: "#1e293b", text: "#f8fafc" },
+  neumorphism: { primary: "#5b6770", secondary: "#a3b1c6", accent: "#8b5cf6", background: "#e0e5ec", text: "#404954" },
+  corporate: { primary: "#1d4ed8", secondary: "#3b82f6", accent: "#0ea5e9", background: "#f8fafc", text: "#0f172a" },
+  modern: { primary: "#8b5cf6", secondary: "#6366f1", accent: "#10b981", background: "#ffffff", text: "#0f172a" },
+  gradient: { primary: "#7c3aed", secondary: "#ec4899", accent: "#f59e0b", background: "#fdf2f8", text: "#0f172a" },
+  "midnight-blue": { primary: "#1e40af", secondary: "#3b82f6", accent: "#22d3ee", background: "#0b1e3a", text: "#e0f2fe" },
+  "midnight-green": { primary: "#134e4a", secondary: "#14b8a6", accent: "#fbbf24", background: "#042f2e", text: "#ccfbf1" },
+  material: { primary: "#2563eb", secondary: "#7c3aed", accent: "#f97316", background: "#fafafa", text: "#0f172a" },
+};
+
 /**
- * MAIN PIPELINE: 3-STEP WORKFLOW
- * 1. Content Analysis & Auto-completion
- * 2. Design Blueprint (AI tells HOW to design it)
- * 3. HTML/CSS Generation (follows blueprint exactly)
+ * MAIN PIPELINE: 3-STEP WORKFLOW — one generation at a time.
+ * 1. Content Analysis & Auto-completion  (AI completes the user's input)
+ * 2. Design Blueprint                     (AI says HOW to design it in HTML/CSS for the aspect ratio + intent)
+ * 3. HTML/CSS Generation                  (AI codes the final design following the blueprint exactly)
  *
- * `storedProviders` (other configured AI keys) is passed explicitly by the
- * caller so fallback behavior is identical from every entry point.
+ * Every phase's output is kept together on the result so callers can persist
+ * the full "user context" of a generation (request → content → blueprint → HTML).
  */
 export async function generateContent(
+  request: AIGenerationRequest,
+  options: GenerateContentOptions,
+): Promise<AIGenerationResult> {
+  if (generationInFlight) {
+    return {
+      success: false,
+      error: "A generation is already in progress. Please wait for it to finish.",
+      provider: options.providerId,
+      processingTime: 0,
+      steps: [],
+    };
+  }
+  generationInFlight = true;
+  try {
+    return await runPipeline(request, options);
+  } finally {
+    generationInFlight = false;
+  }
+}
+
+async function runPipeline(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
 ): Promise<AIGenerationResult> {
@@ -55,6 +96,7 @@ export async function generateContent(
   const maxTokens = options.maxTokens ?? 4096;
   const storedProviders = options.storedProviders ?? [];
   const startTime = Date.now();
+  const steps: AIGenerationResult["steps"] = [];
 
   // If no API key or unknown provider, use local generation.
   if (!apiKey || apiKey.trim() === "") {
@@ -101,6 +143,10 @@ export async function generateContent(
         throw primaryError;
       }
     }
+    steps.push({
+      name: "Content analysis & completion",
+      status: usedProvider === providerId ? "completed" : "fallback",
+    });
 
     let contentResult = extractJSON(contentResponse);
 
@@ -140,9 +186,12 @@ export async function generateContent(
 
     // ============================================
     // STEP 2: DESIGN BLUEPRINT
+    // AI specifies exactly how to design the content in HTML/CSS
+    // for the chosen aspect ratio, honoring theme + design intent.
     // ============================================
     const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request);
     let blueprintResponse: string;
+    let blueprintUsedFallback = false;
 
     try {
       blueprintResponse = await generateWithFallback(
@@ -155,25 +204,27 @@ export async function generateContent(
         usedProvider,
       );
     } catch {
-      // Fall back to a default blueprint on blueprint failure.
+      // Fall back to a theme-aware default blueprint on blueprint failure.
+      blueprintUsedFallback = true;
+      const palette = THEME_FALLBACK[request.theme || "modern"] || THEME_FALLBACK.modern;
       const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
       blueprintResponse = JSON.stringify({
-        designConcept: "Clean modern layout",
+        designConcept: "Clean, premium design system",
         layoutStyle: "magazine-grid",
-        heroMoment: "Title with gradient text",
+        heroMoment: "Display heading with gradient accent",
         visualHierarchy: { "1st": "Title", "2nd": "Stats", "3rd": "Sections" },
-        sectionCount: 4,
+        sectionCount: Math.max(2, normalizedContent.sections.length),
         readingFlow: "Top to bottom",
         spacingSystem: "8px grid",
-        colorPalette: { primary: "#3b82f6", secondary: "#8b5cf6", accent: "#ec4899", background: "#ffffff", text: "#0f172a" },
+        colorPalette: palette,
         typography: { headingFont: "Inter", bodyFont: "Inter", headingSize: "48px", bodySize: "16px", headingWeight: "800", subheadingWeight: "600", bodyWeight: "400", style: "modern" },
-        icons: { style: "crisp-svg", consistency: "ALL icons use same stroke and weight", perSection: ["chart", "trend-up", "lightbulb", "target"] },
-        cardStyle: "Rounded rectangle with shadow",
+        icons: { style: "crisp-svg", consistency: "ALL icons use same stroke and weight", perSection: normalizedContent.suggestedIcons.slice(0, 4) },
+        cardStyle: "Rounded rectangle with soft shadow",
         spacing: "8px-grid-based",
         alignment: "center",
         statsStyle: "big-numbers",
-        decorations: ["Subtle gradient background"],
-        background: "Subtle gradient",
+        decorations: ["Subtle gradient background", "Accent stat callouts"],
+        background: "Non-flat gradient treatment",
         header: "Large title with subtitle",
         cta: "No CTA - static image",
         specialFeatures: "Clean and professional",
@@ -181,6 +232,7 @@ export async function generateContent(
         canvas: `${dimensions.width}x${dimensions.height}px`,
       });
     }
+    steps.push({ name: "Design blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
 
     let blueprint: any;
     try {
@@ -191,6 +243,7 @@ export async function generateContent(
 
     // ============================================
     // STEP 3: HTML/CSS GENERATION
+    // AI codes the final design following the blueprint exactly.
     // ============================================
     const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request);
     let htmlResponse: string;
@@ -272,6 +325,7 @@ export async function generateContent(
     if (bestScore < MIN_QUALITY_SCORE) {
       return generateLocalContent(request, providerId, model, startTime);
     }
+    steps.push({ name: "HTML/CSS rendering", status: "completed" });
 
     // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
     const html = sanitizeHTML(bestHtml);
@@ -296,6 +350,7 @@ export async function generateContent(
       },
       generatedHtml: html,
       blueprint,
+      steps,
       provider: usedProvider,
       model: usedModel,
       processingTime: Date.now() - startTime,
