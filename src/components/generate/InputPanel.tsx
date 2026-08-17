@@ -27,8 +27,11 @@ const INPUT_TABS: { id: InputTab; label: string; icon: React.ReactNode }[] = [
   { id: "text", label: "Text", icon: <FileText className="w-4 h-4" /> },
   { id: "url", label: "URL", icon: <Globe className="w-4 h-4" /> },
   { id: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
-  { id: "data", label: "Data (CSV)", icon: <Upload className="w-4 h-4" /> },
+  { id: "data", label: "CSV", icon: <Upload className="w-4 h-4" /> },
 ];
+
+const inputFieldClass =
+  "w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none";
 
 export default function InputPanel(p: InputPanelProps) {
   const {
@@ -38,12 +41,18 @@ export default function InputPanel(p: InputPanelProps) {
   } = p;
 
   const canGenerate = Boolean(input) && input.trim().length > 0;
+
   return (
-    <div className="w-full md:w-72 lg:w-76 xl:w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
-      <div className="p-6 flex-1 overflow-y-hidden">
-        <div>
-          <h1 className="text-xl font-display font-bold text-white mb-1">Create Infographic</h1>
-          <p className="text-sm text-surface-400">AI generates unique designs based on your content.</p>
+    <div className="w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
+      <div className="p-4 flex-1 flex flex-col gap-3 overflow-y-auto">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-display font-bold text-white leading-tight">Create Infographic</h1>
+            <p className="text-[11px] text-surface-400 leading-tight">AI designs unique visuals from your content</p>
+          </div>
         </div>
 
         <div className="flex gap-1 bg-surface-800/60 p-1 rounded-xl">
@@ -51,7 +60,7 @@ export default function InputPanel(p: InputPanelProps) {
             <button
               key={t.id}
               onClick={() => setInputType(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium touch-target transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium touch-target transition-all ${
                 inputType === t.id ? "bg-brand-gradient text-white shadow" : "text-surface-300 hover:text-white"
               }`}
             >
@@ -59,38 +68,40 @@ export default function InputPanel(p: InputPanelProps) {
             </button>
           ))}
         </div>
+
         {inputType === "text" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-surface-200">Your Content</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-surface-200">Your Content</label>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Paste a blog post, article, or describe your idea..."
-              rows={7}
+              rows={5}
               maxLength={8000}
-              className="w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+              className={inputFieldClass}
             />
           </div>
         )}
 
         {inputType === "url" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-surface-200">Article URL</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-surface-200">Article URL</label>
             <input
               type="url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://example.com/article"
-              className="w-full h-12 px-4 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full h-11 px-4 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
-            <p className="text-xs text-surface-400">We fetch and summarize the page content client-side.</p>
+            <p className="text-[11px] text-surface-400">We fetch and summarize the page content client-side.</p>
           </div>
         )}
+
         {inputType === "image" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-surface-200">Upload Image</label>
-            <label className="flex flex-col items-center justify-center h-28 rounded-xl border-2 border-dashed border-surface-600 bg-surface-800/40 cursor-pointer hover:border-brand-400 transition-colors">
-              <Upload className="w-6 h-6 text-surface-400 mb-2" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-surface-200">Upload Image</label>
+            <label className="flex flex-col items-center justify-center h-24 rounded-xl border-2 border-dashed border-surface-600 bg-surface-800/40 cursor-pointer hover:border-brand-400 transition-colors">
+              <Upload className="w-5 h-5 text-surface-400 mb-1.5" />
               <span className="text-xs text-surface-400">
                 {imageFile ? imageFile.name : "Click or drag to upload"}
               </span>
@@ -115,62 +126,62 @@ export default function InputPanel(p: InputPanelProps) {
         )}
 
         {inputType === "data" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-surface-200">Paste CSV data</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-surface-200">Paste CSV data</label>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={"label,value&#10;Revenue,2.1M&#10;Costs,1.2M"}
-              rows={6}
-              className="w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 font-mono text-xs text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+              placeholder={"label,value\nRevenue,2.1M\nCosts,1.2M"}
+              rows={4}
+              className={inputFieldClass + " font-mono text-xs"}
             />
-            <p className="text-xs text-surface-400">We auto-detect columns and map them to charts.</p>
+            <p className="text-[11px] text-surface-400">We auto-detect columns and map them to charts.</p>
           </div>
         )}
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-surface-200">Purpose</label>
-          <div className="grid grid-cols-3 gap-2">
-            {PURPOSES.map((p) => (
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-surface-200">Purpose</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {PURPOSES.map((pt) => (
               <button
-                key={p.id}
-                onClick={() => setPurpose(p.id)}
-                className={`p-2.5 rounded-xl text-xs border-2 transition-all text-center touch-target ${
-                  purpose === p.id
-                    ? "border-brand-400 bg-brand-900/30 text-white"
-                    : "border-surface-600 hover:border-surface-500 text-surface-300"
+                key={pt.id}
+                onClick={() => setPurpose(pt.id)}
+                title={pt.label}
+                className={`py-1.5 px-1 rounded-lg text-center border transition-all touch-target ${
+                  purpose === pt.id
+                    ? "border-brand-400 bg-brand-900/30"
+                    : "border-surface-700 hover:border-surface-500"
                 }`}
               >
-                <div className="text-lg mb-0.5">{p.icon}</div>
-                <div className="font-medium">{p.label}</div>
+                <div className="text-base leading-none mb-0.5">{pt.icon}</div>
+                <div className={`text-[10px] font-medium leading-tight truncate ${purpose === pt.id ? "text-white" : "text-surface-300"}`}>
+                  {pt.label}
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-surface-200">
-              Design Intent <span className="text-surface-500 text-xs">(optional)</span>
-            </label>
-            <span className="text-xs text-emerald-400 flex items-center gap-1">
+            <label className="text-xs font-medium text-surface-200">Design Intent</label>
+            <span className="text-[10px] text-emerald-400 flex items-center gap-1">
               <Sparkles className="w-3 h-3" /> AI suggests
             </span>
           </div>
           <textarea
             value={userIntent}
             onChange={(e) => setUserIntent(e.target.value)}
-            placeholder="e.g. Dark theme with neon accents, or leave empty for AI"
+            placeholder="e.g. Dark theme with neon accents"
             rows={2}
-            className="w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+            className={inputFieldClass}
           />
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1">
           <Button
             variant="primary"
-            className="w-full"
-            size="lg"
+            className="w-full h-12"
             disabled={!canGenerate || isGenerating}
             onClick={onGenerateClick}
           >

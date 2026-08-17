@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Loader2, Settings } from "lucide-react";
+import { Loader2, Settings, Sparkles } from "lucide-react";
 import InputPanel, { InputTab } from "@/components/generate/InputPanel";
 import CanvasView from "@/components/generate/CanvasView";
 import StylePanel from "@/components/generate/StylePanel";
@@ -12,6 +12,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
 import { Purpose } from "@/lib/purposes";
+import { APP_NAME } from "@/lib/site";
 import { ASPECT_RATIOS } from "@/lib/constants";
 import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest } from "@/lib/types";
 
@@ -34,7 +35,7 @@ export default function GeneratePage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [purpose, setPurpose] = useState<Purpose>("other");
   const [userIntent, setUserIntent] = useState("");
-  const [layout, setLayout] = useState("modern");
+  const [theme, setTheme] = useState<ThemeId>("modern");
   const [density, setDensity] = useState<"compact" | "balanced" | "spacious">("balanced");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS["1:1"]);
   const [zoom, setZoom] = useState(100);
@@ -52,11 +53,10 @@ export default function GeneratePage() {
         ? `Summarize this article into concise, data-oriented infographic content: ${imageUrl}`
         : input;
   const hasContent = Boolean(requestInput) && requestInput.trim().length > 0;
-  const resolvedTheme = (
-    ["modern", "light", "dark", "minimal", "corporate", "gradient"].includes(layout)
-      ? layout
-      : "modern"
-  ) as ThemeId;
+  const effectiveUserIntent =
+    density === "balanced"
+      ? userIntent
+      : [userIntent, `Use a ${density} layout density.`].filter(Boolean).join(" ");
 
   const handleGenerate = useCallback(async () => {
     if (!hasContent) {
@@ -70,11 +70,11 @@ export default function GeneratePage() {
       aspectRatioWidth: aspectRatio.width,
       aspectRatioHeight: aspectRatio.height,
       purpose: purpose || undefined,
-      theme: resolvedTheme,
+      theme,
       font: "inter" as FontId,
       language: "en",
       audience: "general",
-      userIntent: userIntent || undefined,
+      userIntent: effectiveUserIntent || undefined,
     };
     setIsGenerating(true);
     setHtml(null);
@@ -113,7 +113,7 @@ export default function GeneratePage() {
       setGenerating(false);
       setStep(0);
     }
-  }, [requestInput, genInputType, aspectRatio, purpose, resolvedTheme, userIntent, activeConfig, providers, hasContent, setContent, setGenerating, showToast]);
+  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, showToast]);
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
@@ -179,8 +179,16 @@ export default function GeneratePage() {
           isGenerating={isGenerating}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between">
-            <h1 className="font-display font-semibold text-white">Creator</h1>
+          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between bg-surface-900/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <h1 className="font-display font-semibold text-white leading-tight">{APP_NAME}</h1>
+                <span className="hidden sm:inline text-[11px] text-surface-400 uppercase tracking-wider">Creator</span>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               {isGenerating && (
                 <div className="flex items-center gap-2 text-sm text-surface-300">
@@ -209,8 +217,8 @@ export default function GeneratePage() {
           />
         </div>
         <StylePanel
-          layout={layout}
-          setLayout={setLayout}
+          theme={theme}
+          setTheme={setTheme}
           density={density}
           setDensity={setDensity}
           onRegenerate={handleGenerate}

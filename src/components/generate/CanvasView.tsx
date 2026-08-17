@@ -87,25 +87,38 @@ export default function CanvasView(p: CanvasViewProps) {
       </div>
 
       {/* Canvas area */}
-      <div className="flex-1 overflow-auto flex items-start justify-center p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 overflow-auto flex items-start justify-center p-4 sm:p-6 lg:p-8 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.08),transparent_60%)]">
         {html ? (
           <div
-            className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/5"
+            className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10"
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
           >
             <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
           </div>
         ) : (
-          <div className="text-center max-w-md mt-12 lg:mt-24">
-            <div className="w-20 h-20 mx-auto bg-brand-gradient/10 rounded-3xl flex items-center justify-center mb-6">
-              <Eye className="w-8 h-8 text-brand-400" />
+          <div className="text-center max-w-md mt-8 lg:mt-16">
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 rounded-3xl bg-brand-gradient/20 blur-xl" />
+              <div className="relative w-20 h-20 mx-auto bg-brand-gradient/10 rounded-3xl flex items-center justify-center border border-brand-400/20">
+                <Eye className="w-8 h-8 text-brand-400" />
+              </div>
             </div>
-            <h2 className="text-xl font-display font-bold text-white mb-2">Ready to create</h2>
-            <p className="text-surface-400 text-sm leading-relaxed">
-              Enter your content, choose a purpose, then click the{" "}
-              <span className="text-brand-300 font-medium">Generate</span> button.
-              The AI will analyze your input and design a beautiful infographic.
+            <h2 className="text-2xl font-display font-bold text-white mb-3">Ready to create</h2>
+            <p className="text-surface-400 text-sm leading-relaxed mb-8">
+              Enter your content, pick a purpose, then hit{" "}
+              <span className="text-brand-300 font-medium">Generate</span>. The AI analyzes
+              your input and designs a publication-ready infographic.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {["Paste your text", "Pick a purpose", "Hit Generate"].map((hint, i) => (
+                <div key={hint} className="flex items-center gap-2">
+                  {i > 0 && <div className="h-px w-4 bg-surface-700" />}
+                  <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-800/70 text-surface-300 border border-white/5">
+                    {hint}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
