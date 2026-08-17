@@ -129,27 +129,6 @@ export interface Placeholder {
   required: boolean;
 }
 
-export interface TemplateProps {
-  content: InfographicContent;
-  theme: Theme;
-  aspectRatio: AspectRatio;
-  settings: TemplateSettings;
-  onElementClick?: (elementId: string) => void;
-}
-
-export interface TemplateSettings {
-  alignment: "left" | "center" | "right" | "justify";
-  verticalAlign: "top" | "middle" | "bottom";
-  spacing: "compact" | "comfortable" | "spacious";
-  padding: number;
-  margin: number;
-  roundedCorners: number;
-  shadow: number;
-  border: boolean;
-  backgroundColor: string;
-  fontFamily: string;
-}
-
 // --- Theme Types ---
 
 export type ThemeId =
@@ -167,42 +146,14 @@ export type ThemeId =
   | "material"
   | "custom";
 
-export interface Theme {
-  id: ThemeId;
-  name: string;
-  colors: ThemeColors;
-  isDark: boolean;
-}
-
-export interface ThemeColors {
-  background: string;
-  backgroundSecondary: string;
-  text: string;
-  textSecondary: string;
-  accent: string;
-  accentLight: string;
-  border: string;
-  shadow: string;
-  cardBackground: string;
-  gradient?: string;
-}
-
 // --- Font Types ---
 
 export type FontId =
   "inter" | "poppins" | "roboto" | "manrope" | "nunito" | "dm-sans";
 
-export interface Font {
-  id: FontId;
-  name: string;
-  googleFont: string;
-  weights: number[];
-}
-
 // --- AI Provider Types ---
 
-export type AIProviderId =
-  "openai" | "gemini" | "claude" | "openrouter" | "groq" | "nim";
+export type AIProviderId = "openai" | "gemini" | "claude" | "openrouter" | "groq";
 
 export interface AIProviderConfig {
   id: AIProviderId;
@@ -255,6 +206,8 @@ export interface AIGenerationResult {
   model?: string;
   processingTime?: number;
   generatedHtml?: string;
+  /** True when output came from the local generator (no AI call). */
+  usedFallback?: boolean;
   blueprint?: unknown;
   concepts?: Array<{
     id: string;
@@ -267,38 +220,7 @@ export interface AIGenerationResult {
   }>;
 }
 
-// --- Editor Types ---
-
-export interface EditorState {
-  mode: "generating" | "editing" | "exporting";
-  selectedElement: string | null;
-  zoom: number;
-  showGrid: boolean;
-  snapToGrid: boolean;
-  history: EditorHistoryEntry[];
-  historyIndex: number;
-}
-
-export interface EditorHistoryEntry {
-  id: string;
-  timestamp: number;
-  description: string;
-  snapshot: InfographicContent;
-}
-
-export interface EditorElement {
-  id: string;
-  type: "text" | "image" | "shape" | "icon" | "chart" | "stat";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  content: string;
-  style: Record<string, string>;
-}
-
-// --- UI Types ---
+// --- Toast Types ---
 
 export interface ToastMessage {
   type: "success" | "error" | "info" | "warning";
@@ -309,36 +231,4 @@ export interface ToastMessage {
 
 export interface Toast extends ToastMessage {
   id: string;
-}
-
-export interface UIState {
-  sidebarOpen: boolean;
-  templateGalleryOpen: boolean;
-  propertiesPanelOpen: boolean;
-  exportPanelOpen: boolean;
-  aiPromptPanelOpen: boolean;
-  activeTab: string;
-  toast: Toast | null;
-}
-
-export interface Project {
-  id: string;
-  title: string;
-  content: InfographicContent;
-  aspectRatio: AspectRatioId;
-  theme: ThemeId;
-  createdAt: string;
-  updatedAt: string;
-  thumbnail?: string;
-}
-
-// --- Export Types ---
-
-export type ExportFormat = "png" | "jpg" | "svg" | "pdf" | "html" | "json";
-
-export interface ExportOptions {
-  format: ExportFormat;
-  quality: number;
-  pixelRatio: number;
-  includeMetadata: boolean;
 }

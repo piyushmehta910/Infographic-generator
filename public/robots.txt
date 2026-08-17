@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://infographic-ai.vercel.app/sitemap.xml
+Sitemap: https://infographic-generator.vercel.app/sitemap.xml

@@ -34,10 +34,10 @@ The core approach is:
 
 ## Core runtime flow
 
-- Main UI: `src/app/dashboard/page.tsx`
-- AI pipeline: `src/services/ai/provider.ts`
+- Main UI: `src/app/generate/page.tsx`
+- AI pipeline: `src/services/ai/pipeline.ts` (entry re-export: `src/services/ai/provider.ts`)
 - Prompt construction: `src/services/ai/promptBuilder.ts`
-- Template config/helpers: `src/services/template/templateEngine.ts`
+- Template config: `src/lib/templates.ts`
 
 ## Important project principle
 

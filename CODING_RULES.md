@@ -21,7 +21,7 @@
 
 ## State management
 
-- Use existing stores (`aiStore`, `editorStore`, `projectStore`, `uiStore`) rather than ad-hoc global state.
+- Use existing stores (`aiStore`, `editorStore`, `uiStore`) rather than ad-hoc global state.
 - Persist only the minimum necessary state in local storage.
 
 ## Reliability and errors

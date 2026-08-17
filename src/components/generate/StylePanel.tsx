@@ -3,7 +3,7 @@
 import { RefreshCw, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { BUILT_IN_TEMPLATES } from "@/services/template/templateEngine";
+import { BUILT_IN_TEMPLATES } from "@/lib/templates";
 import { TemplateConfig } from "@/lib/types";
 
 interface StylePanelProps {

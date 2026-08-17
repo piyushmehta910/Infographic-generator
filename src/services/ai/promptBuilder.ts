@@ -1,4 +1,5 @@
 import { AIGenerationRequest } from "@/lib/types";
+import { getCanvasDimensions } from "@/lib/canvas";
 
 // ============================================================
 // STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
@@ -15,16 +16,8 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest): string
   const purposeStr = purpose || "Not specified";
   const userIntentStr = userIntent || "No specific design intent";
 
-  const dimensionsStr =
-    aspectRatioWidth && aspectRatioHeight
-      ? `${aspectRatioWidth}x${aspectRatioHeight}px`
-      : aspectRatioStr === "9:16" ? "1080x1920px"
-      : aspectRatioStr === "16:9" ? "1920x1080px"
-      : aspectRatioStr === "4:5" ? "1080x1350px"
-      : aspectRatioStr === "A4-P" ? "794x1123px"
-      : aspectRatioStr === "A4-L" ? "1123x794px"
-      : aspectRatioStr === "letter" ? "816x1056px"
-      : "1080x1080px";
+  const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
+  const dimensionsStr = `${width}x${height}px`;
 
   let contentText = "";
   switch (inputType) {
@@ -101,20 +94,14 @@ export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerati
   const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
   const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
-  const dimensions =
-    aspectRatio === "9:16" ? "1080x1920 (Tall Story/Portrait)"
-    : aspectRatio === "16:9" ? "1920x1080 (Wide Landscape)"
-    : aspectRatio === "4:5" ? "1080x1350 (Portrait)"
-    : aspectRatio === "A4-P" ? "794x1123 (A4 Portrait)"
-    : aspectRatio === "A4-L" ? "1123x794 (A4 Landscape)"
-    : aspectRatio === "letter" ? "816x1056 (Letter)"
-    : "1080x1080 (Square)";
+  const { width, height } = getCanvasDimensions(aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
+  const dimensions = `${width}x${height}`;
 
   const layoutGuidance = isPortrait
     ? "PORTRAIT: stack sections vertically top-to-bottom; a strong header block on top, stats in a row, then a clean vertical flow of cards. Keep vertical rhythm tight so everything fits without scrolling."
     : isWide
-    ? "WIDE: use a bold left header column and a right content zone, or a strong full-width hero with a multi-column grid below. Balance horizontal space."
-    : "SQUARE: balanced all-around; header on top, stats band, and a tidy grid that fills the square without overflow.";
+      ? "WIDE: use a bold left header column and a right content zone, or a strong full-width hero with a multi-column grid below. Balance horizontal space."
+      : "SQUARE: balanced all-around; header on top, stats band, and a tidy grid that fills the square without overflow.";
 
   return `You are a world-class visual designer and frontend engineer. Your job: produce a COMPLETE design blueprint for a BEAUTIFUL, premium infographic that will be hand-coded into HTML/CSS.
 
@@ -199,21 +186,7 @@ ${userIntent || "No specific design intent - craft a unique look that matches th
 // fills the canvas and never clips or looks unfinished.
 // ============================================================
 export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest): string {
-  const aspectRatio = request.aspectRatio || "1:1";
-  let width = 1080, height = 1080;
-  switch (aspectRatio) {
-    case "9:16": width = 1080; height = 1920; break;
-    case "16:9": width = 1920; height = 1080; break;
-    case "4:5": width = 1080; height = 1350; break;
-    case "A4-P": width = 794; height = 1123; break;
-    case "A4-L": width = 1123; height = 794; break;
-    case "letter": width = 816; height = 1056; break;
-    default: width = 1080; height = 1080;
-  }
-  if (request.aspectRatioWidth && request.aspectRatioHeight) {
-    width = request.aspectRatioWidth;
-    height = request.aspectRatioHeight;
-  }
+  const { width, height } = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
 
   return `## STEP 3: HTML/CSS GENERATION
 You are a senior frontend engineer. Build the COMPLETE HTML/CSS for this infographic. It will be rendered inside a fixed-size canvas, so it MUST fit perfectly and look polished.
@@ -259,54 +232,4 @@ This is a static image/generic design, NOT a webpage. Do NOT include any buttons
 
 ### OUTPUT FORMAT
 Start with <!DOCTYPE html>. Output ONLY the complete HTML file. No markdown, no explanations, no code fences.`;
-}
-
-/**
- * Revision prompt for design feedback (unused in the main flow)
- */
-export function buildDesignRevisionPrompt(currentBlueprint: any, userFeedback: string, content: any): string {
-  return `You are an expert designer revising an infographic design based on feedback.
-
-## CURRENT BLUEPRINT
-${JSON.stringify(currentBlueprint, null, 2)}
-
-## CONTENT (unchanged)
-${JSON.stringify(content, null, 2)}
-
-## USER FEEDBACK
-"${userFeedback}"
-
-## YOUR TASK
-Revise the design based on this feedback. Return the COMPLETE revised blueprint in the same JSON format.`;
-}
-
-/**
- * Image analysis prompt
- */
-export function buildImageAnalysisPrompt(imageData: string): string {
-  return `Analyze this image and extract detailed information in JSON format.
-
-## EXTRACT:
-### Colors: Dominant palette (5-8 hex colors), mood
-### Text: Any visible text via OCR, font style
-### Layout: Structure, visual hierarchy, spacing
-### Theme: Visual theme, mood, aesthetic style
-### Content: Subject matter, suggested sections, statistics
-
-## OUTPUT FORMAT
-{
-  "colors": { "palette": [], "background": "", "primary": "", "accent": "", "text": "", "mood": "" },
-  "text": { "ocrText": "", "fontStyle": "", "hierarchy": [] },
-  "layout": { "structure": "", "visualHierarchy": [], "spacing": "", "alignment": "" },
-  "visualTheme": { "theme": "", "mood": "", "style": "" },
-  "suggestedSections": [],
-  "subject": "",
-  "objects": []
-}
-
-Image data: ${imageData.substring(0, 100)}...`;
-}
-
-export function buildPrompt(request: AIGenerationRequest): string {
-  return buildContentAnalysisPrompt(request);
 }

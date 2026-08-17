@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, AlertCircle, Info, AlertTriangle } from "lucide-react";
+import { Check, X, Info, AlertTriangle } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 
 const icons = {

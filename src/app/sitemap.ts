@@ -1,23 +1,21 @@
 import type { MetadataRoute } from "next";
-
-const baseUrl =
-  process.env.NEXT_PUBLIC_APP_URL || "https://infographic-ai.vercel.app";
+import { APP_URL } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
   return [
     {
-      url: `${baseUrl}/`,
+      url: `${APP_URL}/`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/dashboard`,
+      url: `${APP_URL}/generate`,
       lastModified: now,
       changeFrequency: "monthly",
-      priority: 0.4,
+      priority: 0.9,
     },
   ];
 }

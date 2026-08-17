@@ -1,14 +1,9 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { UIState, Toast } from "@/lib/types";
+import { Toast } from "@/lib/types";
 
-interface UIStore extends UIState {
-  toggleSidebar: () => void;
-  toggleTemplateGallery: () => void;
-  togglePropertiesPanel: () => void;
-  toggleExportPanel: () => void;
-  toggleAIPromptPanel: () => void;
-  setActiveTab: (tab: string) => void;
+interface UIStore {
+  toast: Toast | null;
   showToast: (toast: Omit<Toast, "id">) => void;
   dismissToast: () => void;
 }
@@ -16,36 +11,7 @@ interface UIStore extends UIState {
 export const useUIStore = create<UIStore>()(
   devtools(
     (set) => ({
-      sidebarOpen: true,
-      templateGalleryOpen: false,
-      propertiesPanelOpen: true,
-      exportPanelOpen: false,
-      aiPromptPanelOpen: false,
-      activeTab: "generate",
       toast: null,
-
-      toggleSidebar: () =>
-        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-
-      toggleTemplateGallery: () =>
-        set((state) => ({
-          templateGalleryOpen: !state.templateGalleryOpen,
-        })),
-
-      togglePropertiesPanel: () =>
-        set((state) => ({
-          propertiesPanelOpen: !state.propertiesPanelOpen,
-        })),
-
-      toggleExportPanel: () =>
-        set((state) => ({ exportPanelOpen: !state.exportPanelOpen })),
-
-      toggleAIPromptPanel: () =>
-        set((state) => ({
-          aiPromptPanelOpen: !state.aiPromptPanelOpen,
-        })),
-
-      setActiveTab: (tab) => set({ activeTab: tab }),
 
       showToast: (toastData) => {
         const id = crypto.randomUUID();

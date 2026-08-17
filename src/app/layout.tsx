@@ -1,17 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_APP_URL || "https://infographic-ai.vercel.app";
+import { APP_NAME, APP_DESCRIPTION, APP_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(APP_URL),
   title: {
-    default: "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
-    template: "%s | InfoGraphic AI",
+    default: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    template: `%s | ${APP_NAME}`,
   },
-  description:
-    "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
+  description: APP_DESCRIPTION,
   keywords:
     "infographic, AI, generator, design, template, visual, content, SaaS, marketing, presentation",
   manifest: "/manifest.json",
@@ -21,35 +18,31 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "InfoGraphic AI",
+    title: APP_NAME,
   },
   openGraph: {
-    title:
-      "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
-    description:
-      "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
+    title: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    description: APP_DESCRIPTION,
     type: "website",
     locale: "en_US",
-    url: siteUrl,
-    siteName: "InfoGraphic AI",
+    url: APP_URL,
+    siteName: APP_NAME,
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
+        alt: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title:
-      "InfoGraphic AI - Generate Data-Driven Infographics in 30 Seconds",
-    description:
-      "Turn blog posts, CSV data, or rough ideas into publication-ready infographics. No design skills needed. Free to start.",
+    title: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    description: APP_DESCRIPTION,
     images: ["/opengraph-image"],
   },
-    robots: {
+  robots: {
     index: true,
     follow: true,
   },

@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Loader2 } from "lucide-react";
-import InputPanel, { InputTab, Purpose } from "@/components/generate/InputPanel";
+import { Loader2, Settings } from "lucide-react";
+import InputPanel, { InputTab } from "@/components/generate/InputPanel";
 import CanvasView from "@/components/generate/CanvasView";
 import StylePanel from "@/components/generate/StylePanel";
+import ProviderSettings from "@/components/generate/ProviderSettings";
+import Toast from "@/components/ui/Toast";
 import { generateContent } from "@/services/ai/provider";
-import { getAspectRatio } from "@/services/template/templateEngine";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
+import { Purpose } from "@/lib/purposes";
+import { ASPECT_RATIOS } from "@/lib/constants";
 import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest } from "@/lib/types";
 
 const LOADING_STEPS = [
@@ -22,6 +25,7 @@ const LOADING_STEPS = [
 export default function GeneratePage() {
   const { setContent, setGenerating } = useEditorStore();
   const { showToast } = useUIStore();
+  const providers = useAIStore((s) => s.providers);
   const activeConfig = useAIStore((s) => s.getActiveConfig());
 
   const [input, setInput] = useState("");
@@ -32,11 +36,12 @@ export default function GeneratePage() {
   const [userIntent, setUserIntent] = useState("");
   const [layout, setLayout] = useState("modern");
   const [density, setDensity] = useState<"compact" | "balanced" | "spacious">("balanced");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(getAspectRatio("1:1"));
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS["1:1"]);
   const [zoom, setZoom] = useState(100);
   const [html, setHtml] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   const genInputType: AIGenerationRequest["inputType"] =
     inputType === "image" ? "image" : "text";
@@ -77,18 +82,26 @@ export default function GeneratePage() {
     setGenerating(true);
     const iv = setInterval(() => setStep((s) => (s + 1) % LOADING_STEPS.length), 700);
     try {
-      const res = await generateContent(
-        request,
-        activeConfig?.apiKey ?? "",
-        activeConfig?.id ?? "openai",
-        activeConfig?.model ?? "",
-        activeConfig?.temperature ?? 0.5,
-        activeConfig?.maxTokens ?? 2048,
-      );
+      const res = await generateContent(request, {
+        apiKey: activeConfig?.apiKey ?? "",
+        providerId: activeConfig?.id ?? "openai",
+        model: activeConfig?.model ?? "",
+        temperature: activeConfig?.temperature ?? 0.5,
+        maxTokens: activeConfig?.maxTokens ?? 2048,
+        storedProviders: providers.map((p) => ({
+          id: p.id,
+          apiKey: p.apiKey,
+          model: p.model,
+        })),
+      });
       if (res.success && res.generatedHtml) {
         setHtml(res.generatedHtml);
         if (res.content) setContent(res.content);
-        showToast({ type: "success", title: "Infographic ready!" });
+        showToast({
+          type: "success",
+          title: res.usedFallback ? "Generated (offline mode)" : "Infographic ready!",
+          message: res.usedFallback ? "No AI key configured — used the built-in generator." : undefined,
+        });
       } else {
         throw new Error(res.error || "Generation failed.");
       }
@@ -100,10 +113,10 @@ export default function GeneratePage() {
       setGenerating(false);
       setStep(0);
     }
-  }, [requestInput, genInputType, aspectRatio, purpose, resolvedTheme, userIntent, activeConfig, hasContent, setContent, setGenerating, showToast]);
+  }, [requestInput, genInputType, aspectRatio, purpose, resolvedTheme, userIntent, activeConfig, providers, hasContent, setContent, setGenerating, showToast]);
 
   const handleExport = useCallback(
-        async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
+    async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
       if (!html) return;
       try {
         const el = document.querySelector(".template-canvas-container") as HTMLElement;
@@ -120,11 +133,15 @@ export default function GeneratePage() {
           return;
         }
         const mod = await import("html-to-image");
-                const fn = format === "jpg" ? mod.toJpeg : format === "svg" ? mod.toSvg : mod.toPng;
+        const fn = format === "jpg" ? mod.toJpeg : format === "svg" ? mod.toSvg : mod.toPng;
         const dataUrl = await fn(el, { quality: 1, pixelRatio: 2 });
         if (format === "pdf") {
           const { jsPDF } = await import("jspdf");
-          const pdf = new jsPDF({ orientation: aspectRatio.width > aspectRatio.height ? "landscape" : "portrait", unit: "px", format: [aspectRatio.width, aspectRatio.height] });
+          const pdf = new jsPDF({
+            orientation: aspectRatio.width > aspectRatio.height ? "landscape" : "portrait",
+            unit: "px",
+            format: [aspectRatio.width, aspectRatio.height],
+          });
           pdf.addImage(dataUrl, "PNG", 0, 0, aspectRatio.width, aspectRatio.height);
           pdf.save("infographic.pdf");
         } else {
@@ -142,54 +159,66 @@ export default function GeneratePage() {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-navy-950 text-surface-100 font-body">
-      <InputPanel
-        input={input}
-        setInput={setInput}
-        inputType={inputType}
-        setInputType={setInputType}
-        imageUrl={imageUrl}
-        setImageUrl={setImageUrl}
-        imageFile={imageFile}
-        setImageFile={setImageFile}
-        purpose={purpose}
-        setPurpose={setPurpose}
-        userIntent={userIntent}
-        setUserIntent={setUserIntent}
-        onGenerateClick={handleGenerate}
-        isGenerating={isGenerating}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between">
-          <h1 className="font-display font-semibold text-white">Creator</h1>
-          {isGenerating && (
-            <div className="flex items-center gap-2 text-sm text-surface-300">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{LOADING_STEPS[step]}</span>
-            </div>
-          )}
-        </header>
-        <CanvasView
-          html={html}
-          aspectRatio={aspectRatio}
-          setAspectRatio={setAspectRatio}
-          zoom={zoom}
-          setZoom={setZoom}
-          onExport={handleExport}
-          onRegenerate={handleGenerate}
+    <>
+      <Toast />
+      <div className="flex h-screen overflow-hidden bg-navy-950 text-surface-100 font-body">
+        <InputPanel
+          input={input}
+          setInput={setInput}
+          inputType={inputType}
+          setInputType={setInputType}
+          imageUrl={imageUrl}
+          setImageUrl={setImageUrl}
+          imageFile={imageFile}
+          setImageFile={setImageFile}
+          purpose={purpose}
+          setPurpose={setPurpose}
+          userIntent={userIntent}
+          setUserIntent={setUserIntent}
+          onGenerateClick={handleGenerate}
           isGenerating={isGenerating}
         />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between">
+            <h1 className="font-display font-semibold text-white">Creator</h1>
+            <div className="flex items-center gap-2">
+              {isGenerating && (
+                <div className="flex items-center gap-2 text-sm text-surface-300">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{LOADING_STEPS[step]}</span>
+                </div>
+              )}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 hover:bg-white/5 rounded-lg text-surface-300 hover:text-white"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          </header>
+          <CanvasView
+            html={html}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
+            zoom={zoom}
+            setZoom={setZoom}
+            onExport={handleExport}
+            onRegenerate={handleGenerate}
+            isGenerating={isGenerating}
+          />
+        </div>
+        <StylePanel
+          layout={layout}
+          setLayout={setLayout}
+          density={density}
+          setDensity={setDensity}
+          onRegenerate={handleGenerate}
+          isGenerating={isGenerating}
+          hasContent={hasContent}
+        />
       </div>
-      <StylePanel
-        layout={layout}
-        setLayout={setLayout}
-        density={density}
-        setDensity={setDensity}
-        onRegenerate={handleGenerate}
-        isGenerating={isGenerating}
-        hasContent={hasContent}
-      />
-    </div>
+      <ProviderSettings open={showSettings} onClose={() => setShowSettings(false)} />
+    </>
   );
-
 }

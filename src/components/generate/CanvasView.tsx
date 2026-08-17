@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, Monitor, Smartphone, Tablet, FileImage, FileJson, FileType, Settings } from "lucide-react";
+import { Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, FileImage, FileJson, FileType } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AIDesignRenderer } from "@/components/templates/AIDesignRenderer";
 import { AspectRatio } from "@/lib/types";
@@ -19,7 +19,7 @@ interface CanvasViewProps {
 
 export default function CanvasView(p: CanvasViewProps) {
   const {
-    html, aspectRatio, setAspectRatio, zoom, setZoom, onExport, onRegenerate, isGenerating,
+    html, aspectRatio, setAspectRatio, zoom, onExport, onRegenerate, isGenerating,
   } = p;
 
   const exportOptions = [

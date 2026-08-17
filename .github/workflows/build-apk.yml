@@ -43,7 +43,7 @@ jobs:
 
       - name: Generate TWA project
         run: |
-          bubblewrap init --manifest https://infographic-ai.vercel.app/manifest.json
+          bubblewrap init --manifest https://infographic-generator.vercel.app/manifest.json
         continue-on-error: true
 
       - name: Build APK

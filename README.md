@@ -8,14 +8,14 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 
 > **Install on Android**: Download the APK from the [Releases page](https://github.com/piyushmehta910/Infographic-generator/releases/latest), enable "Install from unknown sources" in settings, and tap to install.
 
-## 🌐 Live Demo
+## Live Demo
 
-[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://infographic-ai.vercel.app)
+[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://infographic-generator.vercel.app)
 
 ## Core Philosophy
 
-> **AI generates structured content, not HTML.**
-> HTML/CSS templates generate the final infographic.
+> **The AI generates structured content and HTML; sanitization and validation make it safe.**
+> Everything runs client-side with your own API key.
 
 ## Features
 
@@ -37,17 +37,9 @@ A production-ready AI-powered infographic generator built with Next.js 15, TypeS
 - Icon & color palette recommendations
 - Image analysis (OCR, subject detection, color extraction)
 
-### Templates (8 Built-in)
+### Purposes
 
-- **Modern** - Clean, minimal with geometric accents
-- **Business** - Corporate professional design
-- **Timeline** - Chronological flow layout
-- **Comparison** - Side-by-side comparisons
-- **Education** - Learning-focused layouts
-- **Medical** - Healthcare information design
-- **Technology** - Modern tech-forward aesthetic
-- **Startup** - Energetic pitch deck style
-- **Marketing** - Social media optimized
+Pick a purpose (Blog Post, Marketing, Education, Business, Health, etc.) and the AI tailors structure, tone, and visual style accordingly.
 
 ### Aspect Ratios
 
@@ -69,33 +61,27 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 
 - PNG (High resolution, 2x pixel ratio)
 - JPG (Compressed image)
+- SVG (Vector)
 - PDF (Print-ready document)
 - JSON (Project data)
 
 ### Mobile & PWA
 
-- 📱 **Fully responsive** - Works on mobile, tablet, and desktop
-- 🔄 **PWA support** - Install as an app on any device
-- 📲 **Android APK** - Native Android app via TWA
-- 💾 **Offline support** - Service worker caching
-- 🎨 **Mobile-optimized UI** - Slide-in drawer, floating action button
+- **Fully responsive** - Works on mobile, tablet, and desktop
+- **PWA support** - Install as an app on any device
+- **Android APK** - Native Android app via TWA
 
-### Editor Features
+### Generator Features
 
-- Live canvas preview
-- Text editing (title, subtitle, CTA)
-- Font selection (Inter, Poppins, Roboto, Manrope, Nunito, DM Sans)
-- Alignment controls (left, center, right, justify)
-- Spacing controls (compact, comfortable, spacious)
-- Grid overlay & snap-to-grid
-- Zoom controls
-- Undo/Redo history
-- Auto-save to browser storage
+- Live canvas preview with zoom & aspect-ratio switching
+- Multi-attempt HTML generation (validated, scored, best kept)
+- Offline mode — the local generator still produces designs when no API key is configured
+- API-key configuration via the Settings modal (stored in the browser)
 
 ### REST API
 
-- `POST /api/v1/generate` - Generate infographic content
 - `GET /api/v1/templates` - List available templates
+- `GET /api/health` - Health check
 - Client-side AI generation with your API key
 
 ## Tech Stack
@@ -103,9 +89,8 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS + CSS Variables
-- **State Management**: Zustand (with persist middleware)
+- **State Management**: Zustand
 - **Animations**: Framer Motion
-- **Forms**: React Hook Form
 - **Export**: html-to-image, jsPDF
 - **AI Integration**: Direct API calls (OpenAI, Gemini, Claude, OpenRouter, Groq)
 
@@ -134,11 +119,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Configuration
 
-1. Navigate to the dashboard
-2. Click Settings (gear icon)
+1. Open the Generator (`/generate`)
+2. Click the Settings (gear) icon in the top bar
 3. Select your AI provider
 4. Enter your API key
-5. Choose a model
+5. Choose a model (and temperature/max tokens)
 6. Start generating!
 
 ## Project Structure
@@ -146,38 +131,43 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 src/
 ├── app/
-│   ├── (marketing)/          # Landing page
+│   ├── page.tsx                # Landing page
+│   ├── generate/               # Main generator/editor
 │   │   └── page.tsx
-│   ├── dashboard/            # Main editor dashboard
+│   ├── dashboard/              # Redirects to /generate
 │   │   └── page.tsx
-│   ├── api/v1/               # REST API endpoints
-│   │   ├── generate/route.ts
-│   │   └── templates/route.ts
+│   ├── api/
+│   │   ├── health/route.ts
+│   │   └── v1/templates/route.ts
 │   ├── layout.tsx
-│   └── globals.css
+│   ├── globals.css
+│   ├── sitemap.ts
+│   └── opengraph-image/
 ├── components/
-│   ├── templates/            # Template renderers
-│   │   ├── TemplateRenderer.tsx
-│   │   ├── ModernTemplate.tsx
-│   │   └── BusinessTemplate.tsx
-│   └── ui/                   # Shared UI components
-├── stores/                   # Zustand state management
-│   ├── editorStore.ts
-│   ├── templateStore.ts
+│   ├── generate/               # Generator UI (InputPanel, CanvasView, StylePanel, ProviderSettings)
+│   ├── templates/              # AIDesignRenderer (renders generated HTML)
+│   └── ui/                     # Shared UI (Button, GlassCard, Modal, Toast)
+├── stores/                     # Zustand state management
 │   ├── aiStore.ts
-│   ├── projectStore.ts
+│   ├── editorStore.ts
 │   └── uiStore.ts
-├── services/
-│   ├── ai/                   # AI provider integrations
-│   │   ├── provider.ts       # 5 provider implementations
-│   │   └── promptBuilder.ts
-│   └── template/             # Template engine
-│       └── templateEngine.ts
-├── lib/                      # Core types & constants
-│   ├── types.ts
-│   └── constants.ts
-└── styles/
-    └── themes/
+├── services/ai/                # AI provider integrations
+│   ├── providers.ts            # 5 provider implementations
+│   ├── pipeline.ts             # 3-step generation pipeline
+│   ├── fallback.ts             # Model/provider fallback
+│   ├── response.ts             # JSON/HTML extraction & sanitization
+│   ├── normalize.ts            # Output normalization
+│   ├── quality.ts              # HTML validation & scoring
+│   ├── localGenerator.ts       # Offline generation fallback
+│   ├── promptBuilder.ts        # Prompt construction
+│   └── provider.ts             # Public re-export entry
+└── lib/                        # Core types & constants
+    ├── types.ts
+    ├── constants.ts
+    ├── purposes.ts
+    ├── site.ts
+    ├── canvas.ts
+    └── templates.ts
 ```
 
 ## Deployment
@@ -232,20 +222,19 @@ API keys are stored locally in the browser using localStorage. No keys are sent 
 - **Security**: No server-side storage of credentials
 - **Control**: You can revoke keys at any time
 
-## Adding New Templates
+## Adding New AI Providers
 
-1. Create a new component in `src/components/templates/`
-2. Add the template config in `src/services/template/templateEngine.ts`
-3. Register the component in `TemplateRenderer.tsx`
-4. The template automatically appears in the dashboard
+1. Implement the `AIProvider` interface in `src/services/ai/providers.ts`
+2. Add it to `providerMap`
+3. Add its model list to `AI_PROVIDERS` in `src/lib/constants.ts`
 
 ## Architecture Principles
 
-1. **AI Never Generates HTML** - AI returns structured JSON only
-2. **Template-Driven** - All rendering is done by pre-built React components
-3. **Provider-Agnostic** - Abstract AI provider interface makes adding new providers trivial
-4. **Client-First** - AI calls happen in the browser with user's API key
-5. **Extensible** - New templates, providers, and export formats require minimal changes
+1. **Client-First** - AI calls happen in the browser with the user's API key
+2. **Provider-Agnostic** - Abstract `AIProvider` interface makes adding providers trivial
+3. **Guaranteed Output** - The local generator always produces a result if AI fails
+4. **Sanitized HTML** - Generated HTML is validated, scored, and sanitized before rendering
+5. **Single-Sourced Config** - Branding, canvas math, and templates live in `src/lib/*`
 
 ## License
 

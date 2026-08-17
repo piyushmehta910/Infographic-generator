@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight, Sparkles, BarChart3, Palette, Zap, Image, Layout, Download, CheckCircle2, Github, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, BarChart3, Palette, Zap, Image, Layout, Download, CheckCircle2, Github, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 

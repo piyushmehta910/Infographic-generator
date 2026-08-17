@@ -10,8 +10,8 @@ It converts text, ideas, and image-based input into polished infographic output.
 - Multi-input generation (text, idea, upload, URL)
 - AI content analysis and improvement
 - AI-driven design blueprint + HTML generation
-- Multiple visual templates and themes
-- Export support (PNG/JSON in current dashboard flow)
+- Multiple visual themes and purposes
+- Export support (PNG/JPG/SVG/PDF/JSON in the generate flow)
 
 ## Technical foundation
 
@@ -24,7 +24,7 @@ It converts text, ideas, and image-based input into polished infographic output.
 
 - `src/app` - routes/pages and API endpoints
 - `src/components` - UI and rendering components
-- `src/services` - AI pipeline + template logic
+- `src/services` - AI pipeline (providers, fallback, quality, local generator)
 - `src/stores` - Zustand state management
 - `src/lib` - shared types/constants
 

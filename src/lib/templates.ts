@@ -1,90 +1,7 @@
-import React from "react";
-import {
-  InfographicContent,
-  TemplateConfig,
-  Theme,
-  AspectRatio,
-  TemplateSettings,
-  ThemeId,
-  AspectRatioId,
-  FontId,
-} from "@/lib/types";
-import { THEMES, ASPECT_RATIOS, FONTS } from "@/lib/constants";
+import { TemplateConfig } from "@/lib/types";
 
-export function getTheme(themeId: ThemeId): Theme {
-  return THEMES[themeId] || THEMES.light;
-}
-
-export function getAspectRatio(ratioId: AspectRatioId): AspectRatio {
-  return ASPECT_RATIOS[ratioId] || ASPECT_RATIOS["1:1"];
-}
-
-export function getGoogleFontUrl(fontId: FontId): string {
-  const font = FONTS.find((f) => f.id === fontId);
-  if (!font) return "";
-  const weights = font.weights.join(";");
-  return `https://fonts.googleapis.com/css2?family=${font.googleFont}:wght@${weights}&display=swap`;
-}
-
-export function getCanvasStyle(
-  aspectRatio: AspectRatio,
-  theme: Theme,
-  settings: TemplateSettings,
-): React.CSSProperties {
-  const scale = Math.min(800 / aspectRatio.width, 600 / aspectRatio.height, 1);
-
-  return {
-    width: `${aspectRatio.width}px`,
-    height: `${aspectRatio.height}px`,
-    backgroundColor: settings.backgroundColor || theme.colors.cardBackground,
-    color: theme.colors.text,
-    fontFamily: settings.fontFamily || "Inter, sans-serif",
-    padding: `${settings.padding}px`,
-    borderRadius: `${settings.roundedCorners}px`,
-    boxShadow: settings.shadow
-      ? `0 ${settings.shadow}px ${settings.shadow * 2}px ${theme.colors.shadow}`
-      : "none",
-    border: settings.border ? `1px solid ${theme.colors.border}` : "none",
-    transform: `scale(${scale})`,
-    transformOrigin: "top left",
-    overflow: "hidden",
-    position: "relative",
-  };
-}
-
-export function generateId(): string {
-  return `el-${crypto.randomUUID().slice(0, 8)}`;
-}
-
-export function getSpacingValue(
-  spacing: "compact" | "comfortable" | "spacious",
-): number {
-  switch (spacing) {
-    case "compact":
-      return 8;
-    case "comfortable":
-      return 16;
-    case "spacious":
-      return 32;
-  }
-}
-
-export function getAlignmentStyle(
-  alignment: "left" | "center" | "right" | "justify",
-): React.CSSProperties {
-  switch (alignment) {
-    case "left":
-      return { textAlign: "left" };
-    case "center":
-      return { textAlign: "center" };
-    case "right":
-      return { textAlign: "right" };
-    case "justify":
-      return { textAlign: "justify" };
-  }
-}
-
-// Template configs for the 8 built-in templates
+// Template configs for the built-in templates.
+// Single source of truth consumed by the API route and the Style panel.
 export const BUILT_IN_TEMPLATES: TemplateConfig[] = [
   {
     id: "modern",
@@ -552,3 +469,16 @@ export function getTemplatesByCategory(category: string): TemplateConfig[] {
   if (category === "all") return BUILT_IN_TEMPLATES;
   return BUILT_IN_TEMPLATES.filter((t) => t.category === category);
 }
+
+export const TEMPLATE_CATEGORIES = [
+  { id: "all", label: "All Templates" },
+  { id: "business", label: "Business" },
+  { id: "marketing", label: "Marketing" },
+  { id: "education", label: "Education" },
+  { id: "technology", label: "Technology" },
+  { id: "medical", label: "Medical" },
+  { id: "timeline", label: "Timeline" },
+  { id: "comparison", label: "Comparison" },
+  { id: "startup", label: "Startup" },
+  { id: "social", label: "Social Media" },
+] as const;

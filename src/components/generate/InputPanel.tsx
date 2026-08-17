@@ -2,9 +2,9 @@
 
 import { FileText, Globe, ImageIcon, Upload, Brain, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Purpose, PURPOSES } from "@/lib/purposes";
 
 export type InputTab = "text" | "url" | "image" | "data";
-export type Purpose = "" | "social-media" | "presentation" | "report" | "education" | "marketing" | "other";
 
 interface InputPanelProps {
   input: string;
@@ -17,7 +17,7 @@ interface InputPanelProps {
   setImageFile: (f: File | null) => void;
   purpose: Purpose;
   setPurpose: (p: Purpose) => void;
-    userIntent: string;
+  userIntent: string;
   setUserIntent: (v: string) => void;
   onGenerateClick: () => void;
   isGenerating: boolean;
@@ -30,25 +30,17 @@ const INPUT_TABS: { id: InputTab; label: string; icon: React.ReactNode }[] = [
   { id: "data", label: "Data (CSV)", icon: <Upload className="w-4 h-4" /> },
 ];
 
-const PURPOSES: { id: Purpose; label: string; icon: string }[] = [
-  { id: "social-media", label: "Social Media", icon: "📱" },
-  { id: "presentation", label: "Presentation", icon: "📊" },
-  { id: "report", label: "Report", icon: "📄" },
-  { id: "education", label: "Education", icon: "📚" },
-  { id: "marketing", label: "Marketing", icon: "📢" },
-  { id: "other", label: "Other", icon: "✨" },
-];
-
 export default function InputPanel(p: InputPanelProps) {
   const {
     input, setInput, inputType, setInputType, imageUrl, setImageUrl,
-    imageFile, setImageFile, purpose, setPurpose,     userIntent, setUserIntent, onGenerateClick, isGenerating,
+    imageFile, setImageFile, purpose, setPurpose, userIntent, setUserIntent,
+    onGenerateClick, isGenerating,
   } = p;
 
   const canGenerate = Boolean(input) && input.trim().length > 0;
   return (
-    <div className="w-full md:w-80 lg:w-72 xl:w-80 flex-shrink-0 overflow-y-auto">
-      <div className="p-6 space-y-5">
+    <div className="w-full md:w-72 lg:w-76 xl:w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
+      <div className="p-6 flex-1 overflow-y-hidden">
         <div>
           <h1 className="text-xl font-display font-bold text-white mb-1">Create Infographic</h1>
           <p className="text-sm text-surface-400">AI generates unique designs based on your content.</p>
@@ -112,7 +104,7 @@ export default function InputPanel(p: InputPanelProps) {
                   setImageUrl("");
                   if (f) {
                     const r = new FileReader();
-                                        r.onload = () => setInput((r.result as string) || "");
+                    r.onload = () => setInput((r.result as string) || "");
                     r.readAsDataURL(f);
                   }
                   setInputType("image");
@@ -174,7 +166,7 @@ export default function InputPanel(p: InputPanelProps) {
           />
         </div>
 
-                                <div className="pt-2">
+        <div className="pt-2">
           <Button
             variant="primary"
             className="w-full"
