@@ -2,7 +2,7 @@
 
 ## High-level components
 
-- **Landing page**: `src/app/page.tsx`
+- **Landing page**: `src/app/page.tsx` composing sections in `src/components/landing/` (Header, Hero, Stats, Features, HowItWorks, Providers, UseCases, FAQ, CTA, Footer)
 - **Generator/editor**: `src/app/generate/page.tsx`
 - **Dashboard redirect**: `src/app/dashboard/page.tsx` (redirects to `/generate`)
 - **API routes**:

@@ -156,3 +156,84 @@ input, textarea, select {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #0f172a; }
 ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+/* ============================================================
+   Premium landing utilities
+   ============================================================ */
+
+/* Subtle blueprint grid */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* Film-grain noise overlay (data-URI, non-blocking) */
+.bg-noise {
+  position: relative;
+}
+.bg-noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(100deg, #a78bfa 0%, #8b5cf6 35%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Brand glow shadows */
+.glow-brand {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.18), 0 10px 40px -10px rgba(139, 92, 246, 0.45);
+}
+.glow-emerald {
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.18), 0 10px 40px -10px rgba(16, 185, 129, 0.4);
+}
+
+/* Premium card hover */
+.card-glow {
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-glow:hover {
+  border-color: rgba(167, 139, 250, 0.35);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px -12px rgba(139, 92, 246, 0.35);
+}
+
+/* Marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Soft floating orbs */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+/* Animated conic ring for feature cards */
+.ring-conic {
+  background: conic-gradient(
+    from 180deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.6) 40%,
+    rgba(52, 211, 153, 0.6) 60%,
+    transparent 100%
+  );
+}

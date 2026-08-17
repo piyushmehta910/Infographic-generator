@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { Loader2, Settings, Sparkles } from "lucide-react";
 import InputPanel, { InputTab } from "@/components/generate/InputPanel";
 import CanvasView from "@/components/generate/CanvasView";
@@ -161,7 +162,12 @@ export default function GeneratePage() {
   return (
     <>
       <Toast />
-      <div className="flex h-screen overflow-hidden bg-navy-950 text-surface-100 font-body">
+      <div className="flex h-screen overflow-hidden bg-navy-950 text-surface-100 font-body relative">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-32 right-1/4 w-[480px] h-[480px] rounded-full bg-brand-500/10 blur-[130px]" />
+          <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] rounded-full bg-emerald-500/8 blur-[120px]" />
+        </div>
+        <div className="relative z-10 flex h-full w-full">
         <InputPanel
           input={input}
           setInput={setInput}
@@ -179,16 +185,16 @@ export default function GeneratePage() {
           isGenerating={isGenerating}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between bg-surface-900/60">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
+          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between bg-surface-900/60 backdrop-blur-xl">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40 transition-transform group-hover:scale-105">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div className="flex items-baseline gap-2">
                 <h1 className="font-display font-semibold text-white leading-tight">{APP_NAME}</h1>
                 <span className="hidden sm:inline text-[11px] text-surface-400 uppercase tracking-wider">Creator</span>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-2">
               {isGenerating && (
                 <div className="flex items-center gap-2 text-sm text-surface-300">
@@ -225,6 +231,7 @@ export default function GeneratePage() {
           isGenerating={isGenerating}
           hasContent={hasContent}
         />
+        </div>
       </div>
       <ProviderSettings open={showSettings} onClose={() => setShowSettings(false)} />
     </>

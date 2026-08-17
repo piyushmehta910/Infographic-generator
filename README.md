@@ -144,7 +144,8 @@ src/
 │   ├── sitemap.ts
 │   └── opengraph-image/
 ├── components/
-│   ├── generate/               # Generator UI (InputPanel, CanvasView, StylePanel, ProviderSettings)
+│   ├── landing/               # Landing sections (Header, Hero, Features, FAQ, …)
+│   ├── generate/              # Generator UI (InputPanel, CanvasView, StylePanel, ProviderSettings)
 │   ├── templates/              # AIDesignRenderer (renders generated HTML)
 │   └── ui/                     # Shared UI (Button, GlassCard, Modal, Toast)
 ├── stores/                     # Zustand state management
