@@ -105,13 +105,13 @@ export const useAIStore = create<AIStore>()(
         }),
         merge: (persisted, current) => {
           // Migrate persisted state: drop removed providers (OpenAI/Gemini/Claude),
-          // reset OpenRouter to a free model, and fix stale active provider.
+          // reset OpenRouter to a free model, fix stale active provider, and
+          // add back any default providers missing from an older persisted store.
           const merged = { ...current, ...(persisted as Partial<AIStore>) };
           if (merged.providers) {
+            const supported = new Set(SUPPORTED_PROVIDER_IDS);
             merged.providers = (merged.providers || [])
-              .filter((p: AIProviderConfig) =>
-                (SUPPORTED_PROVIDER_IDS as readonly string[]).includes(p.id),
-              )
+              .filter((p: AIProviderConfig) => supported.has(p.id))
               .map((p: AIProviderConfig) => {
                 if (
                   p.id === "openrouter" &&
@@ -123,6 +123,11 @@ export const useAIStore = create<AIStore>()(
                 }
                 return p;
               });
+            for (const def of defaultProviders) {
+              if (!merged.providers.some((p) => p.id === def.id)) {
+                merged.providers.push({ ...def });
+              }
+            }
             if (merged.providers.length === 0) merged.providers = defaultProviders;
           }
           if (
