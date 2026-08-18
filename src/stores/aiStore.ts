@@ -22,7 +22,7 @@ interface AIStore {
   getActiveConfig: () => AIProviderConfig | undefined;
 }
 
-const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim"] as const;
+const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim", "mistral"] as const;
 
 const defaultProviders: AIProviderConfig[] = [
   {
@@ -48,6 +48,15 @@ const defaultProviders: AIProviderConfig[] = [
     name: "Groq",
     apiKey: "",
     model: "llama-3.1-8b-instant",
+    temperature: 0.5,
+    maxTokens: 1024,
+    enabled: false,
+  },
+  {
+    id: "mistral",
+    name: "Mistral",
+    apiKey: "",
+    model: "mistral-large-latest",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: false,

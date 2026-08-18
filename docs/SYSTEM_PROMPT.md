@@ -179,11 +179,13 @@ If a model fails, the system automatically tries:
 1. OpenRouter (free-model collection)
 2. NVIDIA NIM (free inference tier)
 3. Groq (free tier)
+4. Mistral (official API)
 
 ### Fallback Models per Provider
 - OpenRouter: `openrouter/free` auto-select, then free models (`:free` suffixes only)
 - NVIDIA NIM: llama-3.3-70b-instruct first, then Nemotron/GPT-OSS/Qwen/Kimi/DeepSeek hosted models
 - Groq: llama-3.1-8b-instant first, then 70b-versatile, llama-4-scout, gpt-oss, qwen3-32b, compound
+- Mistral: mistral-large-latest first, then small, ministral-8b, mixtral, mistral-7b, codestral
 
 ## ASPECT RATIOS SUPPORTED
 - 1:1 (1080×1080) - Square

@@ -49,11 +49,12 @@ Pick a purpose (Blog Post, Marketing, Education, Business, Health, etc.) and the
 
 Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glassmorphism, Neumorphism, Gradient, Material Design
 
-### AI Providers (Bring Your Own Key, free models)
+### AI Providers (Bring Your Own Key)
 
 - OpenRouter (free-model auto-select + free models)
-- NVIDIA NIM (Llama, Nemotron, GPT-OSS, Qwen, DeepSeek on NVIDIA's free tier)
+- NVIDIA NIM (Llama, Nemotron, GPT-OSS, Qwen, DeepSeek, Mistral on NVIDIA's free tier)
 - Groq (fast LPU inference, free tier)
+- Mistral (official La Plateforme API: Mistral Large/Small, Ministral, Mixtral)
 
 ### Export Formats
 
@@ -90,7 +91,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - **State Management**: Zustand
 - **Animations**: Framer Motion
 - **Export**: html-to-image, jsPDF
-- **AI Integration**: Direct API calls (OpenRouter, NVIDIA NIM, Groq)
+- **AI Integration**: Direct API calls (OpenRouter, NVIDIA NIM, Groq, Mistral)
 
 ## Getting Started
 
@@ -151,7 +152,7 @@ src/
 │   ├── editorStore.ts
 │   └── uiStore.ts
 ├── services/ai/                # AI provider integrations
-│   ├── providers.ts            # 3 provider implementations
+│   ├── providers.ts            # 4 provider implementations
 │   ├── pipeline.ts             # 4-phase generation pipeline
 │   ├── fallback.ts             # Model/provider fallback
 │   ├── response.ts             # JSON/HTML extraction & sanitization

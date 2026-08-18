@@ -40,7 +40,10 @@ export default function InputPanel(p: InputPanelProps) {
     onGenerateClick, isGenerating,
   } = p;
 
-  const canGenerate = Boolean(input) && input.trim().length > 0;
+  const canGenerate =
+    inputType === "url"
+      ? Boolean(imageUrl) && imageUrl.trim().length > 0
+      : Boolean(input) && input.trim().length > 0;
 
   return (
     <div className="w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">

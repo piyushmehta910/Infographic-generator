@@ -37,13 +37,33 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
     "nvidia/nemotron-3-ultra-550b-a55b",
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+    "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
     "qwen/qwen3-next-80b-a3b-instruct",
     "moonshotai/kimi-k2-instruct",
     "deepseek-ai/deepseek-v4-flash",
+    "deepseek-ai/deepseek-v4-pro",
+    "moonshotai/kimi-k2-thinking",
+    "qwen/qwen3-coder-480b-a35b-instruct",
+    "z-ai/glm5.1",
+    "mistralai/mistral-nemotron",
+    "mistralai/mixtral-8x22b-instruct",
+    "mistralai/mixtral-8x7b-instruct",
     "meta/llama-3.1-8b-instruct",
     "microsoft/phi-4-mini-instruct",
+    "nvidia/nvidia-nemotron-nano-9b-v2",
+    "nvidia/nemotron-mini-4b-instruct",
+  ],
+  mistral: [
+    "mistral-large-latest",
+    "mistral-small-latest",
+    "ministral-8b-latest",
+    "open-mixtral-8x22b",
+    "open-mixtral-8x7b",
+    "open-mistral-7b",
+    "codestral-latest",
   ],
 };
 
@@ -87,7 +107,7 @@ export async function tryAllProviders(
   maxTokens: number,
   storedProviders: StoredProvider[],
 ): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
-  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq"];
+  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq", "mistral"];
   for (const pid of providerPriority) {
     let apiKeyToUse = "";
     let modelToUse = "";

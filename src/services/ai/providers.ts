@@ -141,8 +141,47 @@ class GroqProviderImpl implements AIProvider {
   }
 }
 
+class MistralProviderImpl implements AIProvider {
+  id: AIProviderId = "mistral";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await fetchWithTimeout(
+      "https://api.mistral.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model || "mistral-large-latest",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: prompt },
+          ],
+          temperature,
+          max_tokens: maxTokens,
+        }),
+      },
+    );
+    if (!response.ok) throw new Error(`Mistral (${model}): ${await response.text()}`);
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content;
+    const content = Array.isArray(raw)
+      ? raw.map((c: any) => (typeof c === "string" ? c : c?.text || "")).join("")
+      : raw || "";
+    return content;
+  }
+}
+
 export const providerMap: Record<AIProviderId, AIProvider> = {
   openrouter: new OpenRouterProviderImpl(),
   groq: new GroqProviderImpl(),
   nim: new NIMProviderImpl(),
+  mistral: new MistralProviderImpl(),
 };

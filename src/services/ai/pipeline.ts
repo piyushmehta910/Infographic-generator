@@ -450,14 +450,13 @@ async function runPipeline(
       processingTime: Date.now() - startTime,
       usedFallback: false,
     };
-  } catch {
-    // Unexpected error: report it with the elapsed time — never fabricate output.
-    return failedResult(
-      providerId,
-      model,
-      "Unexpected error during generation. Please try again.",
-      steps,
-      startTime,
-    );
+  } catch (error) {
+    // Unexpected error: report it (with the real cause when available) and elapsed
+    // time — never fabricate output.
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unexpected error during generation. Please try again.";
+    return failedResult(providerId, model, message, steps, startTime);
   }
 }

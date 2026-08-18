@@ -154,7 +154,7 @@ export type FontId =
 
 // --- AI Provider Types ---
 
-export type AIProviderId = "openrouter" | "groq" | "nim";
+export type AIProviderId = "openrouter" | "groq" | "nim" | "mistral";
 
 export interface AIProviderConfig {
   id: AIProviderId;

@@ -17,7 +17,7 @@ It converts text, ideas, and image-based input into polished infographic output.
 
 - Frontend: Next.js 15 + React 19 + Tailwind CSS
 - State: Zustand stores for AI/editor/project/UI
-- AI providers: OpenRouter, NVIDIA NIM, Groq (free models only)
+- AI providers: OpenRouter, NVIDIA NIM, Groq, Mistral
 - Type safety: strict TypeScript with central type definitions
 
 ## Core folders

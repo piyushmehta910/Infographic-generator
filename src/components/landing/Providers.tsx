@@ -7,6 +7,7 @@ const PROVIDERS = [
   { name: "OpenRouter", color: "#a78bfa", tag: "Free models" },
   { name: "NVIDIA NIM", color: "#76b900", tag: "Nemotron & Llama" },
   { name: "Groq", color: "#f87171", tag: "Instant LPU" },
+  { name: "Mistral", color: "#fa520f", tag: "La Plateforme" },
 ];
 
 export function Providers() {
@@ -27,7 +28,7 @@ export function Providers() {
         </Reveal>
 
         <Reveal delay={0.1}>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {PROVIDERS.map((p) => (
               <div
                 key={p.name}
