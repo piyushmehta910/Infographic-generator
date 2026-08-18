@@ -10,7 +10,7 @@ import {
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
 import { validateOutline } from "@/lib/schemas";
-import { providerMap } from "./providers";
+import { providerMap, AIProvider } from "./providers";
 import { generateWithFallback, tryAllProviders, StoredProvider } from "./fallback";
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
 import { normalizeContent } from "./normalize";
@@ -105,10 +105,122 @@ export async function generateContent(
   }
   generationInFlight = true;
   try {
-    return await runPipeline(request, options);
+    const result = await runPipeline(request, options);
+    // If the multi-phase pipeline failed (very common on flaky free models),
+    // retry with a single-shot HTML generation: one call instead of five has
+    // a far higher chance of succeeding when providers are rate-limited.
+    if (result.success) return result;
+    const single = await singleShotAttempt(request, options);
+    if (single) return single;
+    return result;
   } finally {
     generationInFlight = false;
   }
+}
+
+/**
+ * Single-shot fallback: one AI call that returns a complete HTML infographic
+ * directly. Used only when the full 4-phase pipeline fails. Returns a success
+ * result, or null so the caller can report the original pipeline failure.
+ */
+async function singleShotAttempt(
+  request: AIGenerationRequest,
+  options: GenerateContentOptions,
+): Promise<AIGenerationResult | null> {
+  const { apiKey, providerId, model } = options;
+  const storedProviders = options.storedProviders ?? [];
+  const temperature = Math.min(options.temperature ?? 0.5, 0.4);
+  const maxTokens = options.maxTokens ?? 2048;
+  const startTime = Date.now();
+  if (!apiKey || !apiKey.trim()) return null;
+
+  const dimensions = getCanvasDimensions(
+    request.aspectRatio,
+    request.aspectRatioWidth,
+    request.aspectRatioHeight,
+  );
+  const source = (request.input || "").slice(0, 6000);
+  const prompt = `Design a complete, self-contained HTML infographic that visualizes the content below.
+
+CANVAS: exactly ${dimensions.width}px wide and ${dimensions.height}px high. The outer container must be exactly those dimensions with overflow:hidden. Do not use viewport units.
+THEME: ${request.theme || "modern"} color palette.
+STYLE INTENT: ${request.userIntent || "premium, clean, data-driven"}.
+PURPOSE: ${request.purpose || "informative"}.
+
+CONTENT TO VISUALIZE:
+${source || "Create a generic data-visualization infographic about growth and progress."}
+
+REQUIREMENTS:
+- Return a complete document starting with <!DOCTYPE html> and containing <head><style> and <body>.
+- Rich <style> block: grid/flex layout, gradient background, cards with border-radius and box-shadow, large accent numbers for statistics.
+- Structure with <div>/<section> containers, headings, paragraphs, and styled stat cards.
+- Use ONLY real content from the source above. No placeholders, no "lorem ipsum", no "your content here".
+- No scripts, no external images, no emoji.
+- Output ONLY the raw HTML — no markdown fences, no explanations.`;
+
+  const candidates: { provider: AIProviderId; model: string; text: string }[] = [];
+
+  const collect = async (
+    prov: AIProvider,
+    key: string,
+    modelId: string,
+    pid: AIProviderId,
+  ) => {
+    try {
+      const text = await generateWithFallback(
+        prov,
+        prompt,
+        key,
+        modelId,
+        temperature,
+        Math.min(maxTokens, HTML_TOKEN_CAP),
+        pid,
+      );
+      candidates.push({ provider: pid, model: modelId, text });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const primary = providerMap[providerId];
+  if (primary) {
+    await collect(primary, apiKey, model, providerId);
+  }
+  // If the primary provider failed, try every other configured provider.
+  if (candidates.length === 0 && storedProviders.length > 0) {
+    const order: AIProviderId[] = ["openrouter", "nim", "groq", "mistral"];
+    for (const pid of order) {
+      const stored = storedProviders.find((p) => p.id === pid && p.apiKey);
+      const prov = providerMap[pid];
+      if (!stored || !prov) continue;
+      const done = await collect(prov, stored.apiKey, stored.model, pid);
+      if (done) break;
+    }
+  }
+
+  for (const candidate of candidates) {
+    const html = sanitizeHTML(extractHTML(candidate.text));
+    const val = validateInfographicHTML(html, dimensions.width, dimensions.height);
+    if (!val.pass) continue;
+    return {
+      success: true,
+      generatedHtml: html,
+      blueprint: null,
+      steps: [
+        {
+          name: "Single-shot HTML generation",
+          status: "fallback",
+          durationMs: Date.now() - startTime,
+        },
+      ],
+      provider: candidate.provider,
+      model: candidate.model,
+      processingTime: Date.now() - startTime,
+      usedFallback: true,
+    };
+  }
+  return null;
 }
 
 async function runPipeline(

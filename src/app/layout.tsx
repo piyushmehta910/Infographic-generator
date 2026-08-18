@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "infographic, AI, generator, design, template, visual, content, SaaS, marketing, presentation",
   manifest: "/manifest.json",
   alternates: {
-    canonical: "/",
+    canonical: APP_URL,
   },
   appleWebApp: {
     capable: true,

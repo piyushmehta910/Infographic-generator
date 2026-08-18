@@ -86,39 +86,53 @@ export default function EditableCanvas({
     }, 300);
   }, [onStateChange]);
 
-  // --- build / rebuild from HTML ---------------------------------
+// --- build / rebuild from HTML ---------------------------------
+  const builtRef = useRef(false);
   useEffect(() => {
-    if (!active || !canvasElRef.current) return;
+    if (!active) return;
     let cancelled = false;
+    let attempts = 0;
 
-(async () => {
+    const run = async () => {
       const c = canvasRef.current;
-      if (!c) return;
-
-      if (canvasState && rebuildToken === 0 && localBuildToken === 0) {
-        c.clear();
-        await c.loadFromJSON(canvasState as any);
-        c.requestRenderAll();
-        setBusy(false);
+      if (!c) {
+        if (attempts++ < 100 && !cancelled) setTimeout(run, 100);
         return;
       }
-
       setBusy(true);
-      const { objects, warnings: w } = await buildFabricFromHTML(html, width, height);
-      if (cancelled) return;
-      c.clear();
-      objects.forEach((o) => c.add(o));
-      c.requestRenderAll();
-      setWarnings(w);
+
+      if (!builtRef.current && canvasState) {
+        // First build from persisted canvas state (project reopened in edit mode).
+        try {
+          c.clear();
+          await c.loadFromJSON(canvasState as any);
+          c.requestRenderAll();
+        } catch {
+          // Corrupt state — fall through to parsing from HTML.
+          builtRef.current = false;
+        }
+      }
+      if (!builtRef.current) {
+        const { objects, warnings: w } = await buildFabricFromHTML(html, width, height);
+        if (cancelled) return;
+        c.clear();
+        objects.forEach((o) => c.add(o));
+        c.requestRenderAll();
+        setWarnings(w);
+        historyRef.current = [];
+        redoRef.current = [];
+        if (onStateChange) onStateChange(c.toJSON());
+      }
+      builtRef.current = true;
       setBusy(false);
-      historyRef.current = [];
-      redoRef.current = [];
-      if (onStateChange) onStateChange(c.toJSON());
-    })();
+    };
+    run();
 
     return () => {
       cancelled = true;
     };
+    // html/canvasState are read at build time (initial), rebuilds are explicit
+    // via rebuildToken / localBuildToken so manual edits are never lost.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rebuildToken, localBuildToken, active]);
 

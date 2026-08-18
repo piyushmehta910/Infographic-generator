@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Loader2, Settings, Sparkles } from "lucide-react";
 import InputPanel, { InputTab } from "@/components/generate/InputPanel";
@@ -15,6 +15,7 @@ import { Purpose } from "@/lib/purposes";
 import { APP_NAME } from "@/lib/site";
 import { ASPECT_RATIOS } from "@/lib/constants";
 import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest, AIGenerationResult } from "@/lib/types";
+import { saveProject, loadProject, newProjectId, Project } from "@/lib/editor/persistence";
 
 const LOADING_STEPS = [
   "Analyzing your content…",
@@ -55,6 +56,16 @@ export default function GeneratePage() {
   const [elapsed, setElapsed] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Editable mode + persistence
+  const [mode, setMode] = useState<"preview" | "edit">("preview");
+  const [canvasState, setCanvasState] = useState<unknown>(null);
+  const projectIdRef = useRef<string | null>(null);
+  const projectCreatedAtRef = useRef(0);
+  const canvasStateRef = useRef<unknown>(null);
+  const thumbnailRef = useRef("");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+
   const genInputType: AIGenerationRequest["inputType"] =
     inputType === "image" ? "image" : "text";
   const requestInput =
@@ -68,6 +79,96 @@ export default function GeneratePage() {
     density === "balanced"
       ? userIntent
       : [userIntent, `Use a ${density} layout density.`].filter(Boolean).join(" ");
+
+  const persistProject = useCallback(async () => {
+    if (!html) return;
+    const id = projectIdRef.current ?? newProjectId();
+    projectIdRef.current = id;
+    projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
+    const project: Project = {
+      id,
+      title: (requestInput || "Untitled infographic").slice(0, 80),
+      createdAt: projectCreatedAtRef.current,
+      updatedAt: Date.now(),
+      input: {
+        mode: (inputType === "data" ? "csv" : inputType) as Project["input"]["mode"],
+        content: requestInput.slice(0, 8000),
+      },
+      purpose,
+      theme,
+      density,
+      aspectRatio: aspectRatio.id,
+      aspectRatioWidth: aspectRatio.width,
+      aspectRatioHeight: aspectRatio.height,
+      phase1_content: null,
+      phase2_blueprint: null,
+      phase3_html: html,
+      canvasState: canvasStateRef.current ?? null,
+      thumbnail: thumbnailRef.current,
+    };
+    await saveProject(project);
+    dirtyRef.current = false;
+  }, [html, requestInput, inputType, purpose, theme, density, aspectRatio]);
+
+  const handleCanvasStateChange = useCallback(
+    (state: unknown) => {
+      canvasStateRef.current = state;
+      setCanvasState(state);
+      dirtyRef.current = true;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        persistProject();
+      }, 10000);
+    },
+    [persistProject],
+  );
+
+  const handleThumbnail = useCallback((url: string) => {
+    thumbnailRef.current = url;
+    dirtyRef.current = true;
+  }, []);
+
+  // Flush any pending edit on tab close (best-effort).
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (dirtyRef.current) persistProject();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [persistProject]);
+
+  // Load an existing project via ?id=…
+  useEffect(() => {
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      if (!id) return;
+      const project = await loadProject(id);
+      if (!project) return;
+      setHtml(project.phase3_html);
+      setInput(project.input.content || "");
+      setInputType(
+        project.input.mode === "csv"
+          ? "data"
+          : project.input.mode === "image"
+            ? "image"
+            : project.input.mode === "url"
+              ? "url"
+              : "text",
+      );
+      setPurpose((project.purpose as Purpose) || "other");
+      setTheme((project.theme as ThemeId) || "modern");
+      setDensity((project.density as "compact" | "balanced" | "spacious") || "balanced");
+      setAspectRatio(ASPECT_RATIOS[(project.aspectRatio as AspectRatioId)] || ASPECT_RATIOS["1:1"]);
+      canvasStateRef.current = project.canvasState ?? null;
+      setCanvasState(project.canvasState ?? null);
+      thumbnailRef.current = project.thumbnail || "";
+      projectIdRef.current = project.id;
+      projectCreatedAtRef.current = project.createdAt;
+      setMode("edit");
+    })();
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     if (generatingRef.current) {
@@ -151,6 +252,10 @@ export default function GeneratePage() {
       })();
       if (res.success && res.generatedHtml) {
         setHtml(res.generatedHtml);
+        canvasStateRef.current = null;
+        setCanvasState(null);
+thumbnailRef.current = "";
+        setMode("preview");
         if (res.content) setContent(res.content);
         setGenerationContext({
           request,
@@ -168,8 +273,9 @@ export default function GeneratePage() {
         showToast({
           type: "success",
           title: "Infographic ready!",
-          message: `Generated in ${formatElapsed(totalMs)} across ${res.steps?.length ?? 4} phases.`,
+          message: `Generated in ${formatElapsed(totalMs)} across ${res.steps?.length ?? 4} phases.${res.usedFallback ? " (single-shot mode)" : ""}`,
         });
+        persistProject();
       } else {
         const failedStep =
           res.steps?.find((s) => s.status === "failed")?.name ||
@@ -195,7 +301,7 @@ export default function GeneratePage() {
       setGenerating(false);
       setStep(0);
     }
-  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast]);
+  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
@@ -302,6 +408,11 @@ export default function GeneratePage() {
             onExport={handleExport}
             onRegenerate={handleGenerate}
             isGenerating={isGenerating}
+            mode={mode}
+            setMode={setMode}
+            canvasState={canvasState}
+            onCanvasStateChange={handleCanvasStateChange}
+            onThumbnail={handleThumbnail}
           />
         </div>
         <StylePanel
