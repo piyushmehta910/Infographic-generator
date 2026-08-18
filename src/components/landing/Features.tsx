@@ -108,8 +108,8 @@ export function Features() {
               </div>
               <h3 className="font-display font-bold text-white text-lg mb-2">Private by design</h3>
               <p className="text-sm text-surface-400 leading-relaxed">
-                Your API key and content never touch our servers. Works offline too with the
-                built-in generator.
+                Your API key and content never touch our servers. All generation runs on
+                your chosen AI provider.
               </p>
             </div>
           </Reveal>

@@ -46,8 +46,7 @@ export function Providers() {
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-surface-400">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            Keys are stored in your browser only — never on our servers. No key? The built-in
-            generator still works.
+            Keys are stored in your browser only — never on our servers.
           </div>
         </Reveal>
       </div>

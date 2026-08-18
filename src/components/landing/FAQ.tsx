@@ -7,7 +7,7 @@ import { Reveal } from "./Reveal";
 const FAQS = [
   {
     q: "Do I need an API key to use it?",
-    a: "No. The built-in generator produces a full infographic even without a key. For richer, AI-driven results you can optionally connect your own key from OpenAI, Gemini, Claude, OpenRouter, or Groq.",
+    a: "Yes. Generation runs through an AI provider you connect — OpenAI, Gemini, Claude, OpenRouter, or Groq. Add your key once in Settings and it's stored only in your browser.",
   },
   {
     q: "Where are my API keys stored?",
@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: "Is it free?",
-    a: "The tool itself is free — you only pay for the AI provider usage you configure with your own key. Without a key, the built-in generator keeps everything free.",
+    a: "The tool itself is free — you only pay for the AI provider usage you configure with your own key.",
   },
 ];
 

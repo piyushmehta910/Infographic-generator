@@ -24,7 +24,7 @@ It converts text, ideas, and image-based input into polished infographic output.
 
 - `src/app` - routes/pages and API endpoints
 - `src/components` - UI and rendering components
-- `src/services` - AI pipeline (providers, fallback, quality, local generator)
+- `src/services` - AI pipeline (providers, fallback, quality, prompts)
 - `src/stores` - Zustand state management
 - `src/lib` - shared types/constants
 

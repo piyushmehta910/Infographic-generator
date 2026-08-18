@@ -2,6 +2,7 @@ import {
   AIProviderId,
   AIGenerationRequest,
   AIGenerationResult,
+  AIGenerationStep,
 } from "@/lib/types";
 import {
   buildContentAnalysisPrompt,
@@ -19,7 +20,6 @@ import {
   buildRetrySuffix,
   buildQualitySuffix,
 } from "./quality";
-import { generateLocalContent } from "./localGenerator";
 import { getCanvasDimensions } from "@/lib/canvas";
 
 export interface GenerateContentOptions {
@@ -39,6 +39,25 @@ const MIN_QUALITY_SCORE = 50;
 
 /** Prevents two pipeline runs at the same time (one generation at a time). */
 let generationInFlight = false;
+
+/** Build a failed result with the phases that ran, the real error, and elapsed time. */
+function failedResult(
+  providerId: AIProviderId,
+  model: string,
+  message: string,
+  steps: AIGenerationStep[],
+  startTime: number,
+): AIGenerationResult {
+  return {
+    success: false,
+    error: message,
+    provider: providerId,
+    model,
+    processingTime: Date.now() - startTime,
+    steps,
+    usedFallback: false,
+  };
+}
 
 const THEME_FALLBACK: Record<
   string,
@@ -66,6 +85,10 @@ const THEME_FALLBACK: Record<
  *
  * Every phase's output is kept together on the result so callers can persist
  * the full "user context" of a generation (request → content → blueprint → HTML).
+ *
+ * There is NO offline/local generator: generation always requires a working AI
+ * provider. Failures return a `success:false` result with a real, actionable
+ * error and the elapsed time — they never fabricate a design.
  */
 export async function generateContent(
   request: AIGenerationRequest,
@@ -99,12 +122,26 @@ async function runPipeline(
   const startTime = Date.now();
   const steps: AIGenerationResult["steps"] = [];
 
-  // If no API key or unknown provider, use local generation.
+  // No API key or unknown provider => actionable error, never offline output.
   if (!apiKey || apiKey.trim() === "") {
-    return generateLocalContent(request, providerId, model, startTime);
+    return failedResult(
+      providerId,
+      model,
+      "No AI provider key configured. Open Settings, add your API key, then generate again.",
+      steps,
+      startTime,
+    );
   }
   const provider = providerMap[providerId];
-  if (!provider) return generateLocalContent(request, providerId, model, startTime);
+  if (!provider) {
+    return failedResult(
+      providerId,
+      model,
+      "The selected AI provider is not configured. Check your provider settings.",
+      steps,
+      startTime,
+    );
+  }
 
   try {
     // ============================================
@@ -114,6 +151,7 @@ async function runPipeline(
     let contentResponse: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
+    const phaseStart = Date.now();
 
     try {
       contentResponse = await generateWithFallback(
@@ -145,8 +183,9 @@ async function runPipeline(
       }
     }
     steps.push({
-      name: "Content analysis & completion",
+      name: "Content analysis & structuring",
       status: usedProvider === providerId ? "completed" : "fallback",
+      durationMs: Date.now() - phaseStart,
     });
 
     let contentResult = extractJSON(contentResponse);
@@ -193,6 +232,7 @@ async function runPipeline(
     const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request);
     let blueprintResponse: string;
     let blueprintUsedFallback = false;
+    const blueprintStart = Date.now();
 
     try {
       blueprintResponse = await generateWithFallback(
@@ -251,7 +291,11 @@ async function runPipeline(
         canvas: `${dimensions.width}x${dimensions.height}px`,
       });
     }
-    steps.push({ name: "Design blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
+    steps.push({
+      name: "Design architecture & planning",
+      status: blueprintUsedFallback ? "fallback" : "completed",
+      durationMs: Date.now() - blueprintStart,
+    });
 
     let blueprint: any;
     try {
@@ -266,6 +310,7 @@ async function runPipeline(
     // ============================================
     const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request);
     let htmlResponse: string;
+    const htmlStart = Date.now();
 
     try {
       htmlResponse = await generateWithFallback(
@@ -278,8 +323,14 @@ async function runPipeline(
         usedProvider,
       );
     } catch {
-      // If HTML generation fails, use local fallback.
-      return generateLocalContent(request, providerId, model, startTime);
+      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+      return failedResult(
+        providerId,
+        model,
+        "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
+        steps,
+        startTime,
+      );
     }
 
     const canvasPx = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
@@ -323,14 +374,28 @@ async function runPipeline(
         );
       } catch {
         if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-        return generateLocalContent(request, providerId, model, startTime);
+        steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+        return failedResult(
+          providerId,
+          model,
+          "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
+          steps,
+          startTime,
+        );
       }
 
       const candidate = extractHTML(candidateResponse);
       const val = validateInfographicHTML(candidate, canvasPx.width, canvasPx.height);
       if (!val.pass) {
         if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-        return generateLocalContent(request, providerId, model, startTime);
+        steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+        return failedResult(
+          providerId,
+          model,
+          "AI produced an invalid design and could not be refined after retries. Please try again.",
+          steps,
+          startTime,
+        );
       }
 
       const scored = scoreInfographicHTML(candidate);
@@ -340,15 +405,23 @@ async function runPipeline(
       }
     }
 
-    // If the best score is too low, fall back to the premium local generator.
+    // If the best score is too low, report a quality failure instead of a fallback.
     if (bestScore < MIN_QUALITY_SCORE) {
-      return generateLocalContent(request, providerId, model, startTime);
+      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+      return failedResult(
+        providerId,
+        model,
+        "AI generated a design that didn't meet quality standards. Try again or use a stronger provider/model.",
+        steps,
+        startTime,
+      );
     }
-    steps.push({ name: "HTML/CSS rendering", status: "completed" });
+    steps.push({ name: "HTML/CSS rendering", status: "completed", durationMs: Date.now() - htmlStart });
 
     // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
     const html = sanitizeHTML(bestHtml);
-    steps.push({ name: "Export & delivery", status: "completed" });
+    const exportStart = Date.now();
+    steps.push({ name: "Export & delivery", status: "completed", durationMs: Date.now() - exportStart });
 
     return {
       success: true,
@@ -378,7 +451,13 @@ async function runPipeline(
       usedFallback: false,
     };
   } catch {
-    // Final fallback: local generation with HTML.
-    return generateLocalContent(request, providerId, model, startTime);
+    // Unexpected error: report it with the elapsed time — never fabricate output.
+    return failedResult(
+      providerId,
+      model,
+      "Unexpected error during generation. Please try again.",
+      steps,
+      startTime,
+    );
   }
 }

@@ -24,12 +24,21 @@ const LOADING_STEPS = [
   "Rendering…",
 ];
 
+function formatElapsed(ms: number): string {
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rs = Math.round(s % 60);
+  return `${m}:${rs.toString().padStart(2, "0")}`;
+}
+
 export default function GeneratePage() {
   const { setContent, setGenerating, setGenerationContext } = useEditorStore();
   const { showToast } = useUIStore();
   const providers = useAIStore((s) => s.providers);
   const activeConfig = useAIStore((s) => s.getActiveConfig());
   const generatingRef = useRef(false);
+  const startTimeRef = useRef(0);
 
   const [input, setInput] = useState("");
   const [inputType, setInputType] = useState<InputTab>("text");
@@ -44,6 +53,7 @@ export default function GeneratePage() {
   const [html, setHtml] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
 
   const genInputType: AIGenerationRequest["inputType"] =
@@ -86,8 +96,11 @@ export default function GeneratePage() {
     setIsGenerating(true);
     setHtml(null);
     setStep(0);
+    setElapsed(0);
+    startTimeRef.current = Date.now();
     setGenerating(true);
     const iv = setInterval(() => setStep((s) => (s + 1) % LOADING_STEPS.length), 700);
+    const tv = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 250);
     try {
       const res = await generateContent(request, {
         apiKey: activeConfig?.apiKey ?? "",
@@ -116,18 +129,24 @@ export default function GeneratePage() {
           usedFallback: res.usedFallback,
           createdAt: Date.now(),
         });
+        const totalMs = res.processingTime ?? (Date.now() - startTimeRef.current);
         showToast({
           type: "success",
-          title: res.usedFallback ? "Generated (offline mode)" : "Infographic ready!",
-          message: res.usedFallback ? "No AI key configured — used the built-in generator." : undefined,
+          title: "Infographic ready!",
+          message: `Generated in ${formatElapsed(totalMs)} across ${res.steps?.length ?? 4} phases.`,
         });
       } else {
         throw new Error(res.error || "Generation failed.");
       }
     } catch (e: any) {
-      showToast({ type: "error", title: "Generation failed", message: e?.message || "Please try again." });
+      showToast({
+        type: "error",
+        title: "Generation failed",
+        message: e?.message || "Please try again.",
+      });
     } finally {
       clearInterval(iv);
+      clearInterval(tv);
       generatingRef.current = false;
       setIsGenerating(false);
       setGenerating(false);
@@ -219,6 +238,7 @@ export default function GeneratePage() {
                 <div className="flex items-center gap-2 text-sm text-surface-300">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{LOADING_STEPS[step]}</span>
+                  <span className="tabular-nums text-surface-500">{formatElapsed(elapsed)}</span>
                 </div>
               )}
               <button

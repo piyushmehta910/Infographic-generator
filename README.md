@@ -75,7 +75,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 
 - Live canvas preview with zoom & aspect-ratio switching
 - Multi-attempt HTML generation (validated, scored, best kept)
-- Offline mode — the local generator still produces designs when no API key is configured
+- 4-phase AI pipeline (content → design → HTML → export) with per-phase timing and clear error reporting
 - API-key configuration via the Settings modal (stored in the browser)
 
 ### REST API
@@ -154,12 +154,11 @@ src/
 │   └── uiStore.ts
 ├── services/ai/                # AI provider integrations
 │   ├── providers.ts            # 5 provider implementations
-│   ├── pipeline.ts             # 3-step generation pipeline
+│   ├── pipeline.ts             # 4-phase generation pipeline
 │   ├── fallback.ts             # Model/provider fallback
 │   ├── response.ts             # JSON/HTML extraction & sanitization
 │   ├── normalize.ts            # Output normalization
 │   ├── quality.ts              # HTML validation & scoring
-│   ├── localGenerator.ts       # Offline generation fallback
 │   ├── promptBuilder.ts        # Prompt construction
 │   └── provider.ts             # Public re-export entry
 └── lib/                        # Core types & constants
@@ -233,7 +232,7 @@ API keys are stored locally in the browser using localStorage. No keys are sent 
 
 1. **Client-First** - AI calls happen in the browser with the user's API key
 2. **Provider-Agnostic** - Abstract `AIProvider` interface makes adding providers trivial
-3. **Guaranteed Output** - The local generator always produces a result if AI fails
+3. **Honest Errors** - Failures return clear, actionable errors with elapsed time — no fabricated offline output
 4. **Sanitized HTML** - Generated HTML is validated, scored, and sanitized before rendering
 5. **Single-Sourced Config** - Branding, canvas math, and templates live in `src/lib/*`
 

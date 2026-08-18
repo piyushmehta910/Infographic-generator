@@ -10,12 +10,11 @@
   - `GET /api/health` (`src/app/api/health/route.ts`)
 - **AI services** (`src/services/ai/`):
   - `providers.ts` — the 5 provider implementations (`providerMap`, `SYSTEM_PROMPT`)
-  - `pipeline.ts` — 3-step `generateContent(...)` orchestration (content → blueprint → HTML)
-  - `fallback.ts` — model/`provider` fallback + `tryAllProviders` across stored keys
+  - `pipeline.ts` — 4-phase `generateContent(...)` orchestration (content → design → HTML → export)
+  - `fallback.ts` — model/provider fallback + `tryAllProviders` across stored keys
   - `response.ts` — JSON/HTML extraction + sanitization
   - `normalize.ts` — AI output normalization into `InfographicContent`
   - `quality.ts` — HTML validation + scoring (keeps the best of N attempts)
-  - `localGenerator.ts` — offline/local generation when no API key works
   - `promptBuilder.ts` — prompt construction
   - `provider.ts` — slim public re-export entry (keep import path stable)
 - **Template config**: `src/lib/templates.ts` (`BUILT_IN_TEMPLATES`)
@@ -32,11 +31,12 @@
 
 1. User enters input (text/idea/image/image-url) in the left panel.
 2. Generate page builds an `AIGenerationRequest` and calls `generateContent(request, options)` where `options` carries the active provider, API key, model, temperature, maxTokens, and any other stored provider keys.
-3. `generateContent(...)` runs the 3-step pipeline:
-   - content analysis (with Zod re-validation retry)
-   - design blueprint generation
+3. `generateContent(...)` runs the 4-phase pipeline:
+   - content analysis & structuring (with Zod re-validation retry)
+   - design architecture & planning (blueprint)
    - HTML generation (validated, scored, best-of-N kept, sanitized)
-4. If any step fails (or no API key is configured), the local generator produces the output and `usedFallback` is set.
+   - export & delivery
+4. If any phase fails or no API key is configured, an actionable error is returned with the phases that ran and elapsed time — no offline fallback output is fabricated.
 5. Generated HTML is rendered in `AIDesignRenderer` in the canvas; export logic produces PNG/JPG/SVG/PDF/JSON.
 
 ## Key design decisions
@@ -45,7 +45,7 @@
 - Provider abstraction (`providerMap: Record<AIProviderId, AIProvider>`) for OpenAI/Gemini/Claude/OpenRouter/Groq
 - Strict typing in `src/lib/types.ts`; shared config single-sourced in `src/lib/*`
 - AI returns structured JSON + HTML; sanitization strips scripts/event handlers before rendering
-- Local generator is the guaranteed-last fallback so the app never dead-ends
+- No offline generator: generation always requires a working AI provider, and failures surface as real errors instead of fabricating a design
 
 ## Deployment characteristics
 

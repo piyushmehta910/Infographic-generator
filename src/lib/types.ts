@@ -199,6 +199,12 @@ export interface AIGenerationRequest {
   userIntent?: string;
 }
 
+export interface AIGenerationStep {
+  name: string;
+  status: "completed" | "fallback" | "failed";
+  durationMs?: number;
+}
+
 export interface AIGenerationResult {
   success: boolean;
   content?: InfographicContent;
@@ -207,14 +213,11 @@ export interface AIGenerationResult {
   model?: string;
   processingTime?: number;
   generatedHtml?: string;
-  /** True when output came from the local generator (no AI call). */
+  /** True when the output came from a fallback provider (not the primary). */
   usedFallback?: boolean;
   blueprint?: unknown;
-  /** Ordered record of the pipeline phases that ran. */
-  steps?: Array<{
-    name: string;
-    status: "completed" | "fallback";
-  }>;
+  /** Ordered record of the pipeline phases that ran, with per-phase timing. */
+  steps?: AIGenerationStep[];
   concepts?: Array<{
     id: string;
     title: string;
