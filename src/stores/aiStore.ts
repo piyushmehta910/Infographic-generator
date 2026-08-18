@@ -22,41 +22,25 @@ interface AIStore {
   getActiveConfig: () => AIProviderConfig | undefined;
 }
 
+const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim"] as const;
+
 const defaultProviders: AIProviderConfig[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    apiKey: "",
-    model: "gpt-4o-mini",
-    temperature: 0.5,
-    maxTokens: 1024,
-    enabled: true,
-  },
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    apiKey: "",
-    model: "gemini-1.5-flash",
-    temperature: 0.5,
-    maxTokens: 1024,
-    enabled: false,
-  },
-  {
-    id: "claude",
-    name: "Anthropic Claude",
-    apiKey: "",
-    model: "claude-3-haiku-20240307",
-    temperature: 0.5,
-    maxTokens: 1024,
-    enabled: false,
-  },
   {
     id: "openrouter",
     name: "OpenRouter",
     apiKey: "",
     model: "openrouter/free",
     temperature: 0.5,
-    maxTokens: 512,
+    maxTokens: 1024,
+    enabled: true,
+  },
+  {
+    id: "nim",
+    name: "NVIDIA NIM",
+    apiKey: "",
+    model: "meta/llama-3.3-70b-instruct",
+    temperature: 0.5,
+    maxTokens: 1024,
     enabled: false,
   },
   {
@@ -75,7 +59,7 @@ export const useAIStore = create<AIStore>()(
     persist(
       (set, get) => ({
         providers: defaultProviders,
-        activeProvider: "openai",
+        activeProvider: "openrouter",
         lastResult: null,
         isProcessing: false,
 
@@ -111,23 +95,31 @@ export const useAIStore = create<AIStore>()(
           activeProvider: state.activeProvider,
         }),
         merge: (persisted, current) => {
-          // Force migrate old model names that are no longer supported
+          // Migrate persisted state: drop removed providers (OpenAI/Gemini/Claude),
+          // reset OpenRouter to a free model, and fix stale active provider.
           const merged = { ...current, ...(persisted as Partial<AIStore>) };
           if (merged.providers) {
-            merged.providers = merged.providers.map((p: AIProviderConfig) => {
-              // Force Groq to use supported model
-              if (p.id === "groq" && p.model === "llama-3.1-70b-versatile") {
-                return { ...p, model: "llama-3.3-70b-versatile" };
-              }
-              // Force OpenRouter to use correct model format if needed
-              if (
-                p.id === "openrouter" &&
-                p.model === "meta-llama/llama-3.1-70b"
-              ) {
-                return { ...p, model: "openai/gpt-4o" };
-              }
-              return p;
-            });
+            merged.providers = (merged.providers || [])
+              .filter((p: AIProviderConfig) =>
+                (SUPPORTED_PROVIDER_IDS as readonly string[]).includes(p.id),
+              )
+              .map((p: AIProviderConfig) => {
+                if (
+                  p.id === "openrouter" &&
+                  p.model &&
+                  p.model !== "openrouter/free" &&
+                  !p.model.endsWith(":free")
+                ) {
+                  return { ...p, model: "openrouter/free" };
+                }
+                return p;
+              });
+            if (merged.providers.length === 0) merged.providers = defaultProviders;
+          }
+          if (
+            !(SUPPORTED_PROVIDER_IDS as readonly string[]).includes(merged.activeProvider)
+          ) {
+            merged.activeProvider = "openrouter";
           }
           return merged;
         },

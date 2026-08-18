@@ -104,7 +104,7 @@ export default function GeneratePage() {
     try {
       const res = await generateContent(request, {
         apiKey: activeConfig?.apiKey ?? "",
-        providerId: activeConfig?.id ?? "openai",
+        providerId: activeConfig?.id ?? "openrouter",
         model: activeConfig?.model ?? "",
         temperature: activeConfig?.temperature ?? 0.5,
         maxTokens: activeConfig?.maxTokens ?? 2048,

@@ -13,7 +13,7 @@ export interface AIProvider {
 }
 
 export const SYSTEM_PROMPT =
-  "You are an expert content analyst, designer, and developer. Follow the 3-step workflow exactly.";
+  "You are an expert content analyst, designer, and developer. Follow the 4-phase workflow exactly.";
 
 export const REQUEST_TIMEOUT_MS = 30000;
 
@@ -33,8 +33,8 @@ async function fetchWithTimeout(
   }
 }
 
-class OpenAIProviderImpl implements AIProvider {
-  id: AIProviderId = "openai";
+class NIMProviderImpl implements AIProvider {
+  id: AIProviderId = "nim";
   async generate(
     prompt: string,
     apiKey: string,
@@ -43,7 +43,7 @@ class OpenAIProviderImpl implements AIProvider {
     maxTokens: number,
   ): Promise<string> {
     const response = await fetchWithTimeout(
-      "https://api.openai.com/v1/chat/completions",
+      "https://integrate.api.nvidia.com/v1/chat/completions",
       {
         method: "POST",
         headers: {
@@ -51,7 +51,7 @@ class OpenAIProviderImpl implements AIProvider {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: model || "gpt-4o",
+          model: model || "meta/llama-3.3-70b-instruct",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: prompt },
@@ -61,69 +61,9 @@ class OpenAIProviderImpl implements AIProvider {
         }),
       },
     );
-    if (!response.ok) throw new Error(`OpenAI (${model}): ${await response.text()}`);
+    if (!response.ok) throw new Error(`NVIDIA NIM (${model}): ${await response.text()}`);
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
-  }
-}
-
-class GeminiProviderImpl implements AIProvider {
-  id: AIProviderId = "gemini";
-  async generate(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    temperature: number,
-    maxTokens: number,
-  ): Promise<string> {
-    const response = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-pro"}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: `${SYSTEM_PROMPT}\n\n${prompt}` }],
-            },
-          ],
-          generationConfig: { temperature, maxOutputTokens: maxTokens },
-        }),
-      },
-    );
-    if (!response.ok) throw new Error(`Gemini (${model}): ${await response.text()}`);
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  }
-}
-
-class ClaudeProviderImpl implements AIProvider {
-  id: AIProviderId = "claude";
-  async generate(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    temperature: number,
-    maxTokens: number,
-  ): Promise<string> {
-    const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: model || "claude-3-5-sonnet-20241022",
-        max_tokens: maxTokens,
-        temperature,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    if (!response.ok) throw new Error(`Claude (${model}): ${await response.text()}`);
-    const data = await response.json();
-    return data.content?.[0]?.text || "";
   }
 }
 
@@ -202,9 +142,7 @@ class GroqProviderImpl implements AIProvider {
 }
 
 export const providerMap: Record<AIProviderId, AIProvider> = {
-  openai: new OpenAIProviderImpl(),
-  gemini: new GeminiProviderImpl(),
-  claude: new ClaudeProviderImpl(),
   openrouter: new OpenRouterProviderImpl(),
   groq: new GroqProviderImpl(),
+  nim: new NIMProviderImpl(),
 };

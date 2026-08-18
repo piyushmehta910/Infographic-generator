@@ -171,23 +171,19 @@ User Input →
 ## MODEL FALLBACK SYSTEM
 
 If a model fails, the system automatically tries:
-1. Next model in the same provider's fallback list
+1. Next model in the same provider's fallback list (free models only)
 2. Next provider with API key configured
-3. Local generation as last resort (always produces HTML)
+3. If all fail, an actionable error is returned — no offline output is fabricated
 
 ### Provider Priority Order
-1. OpenRouter (most free models)
-2. OpenAI
-3. Google Gemini
-4. Groq
-5. Anthropic Claude
+1. OpenRouter (free-model collection)
+2. NVIDIA NIM (free inference tier)
+3. Groq (free tier)
 
 ### Fallback Models per Provider
-- OpenRouter: free models first, then paid
-- OpenAI: gpt-4o-mini first, then gpt-4o
-- Gemini: 1.5-flash first, then 1.5-pro
-- Groq: llama-3.1-8b first, then 70b
-- Claude: haiku first, then sonnet
+- OpenRouter: `openrouter/free` auto-select, then free models (`:free` suffixes only)
+- NVIDIA NIM: llama-3.3-70b-instruct first, then Nemotron/GPT-OSS/Qwen/Kimi/DeepSeek hosted models
+- Groq: llama-3.1-8b-instant first, then 70b-versatile, llama-4-scout, gpt-oss, qwen3-32b, compound
 
 ## ASPECT RATIOS SUPPORTED
 - 1:1 (1080×1080) - Square

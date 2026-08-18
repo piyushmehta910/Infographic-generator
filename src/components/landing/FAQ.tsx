@@ -7,7 +7,7 @@ import { Reveal } from "./Reveal";
 const FAQS = [
   {
     q: "Do I need an API key to use it?",
-    a: "Yes. Generation runs through an AI provider you connect — OpenAI, Gemini, Claude, OpenRouter, or Groq. Add your key once in Settings and it's stored only in your browser.",
+    a: "Yes. Generation runs through an AI provider you connect — OpenRouter, NVIDIA NIM, or Groq, all with free models. Add your key once in Settings and it's stored only in your browser.",
   },
   {
     q: "Where are my API keys stored?",

@@ -4,11 +4,9 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { Reveal } from "./Reveal";
 
 const PROVIDERS = [
-  { name: "OpenAI", color: "#10b981", tag: "GPT-4o" },
-  { name: "Google Gemini", color: "#60a5fa", tag: "Gemini 2.0" },
-  { name: "Anthropic Claude", color: "#fb923c", tag: "Claude 3.5" },
-  { name: "OpenRouter", color: "#a78bfa", tag: "100+ models" },
-  { name: "Groq", color: "#f87171", tag: "Instant" },
+  { name: "OpenRouter", color: "#a78bfa", tag: "Free models" },
+  { name: "NVIDIA NIM", color: "#76b900", tag: "Nemotron & Llama" },
+  { name: "Groq", color: "#f87171", tag: "Instant LPU" },
 ];
 
 export function Providers() {
@@ -29,7 +27,7 @@ export function Providers() {
         </Reveal>
 
         <Reveal delay={0.1}>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {PROVIDERS.map((p) => (
               <div
                 key={p.name}

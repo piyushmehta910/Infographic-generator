@@ -49,13 +49,11 @@ Pick a purpose (Blog Post, Marketing, Education, Business, Health, etc.) and the
 
 Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glassmorphism, Neumorphism, Gradient, Material Design
 
-### AI Providers (Bring Your Own Key)
+### AI Providers (Bring Your Own Key, free models)
 
-- OpenAI (GPT-4o, GPT-4o-mini, GPT-4 Turbo)
-- Google Gemini (1.5 Pro, 1.5 Flash, 2.0 Flash)
-- Anthropic Claude (3.5 Sonnet, 3 Haiku)
-- OpenRouter (Multi-model access)
-- Groq (Fast inference)
+- OpenRouter (free-model auto-select + free models)
+- NVIDIA NIM (Llama, Nemotron, GPT-OSS, Qwen, DeepSeek on NVIDIA's free tier)
+- Groq (fast LPU inference, free tier)
 
 ### Export Formats
 
@@ -92,7 +90,7 @@ Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glas
 - **State Management**: Zustand
 - **Animations**: Framer Motion
 - **Export**: html-to-image, jsPDF
-- **AI Integration**: Direct API calls (OpenAI, Gemini, Claude, OpenRouter, Groq)
+- **AI Integration**: Direct API calls (OpenRouter, NVIDIA NIM, Groq)
 
 ## Getting Started
 
@@ -153,7 +151,7 @@ src/
 │   ├── editorStore.ts
 │   └── uiStore.ts
 ├── services/ai/                # AI provider integrations
-│   ├── providers.ts            # 5 provider implementations
+│   ├── providers.ts            # 3 provider implementations
 │   ├── pipeline.ts             # 4-phase generation pipeline
 │   ├── fallback.ts             # Model/provider fallback
 │   ├── response.ts             # JSON/HTML extraction & sanitization

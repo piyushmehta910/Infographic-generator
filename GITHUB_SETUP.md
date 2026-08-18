@@ -65,7 +65,7 @@ Follow the prompts to link your Git repo and deploy.
 
 - Next.js 15 app with TypeScript
 - 9 built-in templates (Modern, Business, Timeline, etc.)
-- 5 AI providers (OpenAI, Gemini, Claude, OpenRouter, Groq)
+- 3 AI providers (OpenRouter, NVIDIA NIM, Groq)
 - Full editor dashboard
 - Landing page
 - API routes

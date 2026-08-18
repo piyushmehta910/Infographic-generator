@@ -9,7 +9,7 @@
   - `GET /api/v1/templates` (`src/app/api/v1/templates/route.ts`)
   - `GET /api/health` (`src/app/api/health/route.ts`)
 - **AI services** (`src/services/ai/`):
-  - `providers.ts` — the 5 provider implementations (`providerMap`, `SYSTEM_PROMPT`)
+  - `providers.ts` — the 3 provider implementations (`providerMap`, `SYSTEM_PROMPT`)
   - `pipeline.ts` — 4-phase `generateContent(...)` orchestration (content → design → HTML → export)
   - `fallback.ts` — model/provider fallback + `tryAllProviders` across stored keys
   - `response.ts` — JSON/HTML extraction + sanitization
@@ -42,7 +42,7 @@
 ## Key design decisions
 
 - Frontend-first UX with client-managed provider credentials (keys never leave the browser)
-- Provider abstraction (`providerMap: Record<AIProviderId, AIProvider>`) for OpenAI/Gemini/Claude/OpenRouter/Groq
+- Provider abstraction (`providerMap: Record<AIProviderId, AIProvider>`) for OpenRouter/NVIDIA NIM/Groq (free models only)
 - Strict typing in `src/lib/types.ts`; shared config single-sourced in `src/lib/*`
 - AI returns structured JSON + HTML; sanitization strips scripts/event handlers before rendering
 - No offline generator: generation always requires a working AI provider, and failures surface as real errors instead of fabricating a design

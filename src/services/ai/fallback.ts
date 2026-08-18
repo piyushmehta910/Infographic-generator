@@ -10,18 +10,41 @@ export interface StoredProvider {
 const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   openrouter: [
     "openrouter/free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3.5-lightning-30b-a3b:free",
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "qwen/qwen3-next-80b-a3b-instruct:free",
-    "nvidia/nemotron-nano-9b-v2:free",
+    "poolside/laguna-s-2.1:free",
     "poolside/laguna-xs-2.1:free",
-    "openai/gpt-4o-mini",
-    "google/gemini-1.5-flash",
+    "cohere/north-mini-code:free",
+    "dots-studio/dots3-note-preview:free",
+    "nvidia/nemotron-nano-9b-v2:free",
   ],
-  openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
-  gemini: ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro"],
-  claude: ["claude-3-haiku-20240307", "claude-3-5-sonnet-20241022"],
-  groq: ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"],
+  groq: [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3-32b",
+    "groq/compound",
+  ],
+  nim: [
+    "meta/llama-3.3-70b-instruct",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3-next-80b-a3b-instruct",
+    "moonshotai/kimi-k2-instruct",
+    "deepseek-ai/deepseek-v4-flash",
+    "meta/llama-3.1-8b-instruct",
+    "microsoft/phi-4-mini-instruct",
+  ],
 };
 
 /**
@@ -64,7 +87,7 @@ export async function tryAllProviders(
   maxTokens: number,
   storedProviders: StoredProvider[],
 ): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
-  const providerPriority: AIProviderId[] = ["openrouter", "openai", "gemini", "groq", "claude"];
+  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq"];
   for (const pid of providerPriority) {
     let apiKeyToUse = "";
     let modelToUse = "";
