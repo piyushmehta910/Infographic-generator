@@ -51,6 +51,16 @@ export function normalizeContent(cr: any, request: AIGenerationRequest) {
       : sections.map((s: any) => s.icon);
   const suggestedColors =
     src.suggestedColors && typeof src.suggestedColors === "object" ? src.suggestedColors : {};
+  const heroStat =
+    src.heroStat && typeof src.heroStat === "object"
+      ? { value: cleanStr(src.heroStat.value, ""), label: cleanStr(src.heroStat.label, "") }
+      : undefined;
+  const tone =
+    src.toneAnalysis && typeof src.toneAnalysis === "object" ? src.toneAnalysis : undefined;
+  const colorPsychology =
+    src.colorPsychologyRecommendation && typeof src.colorPsychologyRecommendation === "object"
+      ? src.colorPsychologyRecommendation
+      : undefined;
 
   return {
     title,
@@ -60,6 +70,9 @@ export function normalizeContent(cr: any, request: AIGenerationRequest) {
     timeline,
     suggestedIcons: icons,
     suggestedColors,
+    heroStat,
+    tone,
+    colorPsychology,
     callToAction: "",
     language: cleanStr(src.language, "English"),
   };

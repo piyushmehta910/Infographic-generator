@@ -58,10 +58,11 @@ const THEME_FALLBACK: Record<
 };
 
 /**
- * MAIN PIPELINE: 3-STEP WORKFLOW — one generation at a time.
- * 1. Content Analysis & Auto-completion  (AI completes the user's input)
- * 2. Design Blueprint                     (AI says HOW to design it in HTML/CSS for the aspect ratio + intent)
- * 3. HTML/CSS Generation                  (AI codes the final design following the blueprint exactly)
+ * MAIN PIPELINE: 4-PHASE WORKFLOW — one generation at a time.
+ * 1. Content Analysis & Structuring  (AI completes the user's input into a rich content package)
+ * 2. Design Architecture & Planning  (AI specifies HOW to design it in HTML/CSS for aspect ratio + intent)
+ * 3. HTML/CSS Generation             (AI codes the final design following the blueprint exactly)
+ * 4. Export & Delivery               (finalized HTML handed off for download/sharing)
  *
  * Every phase's output is kept together on the result so callers can persist
  * the full "user context" of a generation (request → content → blueprint → HTML).
@@ -209,6 +210,12 @@ async function runPipeline(
       const palette = THEME_FALLBACK[request.theme || "modern"] || THEME_FALLBACK.modern;
       const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
       blueprintResponse = JSON.stringify({
+        designSystem: {
+          aspectRatio: request.aspectRatio || "1:1",
+          canvasDimensions: { width: dimensions.width, height: dimensions.height, responsiveBehavior: "scale_down" },
+          designIntent: request.userIntent || "modern",
+          shapeLanguage: { borderRadius: "16px", cardStyle: "elevated", cornerTreatment: "rounded" },
+        },
         designConcept: "Clean, premium design system",
         layoutStyle: "magazine-grid",
         heroMoment: "Display heading with gradient accent",
@@ -217,7 +224,14 @@ async function runPipeline(
         readingFlow: "Top to bottom",
         spacingSystem: "8px grid",
         colorPalette: palette,
-        typography: { headingFont: "Inter", bodyFont: "Inter", headingSize: "48px", bodySize: "16px", headingWeight: "800", subheadingWeight: "600", bodyWeight: "400", style: "modern" },
+        colorDetails: {
+          gradients: [
+            { name: "hero_gradient", type: "linear", direction: "135deg", stops: [`${palette.primary} 0%`, `${palette.secondary} 100%`], usage: "header background" },
+          ],
+          neutrals: { surface: palette.background, surfaceVariant: palette.background, textSecondary: palette.text, border: palette.text },
+          contrastValidation: { titleOnBackground: "pass", bodyOnSurface: "pass", accentOnPrimary: "pass", wcagAACompliant: true },
+        },
+        typography: { headingFont: "Inter", bodyFont: "Inter", headingSize: "48px", bodySize: "16px", headingWeight: "800", subheadingWeight: "600", bodyWeight: "400", style: "modern", typeScale: { hero: "clamp(64px, 8vw, 120px)", h1: "clamp(48px, 5vw, 72px)", h2: "clamp(28px, 3vw, 36px)", body: "clamp(16px, 1.5vw, 20px)", caption: "clamp(12px, 1vw, 14px)" }, specialTreatments: { heroStat: "Extra bold, accent color", pullQuote: "Italic, left border accent", callout: "Bold, accent background" } },
         icons: { style: "crisp-svg", consistency: "ALL icons use same stroke and weight", perSection: normalizedContent.suggestedIcons.slice(0, 4) },
         cardStyle: "Rounded rectangle with soft shadow",
         spacing: "8px-grid-based",
@@ -227,8 +241,13 @@ async function runPipeline(
         background: "Non-flat gradient treatment",
         header: "Large title with subtitle",
         cta: "No CTA - static image",
+        layoutGrid: { gridType: "12-column", sectionsPlacement: [{ sectionId: 1, gridArea: "1 / 1 / span 1 / -1", backgroundTreatment: "gradient", minHeight: "20%" }], responsiveBehavior: "desktop full grid / tablet 2-col / mobile single column" },
+        visualElements: [{ type: "pattern", placement: "background", style: "gradient", animation: "none" }],
+        cssArchitecture: { approach: "vanilla_css_inline", methodology: "BEM", keyCustomProperties: ["--color-primary", "--font-heading", "--spacing-unit", "--radius-base"], responsiveStrategy: "desktop-first", performanceNotes: "inline critical CSS, no external images" },
+        animations: { pageLoad: "staggered fade-in for sections", statCounter: "count-up for hero stat", hoverStates: "subtle scale or shadow", reducedMotion: "respect prefers-reduced-motion: disable all animation" },
         specialFeatures: "Clean and professional",
         animationHints: ["Hover effects on cards"],
+        designRationale: "Clean and professional",
         canvas: `${dimensions.width}x${dimensions.height}px`,
       });
     }
@@ -329,6 +348,7 @@ async function runPipeline(
 
     // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
     const html = sanitizeHTML(bestHtml);
+    steps.push({ name: "Export & delivery", status: "completed" });
 
     return {
       success: true,
@@ -338,6 +358,7 @@ async function runPipeline(
         sections: normalizedContent.sections,
         statistics: normalizedContent.statistics,
         timeline: normalizedContent.timeline,
+        heroStat: normalizedContent.heroStat,
         colors: [
           normalizedContent.suggestedColors?.primary || "#3b82f6",
           normalizedContent.suggestedColors?.secondary || "#8b5cf6",

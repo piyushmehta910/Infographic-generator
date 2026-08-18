@@ -10,6 +10,7 @@ export interface InfographicContent {
   sections: Section[];
   statistics: Statistic[];
   timeline: TimelineEvent[];
+  heroStat?: { value: string; label: string };
   colors: string[];
   icons: string[];
   callToAction: string;
