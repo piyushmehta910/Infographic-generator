@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Settings, X, AlertCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Settings, X, AlertCircle, Plug, Loader2, CheckCircle2 } from "lucide-react";
 import { useAIStore } from "@/stores/aiStore";
 import { AI_PROVIDERS } from "@/lib/constants";
 
@@ -12,8 +12,45 @@ interface ProviderSettingsProps {
 
 export default function ProviderSettings({ open, onClose }: ProviderSettingsProps) {
   const { providers, activeProvider, setProvider, setActiveProvider } = useAIStore();
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   if (!open) return null;
+
+  const active = providers.find((p) => p.id === activeProvider);
+
+  const runTest = async () => {
+    if (!active || !active.apiKey) {
+      setTestResult({ ok: false, message: "Enter an API key first, then test." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: active.id,
+          apiKey: active.apiKey,
+          model: active.model,
+        }),
+      });
+      const data = await res.json();
+      setTestResult(
+        data.success
+          ? { ok: true, message: `Connected (${data.ms}ms). Reply: "${(data.sample || "…").slice(0, 60)}"` }
+          : { ok: false, message: data.error || "Connection failed." },
+      );
+    } catch {
+      setTestResult({ ok: false, message: "Could not reach the test endpoint." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div
@@ -83,7 +120,35 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                   >
                     Get your API key →
                   </a>
+                  <button
+                    onClick={runTest}
+                    disabled={testing}
+                    className="ml-3 text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-900/40 border border-brand-400/30 text-brand-200 hover:bg-brand-900/60 disabled:opacity-50"
+                  >
+                    {testing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Plug className="w-3.5 h-3.5" />
+                    )}
+                    Test connection
+                  </button>
                 </div>
+                {testResult && (
+                  <div
+                    className={`text-xs px-3 py-2 rounded-lg border ${
+                      testResult.ok
+                        ? "bg-emerald-900/20 border-emerald-400/30 text-emerald-300"
+                        : "bg-red-900/20 border-red-400/30 text-red-300"
+                    }`}
+                  >
+                    {testResult.ok ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                    )}
+                    {testResult.message}
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-medium text-surface-200 block mb-1.5">Model</label>
                   <select
