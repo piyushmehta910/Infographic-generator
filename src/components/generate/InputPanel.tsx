@@ -1,8 +1,10 @@
 "use client";
 
-import { FileText, Globe, ImageIcon, Upload, Brain, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { FileText, Globe, ImageIcon, Upload, Brain, Sparkles, Loader2, ScanText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Purpose, PURPOSES } from "@/lib/purposes";
+import { parseCSV, ParsedCSV } from "@/lib/parsers/csv";
 
 export type InputTab = "text" | "url" | "image" | "data";
 
@@ -40,10 +42,60 @@ export default function InputPanel(p: InputPanelProps) {
     onGenerateClick, isGenerating,
   } = p;
 
+  const [csvPreview, setCsvPreview] = useState<ParsedCSV | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [urlBusy, setUrlBusy] = useState(false);
+  const [urlError, setUrlError] = useState("");
+
   const canGenerate =
     inputType === "url"
       ? Boolean(imageUrl) && imageUrl.trim().length > 0
       : Boolean(input) && input.trim().length > 0;
+
+  const handleCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      setInput(text);
+      setCsvPreview(parseCSV(text));
+    };
+    reader.readAsText(file);
+  };
+
+  const handleOCRExtract = async () => {
+    if (!input) return;
+    setOcrBusy(true);
+    try {
+      const { ocrImage } = await import("@/lib/parsers/image");
+      const text = await ocrImage(input);
+      setInput(text);
+      setInputType("text");
+    } catch {
+      setInputType("text");
+    } finally {
+      setOcrBusy(false);
+    }
+  };
+
+  const handleURLFetch = async () => {
+    if (!imageUrl.trim()) return;
+    setUrlBusy(true);
+    setUrlError("");
+    try {
+      const res = await fetch(`/api/extract?url=${encodeURIComponent(imageUrl.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        setInput(`${data.title}\n\n${data.text}`.trim());
+        setInputType("text");
+      } else {
+        setUrlError(data.error || "Extraction failed.");
+      }
+    } catch {
+      setUrlError("Failed to fetch the page. Try pasting the text directly.");
+    } finally {
+      setUrlBusy(false);
+    }
+  };
 
   return (
     <div className="w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
@@ -96,7 +148,18 @@ export default function InputPanel(p: InputPanelProps) {
               placeholder="https://example.com/article"
               className="w-full h-11 px-4 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
-            <p className="text-[11px] text-surface-400">We fetch and summarize the page content client-side.</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full h-10"
+              onClick={handleURLFetch}
+              disabled={urlBusy || !imageUrl.trim()}
+            >
+              {urlBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+              Fetch & extract content
+            </Button>
+            {urlError && <p className="text-[11px] text-red-400">{urlError}</p>}
+            <p className="text-[11px] text-surface-400">We fetch the page and extract its main text server-side.</p>
           </div>
         )}
 
@@ -125,19 +188,80 @@ export default function InputPanel(p: InputPanelProps) {
                 }}
               />
             </label>
+            {imageFile && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full h-10"
+                onClick={handleOCRExtract}
+                disabled={ocrBusy || !input}
+              >
+                {ocrBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanText className="w-4 h-4" />}
+                {ocrBusy ? "Extracting text…" : "Extract text (OCR)"}
+              </Button>
+            )}
+            <p className="text-[11px] text-surface-400">OCR extracts readable text from the image into your input.</p>
           </div>
         )}
 
         {inputType === "data" && (
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-surface-200">Paste CSV data</label>
+            <label className="text-xs font-medium text-surface-200">CSV data</label>
+            <label className="flex flex-col items-center justify-center h-20 rounded-xl border-2 border-dashed border-surface-600 bg-surface-800/40 cursor-pointer hover:border-brand-400 transition-colors mb-2">
+              <Upload className="w-4 h-4 text-surface-400 mb-1" />
+              <span className="text-[11px] text-surface-400">Upload .csv file</span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleCSVFile(f);
+                }}
+              />
+            </label>
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setCsvPreview(parseCSV(e.target.value));
+              }}
               placeholder={"label,value\nRevenue,2.1M\nCosts,1.2M"}
               rows={4}
               className={inputFieldClass + " font-mono text-xs"}
             />
+            {csvPreview && (
+              <div className="text-[11px] text-surface-400 space-y-1">
+                <div>
+                  <span className="text-emerald-400 font-medium">Detected:</span>{" "}
+                  {csvPreview.headers.length} columns, {csvPreview.rows.length} rows
+                </div>
+                <div>
+                  <span className="text-emerald-400 font-medium">Suggested charts:</span>{" "}
+                  {csvPreview.suggestions.join(", ")}
+                </div>
+                <div className="overflow-x-auto rounded-lg border border-white/10">
+                  <table className="w-full text-[10px] text-surface-300">
+                    <thead>
+                      <tr className="bg-surface-800/60">
+                        {csvPreview.headers.slice(0, 6).map((h) => (
+                          <th key={h} className="px-2 py-1 text-left font-medium text-surface-200">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvPreview.rows.slice(0, 5).map((row, i) => (
+                        <tr key={i} className="border-t border-white/5">
+                          {csvPreview.headers.slice(0, 6).map((h) => (
+                            <td key={h} className="px-2 py-1">{row[h]}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <p className="text-[11px] text-surface-400">We auto-detect columns and map them to charts.</p>
           </div>
         )}
