@@ -8,14 +8,13 @@ import CanvasView from "@/components/generate/CanvasView";
 import StylePanel from "@/components/generate/StylePanel";
 import ProviderSettings from "@/components/generate/ProviderSettings";
 import Toast from "@/components/ui/Toast";
-import { generateContent } from "@/services/ai/provider";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
 import { Purpose } from "@/lib/purposes";
 import { APP_NAME } from "@/lib/site";
 import { ASPECT_RATIOS } from "@/lib/constants";
-import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest } from "@/lib/types";
+import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest, AIGenerationResult } from "@/lib/types";
 
 const LOADING_STEPS = [
   "Analyzing your content…",
@@ -118,18 +117,38 @@ export default function GeneratePage() {
     const iv = setInterval(() => setStep((s) => (s + 1) % LOADING_STEPS.length), 700);
     const tv = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 250);
     try {
-      const res = await generateContent(request, {
-        apiKey: activeConfig?.apiKey ?? "",
-        providerId: activeConfig?.id ?? "openrouter",
-        model: activeConfig?.model ?? "",
-        temperature: activeConfig?.temperature ?? 0.5,
-        maxTokens: activeConfig?.maxTokens ?? 2048,
-        storedProviders: providers.map((p) => ({
-          id: p.id,
-          apiKey: p.apiKey,
-          model: p.model,
-        })),
-      });
+      const res = await (async () => {
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request,
+            options: {
+              apiKey: activeConfig?.apiKey ?? "",
+              providerId: activeConfig?.id ?? "openrouter",
+              model: activeConfig?.model ?? "",
+              temperature: activeConfig?.temperature ?? 0.5,
+              maxTokens: activeConfig?.maxTokens ?? 2048,
+              storedProviders: providers.map((p) => ({
+                id: p.id,
+                apiKey: p.apiKey,
+                model: p.model,
+              })),
+            },
+          }),
+        });
+        if (!response.ok) {
+          let serverError = "Generation endpoint error.";
+          try {
+            const data = await response.json();
+            serverError = data?.error || serverError;
+          } catch {
+            /* ignore */
+          }
+          throw new Error(serverError);
+        }
+        return (await response.json()) as AIGenerationResult;
+      })();
       if (res.success && res.generatedHtml) {
         setHtml(res.generatedHtml);
         if (res.content) setContent(res.content);
