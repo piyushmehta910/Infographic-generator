@@ -92,6 +92,22 @@ export default function GeneratePage() {
       audience: "general",
       userIntent: effectiveUserIntent || undefined,
     };
+    // Image inputs: extract readable text via OCR so the pipeline works on real
+    // content instead of sending a raw base64 blob (which models reject).
+    if (inputType === "image" && /^data:image/.test(requestInput)) {
+      try {
+        const { ocrImage } = await import("@/lib/parsers/image");
+        const text = await ocrImage(requestInput);
+        if (text.trim().length > 0) {
+          setInput(text);
+          setInputType("text");
+          request.input = text;
+          request.inputType = "text";
+        }
+      } catch {
+        // OCR failed — fall through with the image as-is.
+      }
+    }
     generatingRef.current = true;
     setIsGenerating(true);
     setHtml(null);
@@ -136,7 +152,15 @@ export default function GeneratePage() {
           message: `Generated in ${formatElapsed(totalMs)} across ${res.steps?.length ?? 4} phases.`,
         });
       } else {
-        throw new Error(res.error || "Generation failed.");
+        const failedStep =
+          res.steps?.find((s) => s.status === "failed")?.name ||
+          (res.steps?.length ? "setup" : "provider call");
+        console.error("Generation failed", { provider: res.provider, model: res.model, error: res.error, steps: res.steps });
+        showToast({
+          type: "error",
+          title: "Generation failed",
+          message: `${res.error || "Please try again."} [${res.provider}/${res.model} — ${failedStep}]`,
+        });
       }
     } catch (e: any) {
       showToast({

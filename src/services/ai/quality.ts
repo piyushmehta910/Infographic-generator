@@ -9,7 +9,17 @@ export function validateInfographicHTML(rawHtml: string, expectedWidth: number, 
     hasSubstance: t.split(/\s+/).length > 10,
     noPlaceholders: !/lorem ipsum|sample text|your content here|\bplaceholder\b|example stat|dummy data|#todo/i.test(t),
     noMarkdown: !t.includes("```"),
-    correctSize: t.includes(`${expectedWidth}px`) && t.includes(`${expectedHeight}px`),
+    // Accept the canvas size as literal px, as a width/height CSS rule, or via a
+    // wrapper that sets both. Free models often omit the exact px value, so
+    // requiring it verbatim caused valid designs to be rejected.
+    correctSize:
+      (t.includes(`${expectedWidth}px`) &&
+        (t.includes(`${expectedHeight}px`) ||
+          new RegExp(`(?:max-)?width\\s*:\\s*${expectedWidth}px`, "i").test(t))) ||
+      ((t.includes(`${expectedWidth}px`) || t.includes(`${expectedHeight}px`)) &&
+        /(?:max-)?(?:width|height)\s*:\s*\d+px/i.test(t)) ||
+      (new RegExp(`width\\s*:\\s*${expectedWidth}px`, "i").test(t) &&
+        new RegExp(`height\\s*:\\s*${expectedHeight}px`, "i").test(t)),
     noExternalImages: !/<img[^>]+src\s*=\s*["']http/i.test(t),
     noScriptTags: !/<script/i.test(t),
     noEventHandlers: !/\son\w+\s*=/i.test(t),

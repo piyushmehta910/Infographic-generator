@@ -35,7 +35,7 @@ const STEP_TOKEN_CAP = 1024;
 const BLUEPRINT_TOKEN_CAP = 2048;
 const HTML_TOKEN_CAP = 4096;
 const MAX_HTML_ATTEMPTS = 3;
-const MIN_QUALITY_SCORE = 50;
+const MIN_QUALITY_SCORE = 40;
 
 /** Prevents two pipeline runs at the same time (one generation at a time). */
 let generationInFlight = false;
@@ -323,14 +323,31 @@ async function runPipeline(
         usedProvider,
       );
     } catch {
-      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-      return failedResult(
-        providerId,
-        model,
-        "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
-        steps,
-        startTime,
+      // Cross-provider fallback: if the active provider can't produce good
+      // HTML, try every other configured provider before giving up.
+      const fallback = await tryAllProviders(
+        htmlPrompt,
+        apiKey,
+        usedProvider,
+        usedModel,
+        temperature,
+        Math.min(maxTokens, HTML_TOKEN_CAP),
+        storedProviders,
       );
+      if (fallback) {
+        htmlResponse = fallback.text;
+        usedProvider = fallback.provider;
+        usedModel = fallback.model;
+      } else {
+        steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+        return failedResult(
+          providerId,
+          model,
+          "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
+          steps,
+          startTime,
+        );
+      }
     }
 
     const canvasPx = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
