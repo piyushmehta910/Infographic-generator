@@ -21,7 +21,9 @@ import { AIProviderId } from "@/lib/types";
 // ============================================================
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Must stay under the tightest common serverless cap (60s) — a longer budget
+// just gets the function killed mid-stream, truncating the SSE response.
+export const maxDuration = 60;
 
 const storedProviderSchema = z.object({
   id: z.string().min(1).max(40),
@@ -158,6 +160,10 @@ export async function POST(request: NextRequest) {
   });
 
   const encoder = new TextEncoder();
+  // Cancellation uses the STREAM's cancel() (true client disconnect) rather
+  // than request.signal: some Next.js versions abort request.signal
+  // spuriously mid-response, which would silently swallow the result frame.
+  const upstreamAbort = new AbortController();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
@@ -169,18 +175,9 @@ export async function POST(request: NextRequest) {
           closed = true;
         }
       };
-      // Client navigated away / hit Cancel → stop the whole pipeline.
-      const onAbort = () => {
-        closed = true;
-        try {
-          controller.close();
-        } catch {
-          /* already closed */
-        }
-      };
-      if (request.signal.aborted) return onAbort();
-      request.signal.addEventListener("abort", onAbort, { once: true });
-
+      // Periodic comment frames keep proxies/CDNs from treating the
+      // connection as idle and dropping it during long quiet phases.
+      const heartbeat = setInterval(() => send("ping", {}), 15_000);
       try {
         const result = await generateContent(req as never, {
           apiKey: options.apiKey,
@@ -195,7 +192,7 @@ export async function POST(request: NextRequest) {
             baseUrl: p.baseUrl,
           })),
           memory: options.memory as unknown as GenerateContentOptions["memory"],
-          signal: request.signal,
+          signal: upstreamAbort.signal,
           onProgress: (event) => send("progress", event),
         });
         send("result", result);
@@ -206,7 +203,7 @@ export async function POST(request: NextRequest) {
           error: "Internal server error.",
         });
       } finally {
-        request.signal.removeEventListener("abort", onAbort);
+        clearInterval(heartbeat);
         closed = true;
         try {
           controller.close();
@@ -214,6 +211,9 @@ export async function POST(request: NextRequest) {
           /* already closed */
         }
       }
+    },
+    cancel() {
+      upstreamAbort.abort();
     },
   });
 

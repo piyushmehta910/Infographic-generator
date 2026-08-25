@@ -47,14 +47,30 @@ function labelForEvent(e: PipelineProgressEvent): string | null {
   }
 }
 
-/** Parse an SSE body and dispatch (event, data) pairs. */
+/** Parse an SSE body and dispatch (event, data) pairs. Returns frames seen. */
 async function consumeSSE(
   response: Response,
   onEvent: (event: string, data: any) => void,
-): Promise<void> {
+): Promise<number> {
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let frames = 0;
+  const dispatch = (raw: string) => {
+    let eventName = "message";
+    const dataLines: string[] = [];
+    for (const line of raw.split("\n")) {
+      if (line.startsWith("event:")) eventName = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (!dataLines.length) return;
+    frames++;
+    try {
+      onEvent(eventName, JSON.parse(dataLines.join("\n")));
+    } catch {
+      /* skip malformed frame */
+    }
+  };
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -63,20 +79,12 @@ async function consumeSSE(
     while ((idx = buffer.indexOf("\n\n")) !== -1) {
       const raw = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 2);
-      let eventName = "message";
-      const dataLines: string[] = [];
-      for (const line of raw.split("\n")) {
-        if (line.startsWith("event:")) eventName = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
-      }
-      if (!dataLines.length) continue;
-      try {
-        onEvent(eventName, JSON.parse(dataLines.join("\n")));
-      } catch {
-        /* skip malformed frame */
-      }
+      dispatch(raw);
     }
   }
+  // A final frame without its trailing blank line must not be lost.
+  if (buffer.trim()) dispatch(buffer);
+  return frames;
 }
 
 export default function GeneratePage() {
@@ -237,7 +245,7 @@ export default function GeneratePage() {
       }
 
       let res: AIGenerationResult | null = null;
-      await consumeSSE(response, (event, data) => {
+      const frames = await consumeSSE(response, (event, data) => {
         if (event === "progress") {
           const label = labelForEvent(data as PipelineProgressEvent);
           if (label) setProgressLabel(label);
@@ -246,7 +254,13 @@ export default function GeneratePage() {
         }
       });
 
-      if (!res) throw new Error("The generation stream ended without a result.");
+      if (!res) {
+        throw new Error(
+          frames > 0
+            ? "The connection dropped before generation finished — the AI providers were too slow. Try again, or pick a faster model."
+            : "The generation endpoint closed the connection without doing any work. Check your connection and try again.",
+        );
+      }
       const result = res as AIGenerationResult;
 
       if (result.success && result.generatedHtml) {

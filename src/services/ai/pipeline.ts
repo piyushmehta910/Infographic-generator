@@ -55,8 +55,11 @@ export interface GenerateContentOptions {
 }
 
 /** Default wall-clock budget — stays under the route's 120s serverless cap. */
-export const DEFAULT_BUDGET_MS = 100_000;
-const MAX_BUDGET_MS = 110_000;
+// Bounded so the whole pipeline reliably finishes inside common serverless
+// execution caps (60s). Long retries simply don't fit — better to stop
+// gracefully than have the platform kill the function mid-stream.
+export const DEFAULT_BUDGET_MS = 55_000;
+const MAX_BUDGET_MS = 58_000;
 
 /** Per-phase output-token floors: tiny user maxTokens used to truncate JSON/HTML into unparseable sludge. */
 function tokensFor(maxTokens: number, cap: number, floor: number): number {
