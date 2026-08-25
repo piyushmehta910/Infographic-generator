@@ -21,9 +21,10 @@ import { AIProviderId } from "@/lib/types";
 // ============================================================
 
 export const runtime = "nodejs";
-// Budget in pipeline.ts is 110s; match it here. On Vercel Fluid Compute
-// (Hobby default 300s) this is well within limits.
-export const maxDuration = 120;
+// Next.js requires a static literal here — conditional expressions are
+// rejected.  60s covers every Vercel Hobby tier (non-Fluid and Fluid);
+// budget in pipeline.ts is derived dynamically via process.env.VERCEL.
+export const maxDuration = 60;
 
 const storedProviderSchema = z.object({
   id: z.string().min(1).max(40),

@@ -55,10 +55,14 @@ export interface GenerateContentOptions {
 }
 
 /** Default wall-clock budget — stays under the route's 120s serverless cap. */
-// Free models via OpenRouter can take 15-30s per API call. Four sequential
-// phases + retries need generous headroom. This stays under the 120s maxDuration.
-export const DEFAULT_BUDGET_MS = 110_000;
-const MAX_BUDGET_MS = 120_000;
+// On Vercel serverless, the runtime kills the function at maxDuration.
+// Budget must stay UNDER that limit or the stream is severed mid-generation.
+// Locally there is no platform cap, so use the full 110s.
+// Override with GENERATION_BUDGET_MS env var for tuning.
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const ENV_BUDGET = Number(process.env.GENERATION_BUDGET_MS);
+export const DEFAULT_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET : IS_VERCEL ? 55_000 : 110_000;
+const MAX_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET + 5_000 : IS_VERCEL ? 58_000 : 120_000;
 
 /** Per-phase output-token floors: tiny user maxTokens used to truncate JSON/HTML into unparseable sludge. */
 function tokensFor(maxTokens: number, cap: number, floor: number): number {
