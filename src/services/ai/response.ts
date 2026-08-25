@@ -1,15 +1,42 @@
 export function extractJSON(text: string): any {
-  let cleaned = text.trim();
-  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) cleaned = codeBlockMatch[1].trim();
-  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON found in AI response");
-  let jsonStr = jsonMatch[0];
-  jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1").replace(/'/g, '"');
-  const firstBrace = jsonStr.indexOf("{");
-  const lastBrace = jsonStr.lastIndexOf("}");
-  if (firstBrace > 0) jsonStr = jsonStr.substring(firstBrace);
-  if (lastBrace >= 0 && lastBrace < jsonStr.length - 1) jsonStr = jsonStr.substring(0, lastBrace + 1);
+  if (!text || !text.trim()) throw new Error("The AI returned an empty response");
+  // Reasoning models often wrap their answer in <think>…</think> blocks.
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  // Tolerate unclosed code fences: ```json {"a":1  (stream cutoffs)
+  const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
+  if (fenced && fenced[1].includes("{")) cleaned = fenced[1].trim();
+  const start = cleaned.indexOf("{");
+  if (start === -1) {
+    throw new Error(`No JSON object found in AI response: "${cleaned.slice(0, 160)}"`);
+  }
+  // Balanced scan from the first brace; string-aware so braces inside
+  // strings don't miscount. If the response was truncated mid-object,
+  // append the missing closers instead of failing outright.
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  let end = -1;
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
+    else if (ch === "}" || ch === "]") {
+      stack.pop();
+      if (stack.length === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  let jsonStr = end !== -1 ? cleaned.slice(start, end + 1) : cleaned.slice(start) + stack.reverse().join("");
+  // Trailing commas are the most common LLM JSON mistake.
+  jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1").replace(/,\s*$/, "");
   try {
     return JSON.parse(jsonStr);
   } catch {

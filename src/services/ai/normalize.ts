@@ -6,6 +6,37 @@ function cleanStr(value: unknown, fallback: string): string {
   return s;
 }
 
+/**
+ * Last-resort outline built straight from the user's text when the AI's
+ * structured analysis is unusable (empty/malformed JSON). Keeps generation
+ * alive with real source-derived sections instead of failing outright.
+ */
+export function heuristicOutlineFromInput(input: string): any {
+  const lines = (input || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const title = lines[0]?.slice(0, 80) || "Your Infographic";
+  const body = lines.slice(1).join(" ");
+  const sentences = body
+    .split(/[.!?]+\s/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 15)
+    .slice(0, 4);
+  const points = sentences.length ? sentences : [body.slice(0, 220) || "Key insight distilled from your content."];
+  return {
+    correctedContent: {
+      title,
+      subtitle: "Generated from your source content",
+      sections: points.map((p, i) => ({
+        id: `section-${i + 1}`,
+        title: `Point ${i + 1}`,
+        content: p.slice(0, 220),
+        bullets: [] as string[],
+        icon: ["growth", "spark", "chart", "target"][i % 4],
+        type: "mixed",
+      })),
+    },
+  };
+}
+
 export function normalizeContent(cr: any, request: AIGenerationRequest) {
   const src = cr?.correctedContent ?? {};
   const inputTitle = (request.input || "").split(/\s+/).filter(Boolean).slice(0, 8).join(" ") || "Your Infographic";

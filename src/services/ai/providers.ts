@@ -65,6 +65,31 @@ function parseRetryAfter(response: Response): number | undefined {
 }
 
 /**
+ * Pull the assistant text out of an OpenAI-compatible response.
+ * - Surfaces in-200 error bodies (OpenRouter does this on upstream failures)
+ *   as real errors so the fallback chain can react, instead of returning "".
+ * - Falls back to reasoning_content/reasoning for reasoning models that leave
+ *   `content` empty.
+ */
+function messageText(data: any, providerLabel: string): string {
+  if (data?.error) {
+    const msg =
+      typeof data.error === "string"
+        ? data.error
+        : data.error?.message || JSON.stringify(data.error).slice(0, 200);
+    throw new ProviderHttpError(502, `${providerLabel} upstream error: ${msg}`);
+  }
+  const msg = data?.choices?.[0]?.message;
+  let text = msg?.content ?? "";
+  if (Array.isArray(text)) text = text.map((c: any) => c?.text || "").join("");
+  if (!text.trim()) text = msg?.reasoning_content || msg?.reasoning || "";
+  if (!text.trim()) {
+    throw new ProviderHttpError(502, `${providerLabel} returned an empty response`);
+  }
+  return text;
+}
+
+/**
  * Fetch with BOTH a per-request timeout and an optional external abort signal
  * (client cancellation / pipeline deadline). Either source aborts the fetch.
  */
@@ -120,8 +145,7 @@ class NIMProviderImpl implements AIProvider {
       signal,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `NVIDIA NIM (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    return messageText(await response.json(), `NVIDIA NIM (${model})`);
   }
 }
 
@@ -159,8 +183,7 @@ class OpenRouterProviderImpl implements AIProvider {
       signal,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `OpenRouter (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    return messageText(await response.json(), `OpenRouter (${model})`);
   }
 }
 
@@ -199,8 +222,7 @@ class GroqProviderImpl implements AIProvider {
       signal,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Groq (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    return messageText(await response.json(), `Groq (${model})`);
   }
 }
 
@@ -237,12 +259,7 @@ class MistralProviderImpl implements AIProvider {
       signal,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Mistral (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content;
-    const content = Array.isArray(raw)
-      ? raw.map((c: any) => (typeof c === "string" ? c : c?.text || "")).join("")
-      : raw || "";
-    return content;
+    return messageText(await response.json(), `Mistral (${model})`);
   }
 }
 
@@ -280,12 +297,7 @@ class CustomProviderImpl implements AIProvider {
       signal,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Custom (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content;
-    const content = Array.isArray(raw)
-      ? raw.map((c: any) => (typeof c === "string" ? c : c?.text || "")).join("")
-      : raw || "";
-    return content;
+    return messageText(await response.json(), `Custom (${model})`);
   }
 }
 

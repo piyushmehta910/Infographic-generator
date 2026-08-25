@@ -20,7 +20,7 @@ import {
   CallLimits,
 } from "./fallback";
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
-import { normalizeContent } from "./normalize";
+import { normalizeContent, heuristicOutlineFromInput } from "./normalize";
 import {
   validateInfographicHTML,
   scoreInfographicHTML,
@@ -392,14 +392,25 @@ async function runPipeline(
         throw primaryError;
       }
     }
+    let contentResult: any;
+    let contentParseFailed = false;
+    try {
+      contentResult = extractJSON(contentResponse);
+    } catch {
+      // The model answered but not in usable JSON (refusal, prose, or a
+      // reasoning-only reply). Rather than killing the whole generation,
+      // build the outline straight from the user's text and say so.
+      contentParseFailed = true;
+      contentResult = heuristicOutlineFromInput(request.input);
+      warnings.push("The AI's structured analysis came back malformed — the outline was built directly from your text. Try a stronger model for richer output.");
+      emit({ type: "warning", phase: "content", message: "AI response wasn't valid JSON — building the outline from your text instead." });
+    }
     steps.push({
       name: "Content analysis & structuring",
-      status: usedProvider === providerId ? "completed" : "fallback",
+      status: contentParseFailed ? "fallback" : usedProvider === providerId ? "completed" : "fallback",
       durationMs: Date.now() - phaseStart,
     });
-    emit({ type: "phase_end", phase: "content", status: usedProvider === providerId ? "completed" : "fallback" });
-
-    let contentResult = extractJSON(contentResponse);
+    emit({ type: "phase_end", phase: "content", status: contentParseFailed ? "fallback" : usedProvider === providerId ? "completed" : "fallback" });
 
     // ============================================
     // STEP 1.5a: ZOD VALIDATION (single stricter retry)
@@ -698,7 +709,7 @@ async function runPipeline(
     // Quality gate: below-threshold output ships as an honest "degraded"
     // result (best attempt + warning) instead of being thrown away — the
     // user decides whether to regenerate.
-    let degraded = blueprintUsedFallback;
+    let degraded = blueprintUsedFallback || contentParseFailed;
     if (bestScore < MIN_QUALITY_SCORE) {
       degraded = true;
       const qualityMessage = `Design scored ${bestScore}/100 (target ${MIN_QUALITY_SCORE}) — showing the best attempt.`;
