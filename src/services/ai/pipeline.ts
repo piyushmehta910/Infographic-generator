@@ -55,11 +55,10 @@ export interface GenerateContentOptions {
 }
 
 /** Default wall-clock budget — stays under the route's 120s serverless cap. */
-// Bounded so the whole pipeline reliably finishes inside common serverless
-// execution caps (60s). Long retries simply don't fit — better to stop
-// gracefully than have the platform kill the function mid-stream.
-export const DEFAULT_BUDGET_MS = 55_000;
-const MAX_BUDGET_MS = 58_000;
+// Free models via OpenRouter can take 15-30s per API call. Four sequential
+// phases + retries need generous headroom. This stays under the 120s maxDuration.
+export const DEFAULT_BUDGET_MS = 110_000;
+const MAX_BUDGET_MS = 120_000;
 
 /** Per-phase output-token floors: tiny user maxTokens used to truncate JSON/HTML into unparseable sludge. */
 function tokensFor(maxTokens: number, cap: number, floor: number): number {
@@ -188,7 +187,19 @@ export async function generateContent(
   // If the multi-phase pipeline failed (very common on flaky free models),
   // retry with a single-shot HTML generation: one call instead of five has
   // a far higher chance of succeeding when providers are rate-limited.
-  const single = await singleShotAttempt(request, options, memory, limits);
+  // singleShotAttempt gets its own FRESH 30s budget so it always has a
+  // realistic chance even when the full pipeline burned the main budget.
+  let single: AIGenerationResult | null = null;
+  try {
+    const singleLimits: CallLimits = {
+      signal: options.signal,
+      deadline: Date.now() + 30_000,
+    };
+    single = await singleShotAttempt(request, options, memory, singleLimits);
+  } catch {
+    // Deadline or abort during single-shot: fall through to report the
+    // original pipeline failure rather than crashing the stream.
+  }
   if (single) return { ...single, memory: memory.toJSON() };
   return { ...result, memory: memory.toJSON() };
 }
@@ -264,8 +275,9 @@ REQUIREMENTS:
       );
       candidates.push({ provider: pid, model: modelId, text });
       return true;
-    } catch (error) {
-      if (error instanceof GenerationStoppedError) throw error;
+    } catch {
+      // Deadline exceeded or provider error: don't rethrow — single-shot
+      // returning null is enough; the caller reports the original failure.
       return false;
     }
   };

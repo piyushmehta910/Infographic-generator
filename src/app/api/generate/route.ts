@@ -21,9 +21,9 @@ import { AIProviderId } from "@/lib/types";
 // ============================================================
 
 export const runtime = "nodejs";
-// Must stay under the tightest common serverless cap (60s) — a longer budget
-// just gets the function killed mid-stream, truncating the SSE response.
-export const maxDuration = 60;
+// Budget in pipeline.ts is 110s; match it here. On Vercel Fluid Compute
+// (Hobby default 300s) this is well within limits.
+export const maxDuration = 120;
 
 const storedProviderSchema = z.object({
   id: z.string().min(1).max(40),
