@@ -86,6 +86,11 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 mb-8">
           <FolderOpen className="w-5 h-5 text-brand-400" />
           <h2 className="text-xl font-display font-bold text-white">Your infographics</h2>
+          {projects !== null && projects.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-900/40 border border-brand-400/30 text-brand-200">
+              {projects.length}
+            </span>
+          )}
           <span className="text-xs text-surface-400">stored locally in this browser</span>
         </div>
 
@@ -154,7 +159,6 @@ export default function DashboardPage() {
                     </div>
                     <button
                       onClick={() => handleDelete(project.id)}
-                      onBlur={() => setArmedDeleteId(null)}
                       aria-label={armedDeleteId === project.id ? "Click again to confirm deletion" : "Delete project"}
                       className={`p-1.5 rounded-lg transition-all ${
                         armedDeleteId === project.id

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Settings, X, AlertCircle, Plug, Loader2, CheckCircle2 } from "lucide-react";
+import { Settings, X, AlertCircle, Plug, Loader2, CheckCircle2, ChevronDown } from "lucide-react";
 import { useAIStore } from "@/stores/aiStore";
 import { AI_PROVIDERS } from "@/lib/constants";
 
@@ -29,6 +29,12 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
     dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // A stale "Connected" banner must never leak across provider switches.
+  useEffect(() => {
+    setTestResult(null);
+    setTesting(false);
+  }, [activeProvider]);
 
   if (!open) return null;
 
@@ -287,17 +293,21 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                     )}
                     <div>
                       <label className="text-sm font-medium text-surface-200 block mb-1.5">Model</label>
-                      <select
-                        value={provider.model}
-                        onChange={(e) => setProvider({ ...provider, model: e.target.value })}
-                        className="w-full px-4 py-3 bg-navy-950 border border-white/10 rounded-xl text-sm text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
-                      >
-                        {(AI_PROVIDERS.find((p) => p.id === provider.id)?.models || []).map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <select
+                          value={provider.model}
+                          onChange={(e) => setProvider({ ...provider, model: e.target.value })}
+                          className="w-full appearance-none px-4 py-3 pr-10 bg-navy-950 border border-white/10 rounded-xl text-sm text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                          style={{ colorScheme: "dark" }}
+                        >
+                          {(AI_PROVIDERS.find((p) => p.id === provider.id)?.models || []).map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-surface-400 pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>

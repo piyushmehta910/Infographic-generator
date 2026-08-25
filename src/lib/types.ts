@@ -137,6 +137,13 @@ export interface AIGenerationResult {
   generatedHtml?: string;
   /** True when the output came from a fallback provider (not the primary). */
   usedFallback?: boolean;
+  /**
+   * True when the result shipped with a known quality compromise
+   * (generic fallback blueprint, below-threshold quality score, …).
+   */
+  degraded?: boolean;
+  /** Non-fatal issues the user should know about, even on success. */
+  warnings?: string[];
   blueprint?: unknown;
   /** Ordered record of the pipeline phases that ran, with per-phase timing. */
   steps?: AIGenerationStep[];

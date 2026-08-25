@@ -4,6 +4,7 @@ import {
   AIGenerationResult,
   AIGenerationStep,
   AIGenerationErrorType,
+  InfographicContent,
 } from "@/lib/types";
 import {
   buildContentAnalysisPrompt,
@@ -11,8 +12,13 @@ import {
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
 import { validateOutline } from "@/lib/schemas";
-import { providerMap, AIProvider } from "./providers";
-import { generateWithFallback, tryAllProviders, StoredProvider } from "./fallback";
+import { GenerationStoppedError, ProviderHttpError, providerMap, AIProvider } from "./providers";
+import {
+  generateWithFallback,
+  tryAllProviders,
+  StoredProvider,
+  CallLimits,
+} from "./fallback";
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
 import { normalizeContent } from "./normalize";
 import {
@@ -29,6 +35,7 @@ import {
   summarizeContent,
   summarizeBlueprint,
 } from "./memory";
+import type { PipelineProgressEvent } from "./progress";
 
 export interface GenerateContentOptions {
   apiKey: string;
@@ -39,6 +46,21 @@ export interface GenerateContentOptions {
   storedProviders?: StoredProvider[];
   /** Seed the working memory with context from a previous generation. */
   memory?: MemoryEntry[];
+  /** Aborts all upstream fetches (client cancellation). */
+  signal?: AbortSignal;
+  /** Hard wall-clock budget for the entire generation (default 100s). */
+  budgetMs?: number;
+  /** Real-time progress sink, streamed to the client over SSE. */
+  onProgress?: (event: PipelineProgressEvent) => void;
+}
+
+/** Default wall-clock budget — stays under the route's 120s serverless cap. */
+export const DEFAULT_BUDGET_MS = 100_000;
+const MAX_BUDGET_MS = 110_000;
+
+/** Per-phase output-token floors: tiny user maxTokens used to truncate JSON/HTML into unparseable sludge. */
+function tokensFor(maxTokens: number, cap: number, floor: number): number {
+  return Math.min(Math.max(maxTokens, floor), cap);
 }
 
 const STEP_TOKEN_CAP = 1024;
@@ -70,33 +92,50 @@ function getCreds(
   return { key: stored?.apiKey || "", model: stored?.model || "" };
 }
 
-/** Map an upstream error message to a coarse failure class for HTTP mapping. */
-function classifyError(message: string): AIGenerationErrorType {
+/** Map an error to a coarse failure class for HTTP mapping. Uses the real HTTP status when available. */
+function classifyError(message: string, status?: number): AIGenerationErrorType {
+  if (status) {
+    if (status === 401 || status === 403) return "auth_failed";
+    if (status === 429) return "rate_limit";
+    if (status === 408 || status === 504) return "timeout";
+    if (status === 400 || status === 404 || status === 413 || status === 422 || status === 402) return "invalid_request";
+  }
   const m = message.toLowerCase();
   if (/\b401\b|\b403\b|unauthorized|forbidden|invalid[ _-]?(api[ _-])?key|authentication/i.test(m)) return "auth_failed";
   if (/\b429\b|rate[ _-]?limit|quota|too many requests/i.test(m)) return "rate_limit";
-  if (/timeout|timed out|\baborted?\b|socket hang up|etimedout|econnaborted/i.test(m)) return "timeout";
+  if (/cancel|abort|timeout|timed out|\baborted?\b|socket hang up|etimedout|econnaborted/i.test(m)) return "timeout";
   if (/\b400\b|invalid request|malformed|context length|max_tokens/i.test(m)) return "invalid_request";
   return "upstream_error";
 }
 
-/** Build a failed result with the phases that ran, the real error, and elapsed time. */
+function statusOf(error: unknown): number | undefined {
+  return error instanceof ProviderHttpError ? error.status : undefined;
+}
+
+/**
+ * Build a failed result with the phases that ran, the real error, and elapsed
+ * time. `extras` preserves partial work (content/blueprint) so clients can
+ * offer cheap retries or show what succeeded before the failure.
+ */
 function failedResult(
   providerId: AIProviderId,
   model: string,
   message: string,
   steps: AIGenerationStep[],
   startTime: number,
+  status?: number,
+  extras?: { content?: InfographicContent; blueprint?: unknown },
 ): AIGenerationResult {
   return {
     success: false,
     error: message,
-    errorType: classifyError(message),
+    errorType: classifyError(message, status),
     provider: providerId,
     model,
     processingTime: Date.now() - startTime,
     steps,
     usedFallback: false,
+    ...extras,
   };
 }
 
@@ -136,14 +175,17 @@ export async function generateContent(
   options: GenerateContentOptions,
 ): Promise<AIGenerationResult> {
   const memory = new SessionMemory(options.memory);
-  const result = await runPipeline(request, options, memory);
+  const startedAt = Date.now();
+  const budget = Math.min(Math.max(options.budgetMs ?? DEFAULT_BUDGET_MS, 20_000), MAX_BUDGET_MS);
+  const limits: CallLimits = { signal: options.signal, deadline: startedAt + budget };
+  const result = await runPipeline(request, options, memory, limits);
   if (result.success) {
     return { ...result, memory: memory.toJSON() };
   }
   // If the multi-phase pipeline failed (very common on flaky free models),
   // retry with a single-shot HTML generation: one call instead of five has
   // a far higher chance of succeeding when providers are rate-limited.
-  const single = await singleShotAttempt(request, options, memory);
+  const single = await singleShotAttempt(request, options, memory, limits);
   if (single) return { ...single, memory: memory.toJSON() };
   return { ...result, memory: memory.toJSON() };
 }
@@ -157,6 +199,7 @@ async function singleShotAttempt(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
   memory: SessionMemory,
+  limits: CallLimits,
 ): Promise<AIGenerationResult | null> {
   const { apiKey, providerId, model } = options;
   const storedProviders = options.storedProviders ?? [];
@@ -164,8 +207,11 @@ async function singleShotAttempt(
   const maxTokens = options.maxTokens ?? 2048;
   const startTime = Date.now();
   if (!apiKey || !apiKey.trim()) return null;
+  const emit = (e: PipelineProgressEvent) =>
+    options.onProgress?.({ ...e, elapsedMs: Date.now() - startTime });
 
   memory.add("note", "Fallback mode", "Full pipeline failed; switched to single-shot generation.");
+  emit({ type: "info", phase: "singleshot", message: "Pipeline failed — trying a one-shot generation…" });
   const memoryContext = memory.hasEntries() ? memory.context() : "";
 
   const dimensions = getCanvasDimensions(
@@ -208,13 +254,15 @@ REQUIREMENTS:
         key,
         modelId,
         temperature,
-        Math.min(maxTokens, HTML_TOKEN_CAP),
+        tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
         pid,
         getBaseUrl(pid, storedProviders),
+        limits,
       );
       candidates.push({ provider: pid, model: modelId, text });
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof GenerationStoppedError) throw error;
       return false;
     }
   };
@@ -263,6 +311,7 @@ async function runPipeline(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
   memory: SessionMemory,
+  limits: CallLimits,
 ): Promise<AIGenerationResult> {
   const { apiKey, providerId, model } = options;
   const temperature = options.temperature ?? 0.7;
@@ -270,6 +319,9 @@ async function runPipeline(
   const storedProviders = options.storedProviders ?? [];
   const startTime = Date.now();
   const steps: AIGenerationResult["steps"] = [];
+  const warnings: string[] = [];
+  const emit = (e: PipelineProgressEvent) =>
+    options.onProgress?.({ ...e, elapsedMs: Date.now() - startTime });
 
   // Remember the source so later phases (and future runs) stay grounded in it.
    memory.add("source", "Source content", summarizeSource(request.input));
@@ -306,6 +358,7 @@ async function runPipeline(
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
     const phaseStart = Date.now();
+    emit({ type: "phase_start", phase: "content" });
 
     try {
       contentResponse = await generateWithFallback(
@@ -314,18 +367,22 @@ async function runPipeline(
         apiKey,
         model,
         temperature,
-        Math.min(maxTokens, STEP_TOKEN_CAP),
+        tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
         providerId,
         getBaseUrl(providerId, storedProviders),
+        limits,
       );
     } catch (primaryError) {
       // If the user's provider fails, try ALL other configured providers.
+      if (primaryError instanceof GenerationStoppedError) throw primaryError;
+      emit({ type: "info", phase: "content", message: "Primary provider failed — trying fallback providers…" });
       const fallback = await tryAllProviders(
         contentPrompt,
         providerId,
         temperature,
-        Math.min(maxTokens, STEP_TOKEN_CAP),
+        tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
         storedProviders,
+        limits,
       );
       if (fallback) {
         contentResponse = fallback.text;
@@ -340,6 +397,7 @@ async function runPipeline(
       status: usedProvider === providerId ? "completed" : "fallback",
       durationMs: Date.now() - phaseStart,
     });
+    emit({ type: "phase_end", phase: "content", status: usedProvider === providerId ? "completed" : "fallback" });
 
     let contentResult = extractJSON(contentResponse);
 
@@ -361,9 +419,10 @@ async function runPipeline(
           strictCreds.key,
           strictCreds.model,
           Math.min(temperature, 0.4),
-          Math.min(maxTokens, STEP_TOKEN_CAP),
+          tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
           usedProvider,
           getBaseUrl(usedProvider, storedProviders),
+          limits,
         );
         const strictResult = extractJSON(strictContentResponse);
         if (validateOutline(strictResult).ok) {
@@ -389,6 +448,7 @@ async function runPipeline(
     let blueprintResponse: string;
     let blueprintUsedFallback = false;
     const blueprintStart = Date.now();
+    emit({ type: "phase_start", phase: "blueprint" });
 
     try {
       const blueprintCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
@@ -398,13 +458,17 @@ async function runPipeline(
         blueprintCreds.key,
         blueprintCreds.model,
         temperature,
-        Math.min(maxTokens, BLUEPRINT_TOKEN_CAP),
+        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 1200),
         usedProvider,
         getBaseUrl(usedProvider, storedProviders),
+        limits,
       );
-    } catch {
-      // Fall back to a theme-aware default blueprint on blueprint failure.
+    } catch (error) {
+      if (error instanceof GenerationStoppedError) throw error;
+      // Fall back to a theme-aware default blueprint on blueprint failure —
+      // but SAY SO in the result instead of silently papering over it.
       blueprintUsedFallback = true;
+      emit({ type: "warning", phase: "blueprint", message: "Blueprint generation failed — using a generic design system." });
       const palette = THEME_FALLBACK.modern;
       const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
       blueprintResponse = JSON.stringify({
@@ -454,20 +518,43 @@ async function runPipeline(
       status: blueprintUsedFallback ? "fallback" : "completed",
       durationMs: Date.now() - blueprintStart,
     });
+    emit({ type: "phase_end", phase: "blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
 
     let blueprint: any;
     try {
       blueprint = extractJSON(blueprintResponse);
     } catch {
+      // Unparseable blueprint ≈ no blueprint: flag it so the result is honest.
       blueprint = {};
+      blueprintUsedFallback = true;
     }
     if (blueprintUsedFallback) {
       memory.add("note", "Design blueprint", "Blueprint fell back to the theme's default palette/layout.");
+      warnings.push("The AI design blueprint failed — a generic design system was used instead.");
     }
     const blueprintSummary = summarizeBlueprint(blueprint);
     if (blueprintSummary) {
       memory.add("decision", "Design blueprint", blueprintSummary);
     }
+
+    // Build once — reused in the success result AND in partial-failure results.
+    const infographicContent: InfographicContent = {
+      title: normalizedContent.title,
+      subtitle: normalizedContent.subtitle,
+      sections: normalizedContent.sections,
+      statistics: normalizedContent.statistics,
+      timeline: normalizedContent.timeline,
+      heroStat: normalizedContent.heroStat,
+      colors: [
+        normalizedContent.suggestedColors?.primary || "#3b82f6",
+        normalizedContent.suggestedColors?.secondary || "#8b5cf6",
+        normalizedContent.suggestedColors?.accent || "#ec4899",
+        normalizedContent.suggestedColors?.background || "#ffffff",
+        normalizedContent.suggestedColors?.text || "#0f172a",
+      ],
+      icons: normalizedContent.suggestedIcons,
+      callToAction: "",
+    };
 
     // ============================================
     // STEP 3: HTML/CSS GENERATION
@@ -476,6 +563,7 @@ async function runPipeline(
     const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request, memoryContext);
     let htmlResponse: string;
     const htmlStart = Date.now();
+    emit({ type: "phase_start", phase: "html" });
 
     try {
       const htmlCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
@@ -485,19 +573,23 @@ async function runPipeline(
         htmlCreds.key,
         htmlCreds.model,
         temperature,
-        Math.min(maxTokens, HTML_TOKEN_CAP),
+        tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
         usedProvider,
         getBaseUrl(usedProvider, storedProviders),
+        limits,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof GenerationStoppedError) throw error;
       // Cross-provider fallback: if the active provider can't produce good
       // HTML, try every other configured provider before giving up.
+      emit({ type: "info", phase: "html", message: "Primary provider failed — trying fallback providers…" });
       const fallback = await tryAllProviders(
         htmlPrompt,
         usedProvider,
         temperature,
-        Math.min(maxTokens, HTML_TOKEN_CAP),
+        tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
         storedProviders,
+        limits,
       );
       if (fallback) {
         htmlResponse = fallback.text;
@@ -505,12 +597,15 @@ async function runPipeline(
         usedModel = fallback.model;
       } else {
         steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+        emit({ type: "phase_end", phase: "html", status: "failed" });
         return failedResult(
           providerId,
           model,
           "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
           steps,
           startTime,
+          statusOf(error),
+          { content: infographicContent, blueprint },
         );
       }
     }
@@ -533,6 +628,7 @@ async function runPipeline(
           (bestScore >= 0
             ? buildQualitySuffix(scoreInfographicHTML(bestHtml).metrics, attempt, bestScore)
             : buildRetrySuffix(lastChecks ?? {}, canvasPx.width, canvasPx.height));
+        emit({ type: "attempt", phase: "html", attempt, message: `Refining design (attempt ${attempt + 1})…` });
         try {
           const retryCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
           candidateResponse = await generateWithFallback(
@@ -541,19 +637,24 @@ async function runPipeline(
             retryCreds.key,
             retryCreds.model,
             Math.min(temperature, 0.3 + attempt * 0.05),
-            Math.min(maxTokens, HTML_TOKEN_CAP),
+            tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
             usedProvider,
             getBaseUrl(usedProvider, storedProviders),
+            limits,
           );
-        } catch {
+        } catch (error) {
+          if (error instanceof GenerationStoppedError) throw error;
           if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
           steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+          emit({ type: "phase_end", phase: "html", status: "failed" });
           return failedResult(
             providerId,
             model,
             "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
             steps,
             startTime,
+            statusOf(error),
+            { content: infographicContent, blueprint },
           );
         }
       }
@@ -573,12 +674,15 @@ async function runPipeline(
         lastChecks = val.checks;
         if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
         steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+        emit({ type: "phase_end", phase: "html", status: "failed" });
         return failedResult(
           providerId,
           model,
           "AI produced an invalid design and could not be refined after retries. Please try again.",
           steps,
           startTime,
+          undefined,
+          { content: infographicContent, blueprint },
         );
       }
 
@@ -591,43 +695,29 @@ async function runPipeline(
       }
     }
 
-    // If the best score is too low, report a quality failure instead of a fallback.
+    // Quality gate: below-threshold output ships as an honest "degraded"
+    // result (best attempt + warning) instead of being thrown away — the
+    // user decides whether to regenerate.
+    let degraded = blueprintUsedFallback;
     if (bestScore < MIN_QUALITY_SCORE) {
-      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-      return failedResult(
-        providerId,
-        model,
-        "AI generated a design that didn't meet quality standards. Try again or use a stronger provider/model.",
-        steps,
-        startTime,
-      );
+      degraded = true;
+      const qualityMessage = `Design scored ${bestScore}/100 (target ${MIN_QUALITY_SCORE}) — showing the best attempt.`;
+      warnings.push(qualityMessage);
+      steps.push({ name: "Quality gate", status: "fallback", durationMs: 0 });
+      emit({ type: "warning", phase: "html", message: qualityMessage });
     }
     steps.push({ name: "HTML/CSS rendering", status: "completed", durationMs: Date.now() - htmlStart });
+    emit({ type: "phase_end", phase: "html", status: degraded ? "fallback" : "completed" });
 
     // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
     const html = sanitizeHTML(bestHtml);
     const exportStart = Date.now();
     steps.push({ name: "Export & delivery", status: "completed", durationMs: Date.now() - exportStart });
+    emit({ type: "phase_end", phase: "finalize", status: "completed" });
 
     return {
       success: true,
-      content: {
-        title: normalizedContent.title,
-        subtitle: normalizedContent.subtitle,
-        sections: normalizedContent.sections,
-        statistics: normalizedContent.statistics,
-        timeline: normalizedContent.timeline,
-        heroStat: normalizedContent.heroStat,
-        colors: [
-          normalizedContent.suggestedColors?.primary || "#3b82f6",
-          normalizedContent.suggestedColors?.secondary || "#8b5cf6",
-          normalizedContent.suggestedColors?.accent || "#ec4899",
-          normalizedContent.suggestedColors?.background || "#ffffff",
-          normalizedContent.suggestedColors?.text || "#0f172a",
-        ],
-        icons: normalizedContent.suggestedIcons,
-        callToAction: "",
-      },
+      content: infographicContent,
       generatedHtml: html,
       blueprint,
       steps,
@@ -635,14 +725,19 @@ async function runPipeline(
       model: usedModel,
       processingTime: Date.now() - startTime,
       usedFallback: false,
+      degraded: degraded || undefined,
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   } catch (error) {
     // Unexpected error: report it (with the real cause when available) and elapsed
     // time — never fabricate output.
+    if (error instanceof GenerationStoppedError) {
+      return failedResult(providerId, model, error.message, steps, startTime);
+    }
     const message =
       error instanceof Error && error.message
         ? error.message
         : "Unexpected error during generation. Please try again.";
-    return failedResult(providerId, model, message, steps, startTime);
+    return failedResult(providerId, model, message, steps, startTime, statusOf(error));
   }
 }

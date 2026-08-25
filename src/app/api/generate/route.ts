@@ -1,16 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateContent } from "@/services/ai/pipeline";
 import { GenerateContentOptions } from "@/services/ai/pipeline";
 import { AIProviderId } from "@/lib/types";
 
 // ============================================================
-// Server-side generation proxy.
+// Server-side generation proxy with REAL-TIME PROGRESS STREAMING.
+//
 // The full 4-phase pipeline runs HERE (Node fetch), so browsers
 // never talk to the AI providers directly — this eliminates the
 // CORS / mixed-content / ad-blocker failures that broke client-
 // only generation. The user's API key travels only in the request
 // body and is never stored server-side.
+//
+// The response is an SSE stream (`text/event-stream`):
+//   event: progress   data: {type:"phase_start",phase:"content",…}
+//   event: result     data: <full AIGenerationResult JSON>
+// Client cancellation propagates via request.signal into every
+// upstream provider fetch.
 // ============================================================
 
 export const runtime = "nodejs";
@@ -77,13 +84,41 @@ function isPrivateHost(hostname: string): boolean {
   );
 }
 
+// --- Best-effort per-IP throttle: max 6 generations / rolling minute. ---
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 6;
+const rateBuckets = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (rateBuckets.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (hits.length >= RATE_LIMIT_MAX) {
+    rateBuckets.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  rateBuckets.set(ip, hits);
+  // Opportunistic cleanup so the map cannot grow unbounded.
+  if (rateBuckets.size > 10_000) {
+    for (const [key, times] of rateBuckets) {
+      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) rateBuckets.delete(key);
+    }
+  }
+  return false;
+}
+
+function clientIp(request: NextRequest): string {
+  const fwd = request.headers.get("x-forwarded-for");
+  return fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+}
+
 export async function POST(request: NextRequest) {
   let json: unknown;
   try {
     json = await request.json();
   } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid request body." },
+    return Response.json(
+      { success: false, error: "Invalid request body.", errorType: "invalid_request" },
       { status: 400 },
     );
   }
@@ -91,12 +126,20 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return NextResponse.json(
+    return Response.json(
       {
         success: false,
+        errorType: "invalid_request",
         error: `Invalid request${issue?.path?.length ? ` at ${issue.path.join(".")}` : ""}: ${issue?.message || "validation failed"}`,
       },
       { status: 400 },
+    );
+  }
+
+  if (isRateLimited(clientIp(request))) {
+    return Response.json(
+      { success: false, errorType: "rate_limit", error: "Too many generations — please wait a minute and try again." },
+      { status: 429, headers: { "Retry-After": "60" } },
     );
   }
 
@@ -114,40 +157,72 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  let result;
-  try {
-    result = await generateContent(req as never, {
-      apiKey: options.apiKey,
-      providerId: options.providerId as AIProviderId,
-      model: options.model,
-      temperature: options.temperature ?? 0.5,
-      maxTokens: options.maxTokens ?? 2048,
-      storedProviders: storedProviders.map((p) => ({
-        id: p.id as AIProviderId,
-        apiKey: p.apiKey,
-        model: p.model,
-        baseUrl: p.baseUrl,
-      })),
-      memory: options.memory as unknown as GenerateContentOptions["memory"],
-    });
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Internal server error.", errorType: "upstream_error" },
-      { status: 500 },
-    );
-  }
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let closed = false;
+      const send = (event: string, data: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      // Client navigated away / hit Cancel → stop the whole pipeline.
+      const onAbort = () => {
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
+      };
+      if (request.signal.aborted) return onAbort();
+      request.signal.addEventListener("abort", onAbort, { once: true });
 
-  if (!result.success) {
-    const statusMap: Record<string, number> = {
-      rate_limit: 429,
-      auth_failed: 401,
-      invalid_request: 400,
-      timeout: 504,
-      upstream_error: 502,
-    };
-    const status = statusMap[result.errorType ?? "upstream_error"] ?? 502;
-    return NextResponse.json(result, { status });
-  }
+      try {
+        const result = await generateContent(req as never, {
+          apiKey: options.apiKey,
+          providerId: options.providerId as AIProviderId,
+          model: options.model,
+          temperature: options.temperature ?? 0.5,
+          maxTokens: options.maxTokens ?? 2048,
+          storedProviders: storedProviders.map((p) => ({
+            id: p.id as AIProviderId,
+            apiKey: p.apiKey,
+            model: p.model,
+            baseUrl: p.baseUrl,
+          })),
+          memory: options.memory as unknown as GenerateContentOptions["memory"],
+          signal: request.signal,
+          onProgress: (event) => send("progress", event),
+        });
+        send("result", result);
+      } catch {
+        send("result", {
+          success: false,
+          errorType: "upstream_error",
+          error: "Internal server error.",
+        });
+      } finally {
+        request.signal.removeEventListener("abort", onAbort);
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
+      }
+    },
+  });
 
-  return NextResponse.json(result);
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

@@ -39,7 +39,8 @@
                 Your Content
               </label>
               <span
-                className={`text-[10px] ${input.length >= 8000 ? "text-amber-400" : "text-surface-500"}`}
+                aria-live="polite"
+                className={`text-[10px] ${input.length >= 7000 ? "text-amber-400 font-semibold" : "text-surface-500"}`}
               >
                 {input.length}/8000
               </span>
@@ -68,6 +69,11 @@
                 <><Brain className="w-5 h-5" /> Generate Infographic</>
               )}
             </Button>
+            {!canGenerate && !isGenerating && (
+              <p className="text-[11px] text-surface-500 mt-2 text-center">
+                Paste or type some content above to enable generation.
+              </p>
+            )}
           </div>
         </div>
       </div>
