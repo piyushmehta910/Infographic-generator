@@ -1,239 +1,144 @@
-# InfoGraphic AI - AI-Powered Infographic Generator
+# InfoGraphic AI — AI-Powered Infographic Generator
 
-A production-ready AI-powered infographic generator built with Next.js 15, TypeScript, and Tailwind CSS. Transform text, ideas, and images into beautiful, professional infographics.
+Turn any text into a polished, self-contained infographic in seconds. Paste notes, an article, or just a rough idea — a 4-phase AI pipeline researches, designs, codes, and validates the result, then you export it as PNG, JPG, SVG, PDF, or JSON.
 
-## 📱 Download Android App
+Built with Next.js 15, React 19, TypeScript, and Tailwind CSS.
 
-[![Download APK](https://img.shields.io/badge/Download-APK-green?style=for-the-badge&logo=android&logoColor=white)](https://github.com/piyushmehta910/Infographic-generator/releases/latest)
+## How It Works
 
-> **Install on Android**: Download the APK from the [Releases page](https://github.com/piyushmehta910/Infographic-generator/releases/latest), enable "Install from unknown sources" in settings, and tap to install.
+1. **Content Analysis** — the AI completes, corrects, and structures your input: title, sections, bullets, statistics, timeline.
+2. **Design Blueprint** — a full design system is planned: palette (WCAG AA-checked), typography scale, grid, card styles, decorations.
+3. **HTML/CSS Generation** — the blueprint is hand-coded into a single self-contained HTML file sized exactly to the canvas, validated and quality-scored across multiple attempts.
+4. **Export** — the final design renders in an isolated preview and exports via offscreen capture.
 
-## Live Demo
-
-[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://infographic-generator.vercel.app)
-
-## Core Philosophy
-
-> **The AI generates structured content and HTML; sanitization and validation make it safe.**
-> Everything runs client-side with your own API key.
+If a phase fails, the pipeline automatically falls back to other models — and then to other providers — before giving up with a clear error.
 
 ## Features
 
-### Input Methods
-
-- **Text**: Paste notes, articles, reports, blog posts, research, scripts
-- **Image Upload**: Drag & drop or browse (PNG, JPG, WEBP)
-- **URL**: Paste a publicly accessible image URL for AI analysis
-
-### AI Processing
-
-- Grammar correction & spelling fix
-- Professional rewriting & summarization
-- Language detection
-- Title & subtitle generation
-- Bullet points, key facts, statistics extraction
-- Timeline & process step creation
-- CTA generation
-- Icon & color palette recommendations
-- Image analysis (OCR, subject detection, color extraction)
-
-### Purposes
-
-Pick a purpose (Blog Post, Marketing, Education, Business, Health, etc.) and the AI tailors structure, tone, and visual style accordingly.
-
-### Aspect Ratios
-
-1:1, 4:5, 9:16, 16:9, A4 Portrait, A4 Landscape, Letter, Custom
-
-### Themes
-
-Auto (AI-selected), Light, Dark, Minimal, Corporate, Midnight Blue, Modern, Glassmorphism, Neumorphism, Gradient, Material Design
+### Input
+- **Text-only, by design**: paste articles, reports, notes, scripts, or a one-line idea
+- Working-memory context from your previous generations is injected into the next prompt (per-project, stored locally)
 
 ### AI Providers (Bring Your Own Key)
+- **OpenRouter** — hundreds of models incl. free tier
+- **NVIDIA NIM** — Llama, Nemotron, DeepSeek, Qwen on NVIDIA's free tier
+- **Groq** — fast LPU inference, free tier
+- **Mistral** — La Plateforme API
+- **Custom** — any OpenAI-compatible `/chat/completions` endpoint (e.g. Ollama, LM Studio, vLLM)
 
-- OpenRouter (free-model auto-select + free models)
-- NVIDIA NIM (Llama, Nemotron, GPT-OSS, Qwen, DeepSeek, Mistral on NVIDIA's free tier)
-- Groq (fast LPU inference, free tier)
-- Mistral (official La Plateforme API: Mistral Large/Small, Ministral, Mixtral)
+Configure provider, model, temperature, and max tokens in the Settings modal; verify credentials with the built-in Test Connection button.
 
-### Export Formats
+### Canvas & Export
+- 8 aspect ratios: 1:1, 4:5, 9:16, 16:9, A4 portrait/landscape, Letter, custom dimensions
+- Live sandboxed preview with zoom
+- **PNG / JPG** (2x pixel ratio), **SVG**, **PDF**, and **JSON** export
 
-- PNG (High resolution, 2x pixel ratio)
-- JPG (Compressed image)
-- SVG (Vector)
-- PDF (Print-ready document)
-- JSON (Project data)
+### Projects Dashboard
+- Every generation is saved to IndexedDB in your browser
+- Browse, reopen, or delete past projects at `/dashboard`
 
-### Mobile & PWA
+## Privacy & Security
 
-- **Fully responsive** - Works on mobile, tablet, and desktop
-- **PWA support** - Install as an app on any device
-- **Android APK** - Native Android app via TWA
-
-### Generator Features
-
-- Live canvas preview with zoom & aspect-ratio switching
-- Multi-attempt HTML generation (validated, scored, best kept)
-- 4-phase AI pipeline (content → design → HTML → export) with per-phase timing and clear error reporting
-- API-key configuration via the Settings modal (stored in the browser)
-
-### REST API
-
-- `GET /api/v1/templates` - List available templates
-- `GET /api/health` - Health check
-- Client-side AI generation with your API key
+- **Your API keys never leave your device unencrypted-at-rest** — they live in `localStorage` and are sent only in request bodies to the generation proxy, which forwards them to your chosen provider. Nothing is ever stored server-side.
+- All generation runs server-side through `/api/generate` (Node runtime), eliminating browser CORS/ad-blocker failures.
+- Generated HTML passes a server-side sanitizer plus client-side sandboxing before rendering.
+- Custom base URLs are validated against SSRF (private ranges, link-local, cloud metadata endpoints are blocked).
+- Requests are strictly schema-validated (Zod); upstream errors are truncated before reaching the client; failures return proper HTTP status codes (400/401/429/500/502/504).
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS + CSS Variables
-- **State Management**: Zustand
-- **Animations**: Framer Motion
-- **Export**: html-to-image, jsPDF
-- **AI Integration**: Direct API calls (OpenRouter, NVIDIA NIM, Groq, Mistral)
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 15 (App Router), React 19 |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS + CSS variables |
+| State | Zustand |
+| Validation | Zod |
+| Storage | IndexedDB (`idb`) for projects & working memory |
+| Export | html-to-image, jsPDF |
+| Animations | Framer Motion |
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js 18+
-- npm
-
-### Installation
-
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd infographic-generator
-
-# Install dependencies
+git clone https://github.com/piyushmehta910/Infographic-generator.git
+cd Infographic-generator
 npm install
-
-# Run development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000), go to **Generate**, click the ⚙️ Settings icon, pick a provider, paste your API key, choose a model, and generate.
 
-### Configuration
+> No account or sign-up needed — just your own provider key (free tiers work fine).
 
-1. Open the Generator (`/generate`)
-2. Click the Settings (gear) icon in the top bar
-3. Select your AI provider
-4. Enter your API key
-5. Choose a model (and temperature/max tokens)
-6. Start generating!
+## REST API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/generate` | POST | Runs the full 4-phase pipeline server-side. Body: `{ request, options }` where `options` carries provider id/key/model, optional stored providers for fallback, and seed memory. Returns HTML + content + per-phase steps, or a typed error with an appropriate HTTP status. |
+| `/api/test-provider` | POST | Validates a provider's credentials/base URL without running a generation. SSRF-guarded. |
+| `/api/health` | GET | Health check. |
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── page.tsx                # Landing page
-│   ├── generate/               # Main generator/editor
-│   │   └── page.tsx
-│   ├── dashboard/              # Redirects to /generate
-│   │   └── page.tsx
-│   ├── api/
-│   │   ├── health/route.ts
-│   │   └── v1/templates/route.ts
-│   ├── layout.tsx
-│   ├── globals.css
-│   ├── sitemap.ts
-│   └── opengraph-image/
+│   ├── page.tsx                  # Landing page
+│   ├── generate/page.tsx         # Generator (input, canvas, settings, export)
+│   ├── dashboard/page.tsx        # Saved projects browser
+│   └── api/
+│       ├── generate/route.ts     # Server-side pipeline proxy (Zod-validated)
+│       ├── test-provider/route.ts# Credential check w/ SSRF guard
+│       └── health/route.ts
 ├── components/
-│   ├── landing/               # Landing sections (Header, Hero, Features, FAQ, …)
-│   ├── generate/              # Generator UI (InputPanel, CanvasView, StylePanel, ProviderSettings)
-│   ├── templates/              # AIDesignRenderer (renders generated HTML)
-│   └── ui/                     # Shared UI (Button, GlassCard, Modal, Toast)
-├── stores/                     # Zustand state management
-│   ├── aiStore.ts
-│   ├── editorStore.ts
-│   └── uiStore.ts
-├── services/ai/                # AI provider integrations
-│   ├── providers.ts            # 4 provider implementations
-│   ├── pipeline.ts             # 4-phase generation pipeline
-│   ├── fallback.ts             # Model/provider fallback
-│   ├── response.ts             # JSON/HTML extraction & sanitization
-│   ├── normalize.ts            # Output normalization
-│   ├── quality.ts              # HTML validation & scoring
-│   ├── promptBuilder.ts        # Prompt construction
-│   └── provider.ts             # Public re-export entry
-└── lib/                        # Core types & constants
-    ├── types.ts
-    ├── constants.ts
-    ├── purposes.ts
-    ├── site.ts
-    ├── canvas.ts
-    └── templates.ts
+│   ├── landing/                  # Header, Hero, Features, HowItWorks, FAQ, …
+│   ├── generate/                 # InputPanel, CanvasView, StylePanel, ProviderSettings
+│   ├── templates/AIDesignRenderer.tsx  # Sandboxed iframe renderer for generated HTML
+│   └── ui/                       # Button, Toast
+├── stores/
+│   ├── aiStore.ts                # Providers, keys, model config (persisted)
+│   └── uiStore.ts / editorStore.ts
+├── services/ai/
+│   ├── pipeline.ts               # 4-phase orchestration + memory distillation
+│   ├── fallback.ts               # Model-chain & cross-provider fallback
+│   ├── providers.ts              # 5 provider implementations (fetch-based)
+│   ├── promptBuilder.ts          # Phase prompts (content/blueprint/HTML)
+│   ├── memory.ts                 # SessionMemory: distilled working-memory context
+│   ├── response.ts               # JSON/HTML extraction + sanitization
+│   ├── normalize.ts              # Content normalization
+│   └── quality.ts                # HTML validation & scoring gates
+└── lib/
+    ├── types.ts                  # Core type definitions
+    ├── schemas.ts                # Zod output schemas
+    ├── canvas.ts                 # Aspect-ratio math
+    ├── constants.ts              # Provider catalogs & defaults
+    ├── export/capture.ts         # Offscreen render for pixel-perfect exports
+    ├── storage/memoryDb.ts       # IndexedDB working-memory store
+    └── editor/persistence.ts     # IndexedDB project store
 ```
 
 ## Deployment
 
-### Vercel (Recommended)
-
-1. Push to Git repository
-2. Import to Vercel
-3. Deploy (zero configuration needed)
+Any Node host works — Vercel is zero-config:
 
 ```bash
-# Install Vercel CLI
 npm i -g vercel
-
-# Deploy
-vercel
+vercel --prod
 ```
 
-The `vercel.json` file is already configured for optimal deployment.
-
-### Android APK Build
-
-The APK is automatically built via GitHub Actions when you create a tag:
+Or self-host the standalone build:
 
 ```bash
-# Create a release tag
-git tag v1.0.0
-git push origin v1.0.0
+npm run build
+npm start   # or run .next/standalone/server.js
 ```
 
-This triggers the APK build workflow which:
-1. Builds the Next.js app
-2. Generates a TWA (Trusted Web Activity) project
-3. Compiles the Android APK
-4. Creates a GitHub Release with the APK download
-
-You can also manually trigger the workflow from the Actions tab.
-
-#### Manual APK Build with PWABuilder
-
-1. Deploy the app to Vercel
-2. Go to [PWABuilder](https://www.pwabuilder.com)
-3. Enter your deployed URL
-4. Click "Build My PWA" → Android
-5. Download the generated APK
-
-## API Keys
-
-API keys are stored locally in the browser using localStorage. No keys are sent to any server other than your chosen AI provider. This ensures:
-
-- **Privacy**: Your keys never leave your browser
-- **Security**: No server-side storage of credentials
-- **Control**: You can revoke keys at any time
-
-## Adding New AI Providers
+## Adding a New AI Provider
 
 1. Implement the `AIProvider` interface in `src/services/ai/providers.ts`
-2. Add it to `providerMap`
-3. Add its model list to `AI_PROVIDERS` in `src/lib/constants.ts`
-
-## Architecture Principles
-
-1. **Client-First** - AI calls happen in the browser with the user's API key
-2. **Provider-Agnostic** - Abstract `AIProvider` interface makes adding providers trivial
-3. **Honest Errors** - Failures return clear, actionable errors with elapsed time — no fabricated offline output
-4. **Sanitized HTML** - Generated HTML is validated, scored, and sanitized before rendering
-5. **Single-Sourced Config** - Branding, canvas math, and templates live in `src/lib/*`
+2. Register it in `providerMap`
+3. Add its catalog entry to `AI_PROVIDERS` in `src/lib/constants.ts`
 
 ## License
 
