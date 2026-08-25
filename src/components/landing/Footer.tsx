@@ -8,6 +8,7 @@ const COLUMNS = [
     title: "Product",
     links: [
       { label: "Generator", href: "/generate" },
+      { label: "Dashboard", href: "/dashboard" },
       { label: "Features", href: "/#features" },
       { label: "How it works", href: "/#how-it-works" },
       { label: "Providers", href: "/#providers" },
@@ -20,20 +21,13 @@ const COLUMNS = [
       { label: "FAQ", href: "/#faq" },
     ],
   },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy", href: "/#faq" },
-      { label: "Terms", href: "/#faq" },
-    ],
-  },
 ];
 
 export function Footer() {
   return (
     <footer className="border-t border-white/[0.06] bg-navy-950/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-3">
               <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
@@ -44,8 +38,8 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-xs text-surface-500 leading-relaxed max-w-xs">
-              AI-powered infographics from text, data, and ideas — in 30 seconds. Private,
-              client-side, and free to start.
+              AI-powered infographics from your text — designed in seconds. Bring your
+              own AI key; everything stays local to this browser.
             </p>
           </div>
 

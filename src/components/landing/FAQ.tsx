@@ -11,11 +11,11 @@ const FAQS = [
   },
   {
     q: "Where are my API keys stored?",
-    a: "Only in your browser's local storage. Keys are never sent to our servers and never stored server-side — calls go directly from your browser to the provider you choose.",
+    a: "Only in your browser's local storage. Keys are never stored on our servers — each generation request relays your key straight to the AI provider you chose.",
   },
   {
     q: "What types of input can I use?",
-    a: "Paste raw text, an article or blog URL, upload an image, or drop in CSV data. The AI analyzes whatever you give it and structures it into an infographic.",
+    a: "Paste any text — an article, blog post, notes, or a rough idea. The AI analyzes it, structures the key points, and designs the infographic.",
   },
   {
     q: "What export formats are supported?",
@@ -53,6 +53,8 @@ export function FAQ() {
               <Reveal key={f.q} delay={i * 0.05}>
                 <button
                   onClick={() => setOpenIndex(open ? null : i)}
+                  aria-expanded={open}
+                  aria-controls={`faq-answer-${i}`}
                   className={`w-full text-left rounded-2xl border p-5 transition-all card-glow ${
                     open ? "border-brand-400/30 bg-white/[0.04]" : "border-white/[0.06] bg-white/[0.02]"
                   }`}
@@ -68,6 +70,8 @@ export function FAQ() {
                     </span>
                   </span>
                   <span
+                    id={`faq-answer-${i}`}
+                    role="region"
                     className={`grid transition-all duration-300 ${
                       open ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"
                     }`}

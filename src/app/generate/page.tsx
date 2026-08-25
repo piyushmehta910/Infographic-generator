@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Loader2, Settings, Sparkles } from "lucide-react";
-import InputPanel, { InputTab } from "@/components/generate/InputPanel";
+import { Loader2, Settings, Sparkles, LayoutDashboard, X, PenLine } from "lucide-react";
+import InputPanel from "@/components/generate/InputPanel";
 import CanvasView from "@/components/generate/CanvasView";
 import StylePanel from "@/components/generate/StylePanel";
 import ProviderSettings from "@/components/generate/ProviderSettings";
@@ -11,11 +11,12 @@ import Toast from "@/components/ui/Toast";
 import { useEditorStore } from "@/stores/editorStore";
 import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
-import { Purpose } from "@/lib/purposes";
 import { APP_NAME } from "@/lib/site";
 import { ASPECT_RATIOS } from "@/lib/constants";
-import { AspectRatio, AspectRatioId, FontId, ThemeId, AIGenerationRequest, AIGenerationResult } from "@/lib/types";
+import { AspectRatio, AspectRatioId, FontId, AIGenerationRequest, AIGenerationResult } from "@/lib/types";
+import type { MemoryEntry } from "@/services/ai/memory";
 import { saveProject, loadProject, newProjectId, Project } from "@/lib/editor/persistence";
+import { getAIMemory, saveAIMemory, clearAIMemory } from "@/lib/storage/memoryDb";
 
 const LOADING_STEPS = [
   "Analyzing your content…",
@@ -39,104 +40,54 @@ export default function GeneratePage() {
   const activeConfig = useAIStore((s) => s.getActiveConfig());
   const generatingRef = useRef(false);
   const startTimeRef = useRef(0);
+  // Small working-memory carried across generations in this session: the
+  // server distills each run into facts/decisions, and the next generation
+  // re-seeds with it so the AI stays consistent (e.g. "regenerate, new theme").
+  const memoryRef = useRef<MemoryEntry[]>([]);
 
   const [input, setInput] = useState("");
-  const [inputType, setInputType] = useState<InputTab>("text");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [purpose, setPurpose] = useState<Purpose>("other");
-  const [userIntent, setUserIntent] = useState("");
-  const [theme, setTheme] = useState<ThemeId>("modern");
-  const [density, setDensity] = useState<"compact" | "balanced" | "spacious">("balanced");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS["1:1"]);
-  const [zoom, setZoom] = useState(100);
-  const [html, setHtml] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [step, setStep] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
+   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS["1:1"]);
+   const [zoom, setZoom] = useState(100);
+   const [html, setHtml] = useState<string | null>(null);
+   const [isGenerating, setIsGenerating] = useState(false);
+   const [step, setStep] = useState(0);
+   const [elapsed, setElapsed] = useState(0);
+   const [showSettings, setShowSettings] = useState(false);
+   // Mobile: content input opens as an overlay drawer (< md).
+   const [mobileInputOpen, setMobileInputOpen] = useState(false);
 
-  // Editable mode + persistence
-  const [mode, setMode] = useState<"preview" | "edit">("preview");
-  const [canvasState, setCanvasState] = useState<unknown>(null);
+  // Project persistence
   const projectIdRef = useRef<string | null>(null);
   const projectCreatedAtRef = useRef(0);
-  const canvasStateRef = useRef<unknown>(null);
-  const thumbnailRef = useRef("");
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dirtyRef = useRef(false);
 
-  const genInputType: AIGenerationRequest["inputType"] =
-    inputType === "image" ? "image" : "text";
-  const requestInput =
-    inputType === "image"
-      ? input
-      : inputType === "url"
-        ? `Summarize this article into concise, data-oriented infographic content: ${imageUrl}`
-        : input;
-  const hasContent = Boolean(requestInput) && requestInput.trim().length > 0;
-  const effectiveUserIntent =
-    density === "balanced"
-      ? userIntent
-      : [userIntent, `Use a ${density} layout density.`].filter(Boolean).join(" ");
+   const genInputType: AIGenerationRequest["inputType"] = "text";
+   const requestInput = input;
+   const hasContent = Boolean(requestInput) && requestInput.trim().length > 0;
 
-  const persistProject = useCallback(async () => {
-    if (!html) return;
-    const id = projectIdRef.current ?? newProjectId();
-    projectIdRef.current = id;
-    projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
-    const project: Project = {
-      id,
-      title: (requestInput || "Untitled infographic").slice(0, 80),
-      createdAt: projectCreatedAtRef.current,
-      updatedAt: Date.now(),
-      input: {
-        mode: (inputType === "data" ? "csv" : inputType) as Project["input"]["mode"],
-        content: requestInput.slice(0, 8000),
-      },
-      purpose,
-      theme,
-      density,
-      aspectRatio: aspectRatio.id,
-      aspectRatioWidth: aspectRatio.width,
-      aspectRatioHeight: aspectRatio.height,
-      phase1_content: null,
-      phase2_blueprint: null,
-      phase3_html: html,
-      canvasState: canvasStateRef.current ?? null,
-      thumbnail: thumbnailRef.current,
-    };
-    await saveProject(project);
-    dirtyRef.current = false;
-  }, [html, requestInput, inputType, purpose, theme, density, aspectRatio]);
-
-  const handleCanvasStateChange = useCallback(
-    (state: unknown) => {
-      canvasStateRef.current = state;
-      setCanvasState(state);
-      dirtyRef.current = true;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        persistProject();
-      }, 10000);
-    },
-    [persistProject],
-  );
-
-  const handleThumbnail = useCallback((url: string) => {
-    thumbnailRef.current = url;
-    dirtyRef.current = true;
-  }, []);
-
-  // Flush any pending edit on tab close (best-effort).
-  useEffect(() => {
-    const onBeforeUnload = () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (dirtyRef.current) persistProject();
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [persistProject]);
+   const persistProject = useCallback(async () => {
+     if (!html) return;
+     const id = projectIdRef.current ?? newProjectId();
+     projectIdRef.current = id;
+     projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
+     const project: Project = {
+       id,
+       title: (requestInput || "Untitled infographic").slice(0, 80),
+       createdAt: projectCreatedAtRef.current,
+       updatedAt: Date.now(),
+        input: {
+         mode: "text",
+         content: requestInput.slice(0, 8000),
+       },
+       aspectRatio: aspectRatio.id,
+       aspectRatioWidth: aspectRatio.width,
+       aspectRatioHeight: aspectRatio.height,
+        phase1_content: null,
+        phase2_blueprint: null,
+        phase3_html: html,
+        thumbnail: "",
+     };
+     await saveProject(project);
+    }, [html, requestInput, aspectRatio]);
 
   // Load an existing project via ?id=…
   useEffect(() => {
@@ -147,26 +98,11 @@ export default function GeneratePage() {
       const project = await loadProject(id);
       if (!project) return;
       setHtml(project.phase3_html);
+      memoryRef.current = [];
       setInput(project.input.content || "");
-      setInputType(
-        project.input.mode === "csv"
-          ? "data"
-          : project.input.mode === "image"
-            ? "image"
-            : project.input.mode === "url"
-              ? "url"
-              : "text",
-      );
-      setPurpose((project.purpose as Purpose) || "other");
-      setTheme((project.theme as ThemeId) || "modern");
-      setDensity((project.density as "compact" | "balanced" | "spacious") || "balanced");
       setAspectRatio(ASPECT_RATIOS[(project.aspectRatio as AspectRatioId)] || ASPECT_RATIOS["1:1"]);
-      canvasStateRef.current = project.canvasState ?? null;
-      setCanvasState(project.canvasState ?? null);
-      thumbnailRef.current = project.thumbnail || "";
       projectIdRef.current = project.id;
       projectCreatedAtRef.current = project.createdAt;
-      setMode("edit");
     })();
   }, []);
 
@@ -179,41 +115,34 @@ export default function GeneratePage() {
       showToast({ type: "error", title: "Input required", message: "Please provide some content before generating." });
       return;
     }
-    const request: AIGenerationRequest = {
-      input: requestInput,
-      inputType: genInputType,
-      aspectRatio: aspectRatio.id as AspectRatioId,
-      aspectRatioWidth: aspectRatio.width,
-      aspectRatioHeight: aspectRatio.height,
-      purpose: purpose || undefined,
-      theme,
-      font: "inter" as FontId,
-      language: "en",
-      audience: "general",
-      userIntent: effectiveUserIntent || undefined,
-    };
-    // Image inputs: extract readable text via OCR so the pipeline works on real
-    // content instead of sending a raw base64 blob (which models reject).
-    if (inputType === "image" && /^data:image/.test(requestInput)) {
-      try {
-        const { ocrImage } = await import("@/lib/parsers/image");
-        const text = await ocrImage(requestInput);
-        if (text.trim().length > 0) {
-          setInput(text);
-          setInputType("text");
-          request.input = text;
-          request.inputType = "text";
-        }
-      } catch {
-        // OCR failed — fall through with the image as-is.
-      }
+    // Assign the project id up front so AI memory and the saved project
+    // always share the same key (previously first-run memory landed under
+    // a "temp" key and was lost after reload).
+    if (!projectIdRef.current) projectIdRef.current = newProjectId();
+    const memKey = projectIdRef.current;
+    try {
+      const persisted = await getAIMemory(memKey);
+      if (persisted.length) memoryRef.current = persisted;
+    } catch {
+      // ignore any errors loading memory
     }
-    generatingRef.current = true;
-    setIsGenerating(true);
-    setHtml(null);
-    setStep(0);
-    setElapsed(0);
-    startTimeRef.current = Date.now();
+     await clearAIMemory(memKey);
+      const request: AIGenerationRequest = {
+        input: requestInput,
+        inputType: genInputType,
+         aspectRatio: aspectRatio.id as AspectRatioId,
+         aspectRatioWidth: aspectRatio.width,
+         aspectRatioHeight: aspectRatio.height,
+        font: "inter" as FontId,
+        language: "en",
+        audience: "general",
+      };
+     generatingRef.current = true;
+     setIsGenerating(true);
+     setHtml(null);
+     setStep(0);
+     setElapsed(0);
+     startTimeRef.current = Date.now();
     setGenerating(true);
     const iv = setInterval(() => setStep((s) => (s + 1) % LOADING_STEPS.length), 700);
     const tv = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 250);
@@ -234,7 +163,9 @@ export default function GeneratePage() {
                 id: p.id,
                 apiKey: p.apiKey,
                 model: p.model,
+                baseUrl: p.baseUrl,
               })),
+              memory: memoryRef.current,
             },
           }),
         });
@@ -252,10 +183,6 @@ export default function GeneratePage() {
       })();
       if (res.success && res.generatedHtml) {
         setHtml(res.generatedHtml);
-        canvasStateRef.current = null;
-        setCanvasState(null);
-thumbnailRef.current = "";
-        setMode("preview");
         if (res.content) setContent(res.content);
         setGenerationContext({
           request,
@@ -275,8 +202,14 @@ thumbnailRef.current = "";
           title: "Infographic ready!",
           message: `Generated in ${formatElapsed(totalMs)} across ${res.steps?.length ?? 4} phases.${res.usedFallback ? " (single-shot mode)" : ""}`,
         });
+        memoryRef.current = res.memory ?? memoryRef.current;
+        // Save the memory for possible future regenerations (auto-deleted at next generation start).
+        await saveAIMemory(projectIdRef.current ?? "temp", res.memory ?? []);
         persistProject();
       } else {
+        memoryRef.current = res.memory ?? memoryRef.current;
+        // Save the memory even on failure for possible retry.
+        await saveAIMemory(projectIdRef.current ?? "temp", res.memory ?? []);
         const failedStep =
           res.steps?.find((s) => s.status === "failed")?.name ||
           (res.steps?.length ? "setup" : "provider call");
@@ -301,28 +234,33 @@ thumbnailRef.current = "";
       setGenerating(false);
       setStep(0);
     }
-  }, [requestInput, genInputType, aspectRatio, purpose, theme, effectiveUserIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
+    }, [requestInput, genInputType, aspectRatio, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
       if (!html) return;
+      let el: HTMLElement | null = null;
       try {
-        const el = document.querySelector(".template-canvas-container") as HTMLElement;
-        if (!el) {
-          showToast({ type: "error", title: "Export failed", message: "No canvas found." });
-          return;
-        }
         if (format === "json") {
           const blob = new Blob([JSON.stringify({ html }, null, 2)], { type: "application/json" });
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
           a.download = "infographic.json";
           a.click();
+          showToast({ type: "success", title: "Exported as JSON" });
           return;
         }
+        // The live preview lives inside an iframe, which html-to-image cannot
+        // rasterize — re-render the same HTML inline offscreen for the capture.
+        const { renderOffscreenForCapture } = await import("@/lib/export/capture");
+        el = await renderOffscreenForCapture(html, aspectRatio.width, aspectRatio.height);
         const mod = await import("html-to-image");
         const fn = format === "jpg" ? mod.toJpeg : format === "svg" ? mod.toSvg : mod.toPng;
-        const dataUrl = await fn(el, { quality: 1, pixelRatio: 2 });
+        const dataUrl = await fn(el, {
+          quality: 1,
+          pixelRatio: 2,
+          ...(format === "jpg" ? { backgroundColor: "#ffffff" } : {}),
+        });
         if (format === "pdf") {
           const { jsPDF } = await import("jspdf");
           const pdf = new jsPDF({
@@ -339,8 +277,14 @@ thumbnailRef.current = "";
           a.click();
         }
         showToast({ type: "success", title: `Exported as ${format.toUpperCase()}` });
-      } catch {
-        showToast({ type: "error", title: "Export failed", message: "Please try again." });
+      } catch (e) {
+        showToast({
+          type: "error",
+          title: "Export failed",
+          message: e instanceof Error && e.message ? e.message.slice(0, 200) : "Please try again.",
+        });
+      } finally {
+        el?.remove();
       }
     },
     [html, aspectRatio, showToast],
@@ -355,24 +299,44 @@ thumbnailRef.current = "";
           <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] rounded-full bg-emerald-500/8 blur-[120px]" />
         </div>
         <div className="relative z-10 flex h-full w-full">
-        <InputPanel
-          input={input}
-          setInput={setInput}
-          inputType={inputType}
-          setInputType={setInputType}
-          imageUrl={imageUrl}
-          setImageUrl={setImageUrl}
-          imageFile={imageFile}
-          setImageFile={setImageFile}
-          purpose={purpose}
-          setPurpose={setPurpose}
-          userIntent={userIntent}
-          setUserIntent={setUserIntent}
-          onGenerateClick={handleGenerate}
-          isGenerating={isGenerating}
-        />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-14 border-b border-white/5 px-4 flex items-center justify-between bg-surface-900/60 backdrop-blur-xl">
+        {/* Desktop sidebar input */}
+        <div className="hidden md:flex h-full">
+          <InputPanel
+            input={input}
+            setInput={setInput}
+            onGenerateClick={handleGenerate}
+            isGenerating={isGenerating}
+          />
+        </div>
+        {/* Mobile drawer input */}
+        {mobileInputOpen && (
+          <div className="md:hidden fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setMobileInputOpen(false)}
+            />
+            <div className="absolute inset-y-0 left-0 flex shadow-2xl">
+              <InputPanel
+                input={input}
+                setInput={setInput}
+                onGenerateClick={() => {
+                  setMobileInputOpen(false);
+                  handleGenerate();
+                }}
+                isGenerating={isGenerating}
+              />
+              <button
+                onClick={() => setMobileInputOpen(false)}
+                aria-label="Close content panel"
+                className="self-start m-2 p-2 rounded-lg bg-surface-800/80 text-surface-300 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <header className="h-14 border-b border-white/5 px-3 sm:px-4 flex items-center justify-between bg-surface-900/60 backdrop-blur-xl">
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40 transition-transform group-hover:scale-105">
                 <Sparkles className="w-4 h-4 text-white" />
@@ -382,16 +346,32 @@ thumbnailRef.current = "";
                 <span className="hidden sm:inline text-[11px] text-surface-400 uppercase tracking-wider">Creator</span>
               </div>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {isGenerating && (
-                <div className="flex items-center gap-2 text-sm text-surface-300">
+                <div className="hidden md:flex items-center gap-2 text-sm text-surface-300">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{LOADING_STEPS[step]}</span>
                   <span className="tabular-nums text-surface-500">{formatElapsed(elapsed)}</span>
                 </div>
               )}
               <button
+                onClick={() => setMobileInputOpen(true)}
+                aria-label="Edit content"
+                className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-brand-gradient text-white"
+              >
+                <PenLine className="w-4 h-4" /> Content
+              </button>
+              <Link
+                href="/dashboard"
+                aria-label="Your projects"
+                title="Your projects"
+                className="p-2 hover:bg-white/5 rounded-lg text-surface-300 hover:text-white"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+              </Link>
+              <button
                 onClick={() => setShowSettings(true)}
+                aria-label="Open settings"
                 className="p-2 hover:bg-white/5 rounded-lg text-surface-300 hover:text-white"
                 title="Settings"
               >
@@ -408,18 +388,10 @@ thumbnailRef.current = "";
             onExport={handleExport}
             onRegenerate={handleGenerate}
             isGenerating={isGenerating}
-            mode={mode}
-            setMode={setMode}
-            canvasState={canvasState}
-            onCanvasStateChange={handleCanvasStateChange}
-            onThumbnail={handleThumbnail}
+            hasContent={hasContent}
           />
         </div>
         <StylePanel
-          theme={theme}
-          setTheme={setTheme}
-          density={density}
-          setDensity={setDensity}
           onRegenerate={handleGenerate}
           isGenerating={isGenerating}
           hasContent={hasContent}

@@ -3,6 +3,7 @@ import {
   AIGenerationRequest,
   AIGenerationResult,
   AIGenerationStep,
+  AIGenerationErrorType,
 } from "@/lib/types";
 import {
   buildContentAnalysisPrompt,
@@ -21,6 +22,13 @@ import {
   buildQualitySuffix,
 } from "./quality";
 import { getCanvasDimensions } from "@/lib/canvas";
+import {
+  SessionMemory,
+  MemoryEntry,
+  summarizeSource,
+  summarizeContent,
+  summarizeBlueprint,
+} from "./memory";
 
 export interface GenerateContentOptions {
   apiKey: string;
@@ -29,6 +37,8 @@ export interface GenerateContentOptions {
   temperature?: number;
   maxTokens?: number;
   storedProviders?: StoredProvider[];
+  /** Seed the working memory with context from a previous generation. */
+  memory?: MemoryEntry[];
 }
 
 const STEP_TOKEN_CAP = 1024;
@@ -37,8 +47,38 @@ const HTML_TOKEN_CAP = 4096;
 const MAX_HTML_ATTEMPTS = 3;
 const MIN_QUALITY_SCORE = 40;
 
-/** Prevents two pipeline runs at the same time (one generation at a time). */
-let generationInFlight = false;
+function getBaseUrl(providerId: AIProviderId, storedProviders: StoredProvider[]): string {
+  const stored = storedProviders.find((p) => p.id === providerId);
+  return stored?.baseUrl || "";
+}
+
+/**
+ * Resolve which API key + model to use for a given provider id. After a
+ * cross-provider fallback switches the active provider, the ORIGINAL user's
+ * key must NOT be sent to the new provider — each provider gets its own
+ * stored credential.
+ */
+function getCreds(
+  pid: AIProviderId,
+  primaryId: AIProviderId,
+  primaryKey: string,
+  primaryModel: string,
+  storedProviders: StoredProvider[],
+): { key: string; model: string } {
+  if (pid === primaryId) return { key: primaryKey, model: primaryModel };
+  const stored = storedProviders.find((p) => p.id === pid);
+  return { key: stored?.apiKey || "", model: stored?.model || "" };
+}
+
+/** Map an upstream error message to a coarse failure class for HTTP mapping. */
+function classifyError(message: string): AIGenerationErrorType {
+  const m = message.toLowerCase();
+  if (/\b401\b|\b403\b|unauthorized|forbidden|invalid[ _-]?(api[ _-])?key|authentication/i.test(m)) return "auth_failed";
+  if (/\b429\b|rate[ _-]?limit|quota|too many requests/i.test(m)) return "rate_limit";
+  if (/timeout|timed out|\baborted?\b|socket hang up|etimedout|econnaborted/i.test(m)) return "timeout";
+  if (/\b400\b|invalid request|malformed|context length|max_tokens/i.test(m)) return "invalid_request";
+  return "upstream_error";
+}
 
 /** Build a failed result with the phases that ran, the real error, and elapsed time. */
 function failedResult(
@@ -51,6 +91,7 @@ function failedResult(
   return {
     success: false,
     error: message,
+    errorType: classifyError(message),
     provider: providerId,
     model,
     processingTime: Date.now() - startTime,
@@ -94,28 +135,17 @@ export async function generateContent(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
 ): Promise<AIGenerationResult> {
-  if (generationInFlight) {
-    return {
-      success: false,
-      error: "A generation is already in progress. Please wait for it to finish.",
-      provider: options.providerId,
-      processingTime: 0,
-      steps: [],
-    };
+  const memory = new SessionMemory(options.memory);
+  const result = await runPipeline(request, options, memory);
+  if (result.success) {
+    return { ...result, memory: memory.toJSON() };
   }
-  generationInFlight = true;
-  try {
-    const result = await runPipeline(request, options);
-    // If the multi-phase pipeline failed (very common on flaky free models),
-    // retry with a single-shot HTML generation: one call instead of five has
-    // a far higher chance of succeeding when providers are rate-limited.
-    if (result.success) return result;
-    const single = await singleShotAttempt(request, options);
-    if (single) return single;
-    return result;
-  } finally {
-    generationInFlight = false;
-  }
+  // If the multi-phase pipeline failed (very common on flaky free models),
+  // retry with a single-shot HTML generation: one call instead of five has
+  // a far higher chance of succeeding when providers are rate-limited.
+  const single = await singleShotAttempt(request, options, memory);
+  if (single) return { ...single, memory: memory.toJSON() };
+  return { ...result, memory: memory.toJSON() };
 }
 
 /**
@@ -126,6 +156,7 @@ export async function generateContent(
 async function singleShotAttempt(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
+  memory: SessionMemory,
 ): Promise<AIGenerationResult | null> {
   const { apiKey, providerId, model } = options;
   const storedProviders = options.storedProviders ?? [];
@@ -133,6 +164,9 @@ async function singleShotAttempt(
   const maxTokens = options.maxTokens ?? 2048;
   const startTime = Date.now();
   if (!apiKey || !apiKey.trim()) return null;
+
+  memory.add("note", "Fallback mode", "Full pipeline failed; switched to single-shot generation.");
+  const memoryContext = memory.hasEntries() ? memory.context() : "";
 
   const dimensions = getCanvasDimensions(
     request.aspectRatio,
@@ -143,12 +177,13 @@ async function singleShotAttempt(
   const prompt = `Design a complete, self-contained HTML infographic that visualizes the content below.
 
 CANVAS: exactly ${dimensions.width}px wide and ${dimensions.height}px high. The outer container must be exactly those dimensions with overflow:hidden. Do not use viewport units.
-THEME: ${request.theme || "modern"} color palette.
+THEME: modern color palette.
 STYLE INTENT: ${request.userIntent || "premium, clean, data-driven"}.
-PURPOSE: ${request.purpose || "informative"}.
 
 CONTENT TO VISUALIZE:
 ${source || "Create a generic data-visualization infographic about growth and progress."}
+
+${memoryContext}
 
 REQUIREMENTS:
 - Return a complete document starting with <!DOCTYPE html> and containing <head><style> and <body>.
@@ -175,6 +210,7 @@ REQUIREMENTS:
         temperature,
         Math.min(maxTokens, HTML_TOKEN_CAP),
         pid,
+        getBaseUrl(pid, storedProviders),
       );
       candidates.push({ provider: pid, model: modelId, text });
       return true;
@@ -226,6 +262,7 @@ REQUIREMENTS:
 async function runPipeline(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
+  memory: SessionMemory,
 ): Promise<AIGenerationResult> {
   const { apiKey, providerId, model } = options;
   const temperature = options.temperature ?? 0.7;
@@ -233,6 +270,9 @@ async function runPipeline(
   const storedProviders = options.storedProviders ?? [];
   const startTime = Date.now();
   const steps: AIGenerationResult["steps"] = [];
+
+  // Remember the source so later phases (and future runs) stay grounded in it.
+   memory.add("source", "Source content", summarizeSource(request.input));
 
   // No API key or unknown provider => actionable error, never offline output.
   if (!apiKey || apiKey.trim() === "") {
@@ -255,11 +295,13 @@ async function runPipeline(
     );
   }
 
+  const memoryContext = memory.hasEntries() ? memory.context() : "";
+
   try {
     // ============================================
     // STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
     // ============================================
-    const contentPrompt = buildContentAnalysisPrompt(request);
+    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
     let contentResponse: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
@@ -274,14 +316,13 @@ async function runPipeline(
         temperature,
         Math.min(maxTokens, STEP_TOKEN_CAP),
         providerId,
+        getBaseUrl(providerId, storedProviders),
       );
     } catch (primaryError) {
       // If the user's provider fails, try ALL other configured providers.
       const fallback = await tryAllProviders(
         contentPrompt,
-        apiKey,
         providerId,
-        model,
         temperature,
         Math.min(maxTokens, STEP_TOKEN_CAP),
         storedProviders,
@@ -313,14 +354,16 @@ async function runPipeline(
         outlineCheck.errors.join("; ") +
         "\nRewrite the outline JSON so every required field is present, non-empty, and contains REAL content derived from the source input (no placeholders, no empty arrays). Return ONLY valid JSON.";
       try {
+        const strictCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
         const strictContentResponse = await generateWithFallback(
           providerMap[usedProvider],
           fixPrompt,
-          apiKey,
-          usedModel,
+          strictCreds.key,
+          strictCreds.model,
           Math.min(temperature, 0.4),
           Math.min(maxTokens, STEP_TOKEN_CAP),
           usedProvider,
+          getBaseUrl(usedProvider, storedProviders),
         );
         const strictResult = extractJSON(strictContentResponse);
         if (validateOutline(strictResult).ok) {
@@ -335,31 +378,34 @@ async function runPipeline(
     // STEP 1.5: NORMALIZE CONTENT
     // ============================================
     const normalizedContent = normalizeContent(contentResult, request);
+    memory.add("fact", "Structured content", summarizeContent(normalizedContent));
 
     // ============================================
     // STEP 2: DESIGN BLUEPRINT
     // AI specifies exactly how to design the content in HTML/CSS
     // for the chosen aspect ratio, honoring theme + design intent.
     // ============================================
-    const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request);
+    const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request, memoryContext);
     let blueprintResponse: string;
     let blueprintUsedFallback = false;
     const blueprintStart = Date.now();
 
     try {
+      const blueprintCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
       blueprintResponse = await generateWithFallback(
         providerMap[usedProvider],
         blueprintPrompt,
-        apiKey,
-        usedModel,
+        blueprintCreds.key,
+        blueprintCreds.model,
         temperature,
         Math.min(maxTokens, BLUEPRINT_TOKEN_CAP),
         usedProvider,
+        getBaseUrl(usedProvider, storedProviders),
       );
     } catch {
       // Fall back to a theme-aware default blueprint on blueprint failure.
       blueprintUsedFallback = true;
-      const palette = THEME_FALLBACK[request.theme || "modern"] || THEME_FALLBACK.modern;
+      const palette = THEME_FALLBACK.modern;
       const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
       blueprintResponse = JSON.stringify({
         designSystem: {
@@ -415,33 +461,40 @@ async function runPipeline(
     } catch {
       blueprint = {};
     }
+    if (blueprintUsedFallback) {
+      memory.add("note", "Design blueprint", "Blueprint fell back to the theme's default palette/layout.");
+    }
+    const blueprintSummary = summarizeBlueprint(blueprint);
+    if (blueprintSummary) {
+      memory.add("decision", "Design blueprint", blueprintSummary);
+    }
 
     // ============================================
     // STEP 3: HTML/CSS GENERATION
     // AI codes the final design following the blueprint exactly.
     // ============================================
-    const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request);
+    const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request, memoryContext);
     let htmlResponse: string;
     const htmlStart = Date.now();
 
     try {
+      const htmlCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
       htmlResponse = await generateWithFallback(
         providerMap[usedProvider],
         htmlPrompt,
-        apiKey,
-        usedModel,
+        htmlCreds.key,
+        htmlCreds.model,
         temperature,
         Math.min(maxTokens, HTML_TOKEN_CAP),
         usedProvider,
+        getBaseUrl(usedProvider, storedProviders),
       );
     } catch {
       // Cross-provider fallback: if the active provider can't produce good
       // HTML, try every other configured provider before giving up.
       const fallback = await tryAllProviders(
         htmlPrompt,
-        apiKey,
         usedProvider,
-        usedModel,
         temperature,
         Math.min(maxTokens, HTML_TOKEN_CAP),
         storedProviders,
@@ -465,57 +518,59 @@ async function runPipeline(
     const canvasPx = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
     let bestHtml = "";
     let bestScore = -1;
+    // Store validation checks from the previous attempt for retry prompts.
+    let lastChecks: Record<string, boolean> | null = null;
 
     // Run up to MAX_HTML_ATTEMPTS generations, score each, keep the best.
     for (let attempt = 0; attempt < MAX_HTML_ATTEMPTS; attempt++) {
       let candidateResponse: string;
-      const promptForAttempt =
-        attempt === 0
-          ? htmlResponse
-          : htmlResponse +
-            (bestScore >= 0
-              ? buildQualitySuffix(scoreInfographicHTML(bestHtml).metrics, attempt, bestScore)
-              : buildRetrySuffix(
-                  {
-                    hasDoctype: false,
-                    hasHtmlTag: false,
-                    noPlaceholders: false,
-                    noMarkdown: false,
-                    correctSize: false,
-                    hasSubstance: false,
-                    hasStyleBlock: false,
-                    hasColorAndShape: false,
-                    hasStructuredLayout: false,
-                  },
-                  canvasPx.width,
-                  canvasPx.height,
-                ));
-
-      try {
-        candidateResponse = await generateWithFallback(
-          providerMap[usedProvider],
-          promptForAttempt,
-          apiKey,
-          usedModel,
-          Math.min(temperature, 0.3 + attempt * 0.05),
-          Math.min(maxTokens, HTML_TOKEN_CAP),
-          usedProvider,
-        );
-      } catch {
-        if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-        steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-        return failedResult(
-          providerId,
-          model,
-          "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
-          steps,
-          startTime,
-        );
+      if (attempt === 0) {
+        // First attempt already obtained as `htmlResponse` – no extra API call.
+        candidateResponse = htmlResponse;
+      } else {
+        const retryPrompt =
+          htmlPrompt +
+          (bestScore >= 0
+            ? buildQualitySuffix(scoreInfographicHTML(bestHtml).metrics, attempt, bestScore)
+            : buildRetrySuffix(lastChecks ?? {}, canvasPx.width, canvasPx.height));
+        try {
+          const retryCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
+          candidateResponse = await generateWithFallback(
+            providerMap[usedProvider],
+            retryPrompt,
+            retryCreds.key,
+            retryCreds.model,
+            Math.min(temperature, 0.3 + attempt * 0.05),
+            Math.min(maxTokens, HTML_TOKEN_CAP),
+            usedProvider,
+            getBaseUrl(usedProvider, storedProviders),
+          );
+        } catch {
+          if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
+          steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+          return failedResult(
+            providerId,
+            model,
+            "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
+            steps,
+            startTime,
+          );
+        }
       }
 
       const candidate = extractHTML(candidateResponse);
       const val = validateInfographicHTML(candidate, canvasPx.width, canvasPx.height);
       if (!val.pass) {
+        const failed = Object.entries(val.checks)
+          .filter(([, ok]) => !ok)
+          .map(([key]) => key);
+        memory.add(
+          "correction",
+          `HTML attempt ${attempt + 1} rejected`,
+          failed.length > 0 ? failed.join(", ") : "did not pass validation",
+        );
+        // Store the failing checks for the next retry prompt.
+        lastChecks = val.checks;
         if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
         steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
         return failedResult(
@@ -531,6 +586,8 @@ async function runPipeline(
       if (scored.score > bestScore) {
         bestHtml = candidate;
         bestScore = scored.score;
+        // Reset lastChecks because we have a successful candidate.
+        lastChecks = null;
       }
     }
 

@@ -9,6 +9,7 @@ export interface AIProvider {
     model: string,
     temperature: number,
     maxTokens: number,
+    baseUrl?: string,
   ): Promise<string>;
 }
 
@@ -16,6 +17,15 @@ export const SYSTEM_PROMPT =
   "You are an expert content analyst, designer, and developer. Follow the 4-phase workflow exactly.";
 
 export const REQUEST_TIMEOUT_MS = 30000;
+
+/** Cap upstream error bodies so raw provider payloads aren't relayed verbatim. */
+async function errorBody(response: Response): Promise<string> {
+  try {
+    return (await response.text()).slice(0, 300);
+  } catch {
+    return `HTTP ${response.status}`;
+  }
+}
 
 // Helper: fetch with timeout
 async function fetchWithTimeout(
@@ -61,7 +71,7 @@ class NIMProviderImpl implements AIProvider {
         }),
       },
     );
-    if (!response.ok) throw new Error(`NVIDIA NIM (${model}): ${await response.text()}`);
+    if (!response.ok) throw new Error(`NVIDIA NIM (${model}): ${await errorBody(response)}`);
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
   }
@@ -96,7 +106,7 @@ class OpenRouterProviderImpl implements AIProvider {
         }),
       },
     );
-    if (!response.ok) throw new Error(`OpenRouter (${model}): ${await response.text()}`);
+    if (!response.ok) throw new Error(`OpenRouter (${model}): ${await errorBody(response)}`);
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
   }
@@ -133,7 +143,7 @@ class GroqProviderImpl implements AIProvider {
       },
     );
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await errorBody(response);
       throw new Error(`Groq (${model}): ${errorText}`);
     }
     const data = await response.json();
@@ -169,7 +179,44 @@ class MistralProviderImpl implements AIProvider {
         }),
       },
     );
-    if (!response.ok) throw new Error(`Mistral (${model}): ${await response.text()}`);
+    if (!response.ok) throw new Error(`Mistral (${model}): ${await errorBody(response)}`);
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content;
+    const content = Array.isArray(raw)
+      ? raw.map((c: any) => (typeof c === "string" ? c : c?.text || "")).join("")
+      : raw || "";
+    return content;
+  }
+}
+
+class CustomProviderImpl implements AIProvider {
+  id: AIProviderId = "custom";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+    baseUrl?: string,
+  ): Promise<string> {
+    const url = (baseUrl || "").replace(/\/$/, "") + "/chat/completions";
+    const response = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    });
+    if (!response.ok) throw new Error(`Custom (${model}): ${await errorBody(response)}`);
     const data = await response.json();
     const raw = data.choices?.[0]?.message?.content;
     const content = Array.isArray(raw)
@@ -184,4 +231,5 @@ export const providerMap: Record<AIProviderId, AIProvider> = {
   groq: new GroqProviderImpl(),
   nim: new NIMProviderImpl(),
   mistral: new MistralProviderImpl(),
+  custom: new CustomProviderImpl(),
 };

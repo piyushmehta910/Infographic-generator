@@ -19,7 +19,7 @@ export function CTA() {
                 <Sparkles className="w-3.5 h-3.5" /> Free to start
               </div>
               <h2 className="text-3xl sm:text-5xl font-display font-bold text-white tracking-tight text-balance mb-4">
-                Your next infographic is <span className="text-gradient">30 seconds away</span>
+                Your next infographic is <span className="text-gradient">one paste away</span>
               </h2>
               <p className="text-surface-300 max-w-xl mx-auto mb-8 leading-relaxed">
                 No templates, no design skills, no sign-up. Paste your content and let AI design

@@ -2,66 +2,28 @@ import { AIGenerationRequest } from "@/lib/types";
 import { getCanvasDimensions } from "@/lib/canvas";
 
 // ============================================================
-// THEME DIRECTION (user-selected ThemeId → concrete style guide)
-// Injected into every downstream prompt so the whole pipeline
-// (content → blueprint → HTML) stays on the chosen theme.
-// ============================================================
-
-const THEME_DIRECTIONS: Record<string, string> = {
-  auto: "Choose a cohesive palette that best matches the content and mood — premium and intentional.",
-  light:
-    "Light background (#f8fafc or #ffffff), dark slate text (#0f172a), one vibrant accent. Airy, crisp, high contrast, minimal decoration.",
-  dark:
-    "Deep near-black background (#0f172a / #020617), light text, glowing neon accent (violet or emerald). Moody, premium, high contrast.",
-  minimal:
-    "Near-monochrome. White/gray background, dark text, a single subtle accent. Generous whitespace, thin 1px borders, flat, no heavy shadows.",
-  glassmorphism:
-    "Frosted-glass panels floating over a soft gradient background. Semi-transparent white cards with backdrop blur, thin light borders, subtle top-edge highlights.",
-  neumorphism:
-    "Soft light-gray (#e0e5ec) background, extruded soft shadows (light from top-left, dark from bottom-right), barely-there accent. Tactile and understated.",
-  corporate:
-    "Blues and grays on a clean base, structured grid, restrained decoration, sans-serif typography. Trustworthy and professional.",
-  modern:
-    "Violet (#8b5cf6) + emerald (#10b981) accents on a clean base, soft rounded corners, subtle gradients and soft shadows. Fresh and contemporary.",
-  gradient:
-    "Vivid multi-color gradient fills (violet → pink → emerald) across headings, cards, and background bands. Energetic and eye-catching.",
-  "midnight-blue":
-    "Deep navy background with electric blue and cyan accents, subtle glow. Sleek and tech-forward.",
-  "midnight-green":
-    "Deep teal-green background with mint and gold accents. Sophisticated and calm.",
-  material:
-    "Google Material Design: bold primary color fills, elevation shadows, dense grid, colorful but ordered.",
-  custom: "Follow the user's design intent exactly.",
-};
-
-function themeDirection(theme?: string): string {
-  return THEME_DIRECTIONS[theme || "auto"] || THEME_DIRECTIONS.auto;
-}
-
-// ============================================================
 // STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
 // The AI receives the raw user input, COMPLETES and structures it
 // into a rich content package. Everything downstream is built from
 // this package, so it must be complete, accurate and publication-ready.
 // ============================================================
-export function buildContentAnalysisPrompt(request: AIGenerationRequest): string {
-  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, purpose, userIntent, theme } = request;
+export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
+  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const fontStr = font || "Inter";
   const languageStr = language || "English";
   const audienceStr = audience || "General";
-  const purposeStr = purpose || "Not specified";
   const userIntentStr = userIntent || "No specific design intent";
 
   const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
   const dimensionsStr = `${width}x${height}px`;
 
+  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (context from a previous run/phase — honor it, fill gaps, never contradict)\n${memoryContext}\n` : "";
+
   let contentText = "";
   switch (inputType) {
     case "text": contentText = `Raw text input:\n${input}`; break;
     case "idea": contentText = `Idea/topic:\n${input}`; break;
-    case "image": contentText = `Image uploaded - analyze and extract all relevant information`; break;
-    case "image-url": contentText = `Image URL: ${input} - analyze and extract all relevant information`; break;
     default: contentText = `Input:\n${input}`;
   }
 
@@ -91,14 +53,15 @@ Analyze the source input, then produce a complete content package. If the source
 
 ## CONTEXT
 - Canvas: ${dimensionsStr}, Aspect Ratio: ${aspectRatioStr}
-- Font preference: ${fontStr}, Purpose: ${purposeStr}
+- Font preference: ${fontStr}
 - Audience: ${audienceStr}
 - Design Intent: ${userIntentStr}
-- User-selected theme direction: ${themeDirection(theme)}
+- Palette direction: choose a cohesive palette that best matches the content and mood — premium and intentional.
 
 ## SOURCE
 ${contentText}
 
+${memoryBlock}
 ## OUTPUT FORMAT - Return ONLY valid JSON, no markdown:
 {
   "isComplete": true,
@@ -136,13 +99,15 @@ ${contentText}
 // to design it in HTML/CSS for the chosen aspect ratio, honoring the
 // user's theme + design intent. This blueprint is the contract for STEP 3.
 // ============================================================
-export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest): string {
-  const { aspectRatio, userIntent, purpose, theme } = request;
+export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest, memoryContext?: string): string {
+  const { aspectRatio, userIntent } = request;
   const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
   const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
   const { width, height } = getCanvasDimensions(aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
   const dimensions = `${width}x${height}`;
+
+  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (decisions already made in earlier phases — align your design with them)\n${memoryContext}\n` : "";
 
   const layoutGuidance = isPortrait
     ? "PORTRAIT: stack sections vertically top-to-bottom; a strong header block on top, stats in a row, then a clean vertical flow of cards. Keep vertical rhythm tight so everything fits without scrolling."
@@ -161,8 +126,8 @@ ${JSON.stringify(content, null, 2)}
 - ${layoutGuidance}
 - The PHASE 3 engineer follows this spec VERBATIM. Every value must be concrete and unambiguous: exact hex colors, exact px/clamp font sizes, exact spacing. No vague phrases like "use a nice color".
 
-## USER-SELECTED THEME DIRECTION (this is MANDATORY — design within it)
-${themeDirection(theme)}
+## PALETTE DIRECTION
+Choose a cohesive palette that best matches the content and mood — premium and intentional.
 
 ## USER DESIGN INTENT (override the theme only where the user explicitly asks)
 "${userIntent || "none — craft a unique premium look that matches the content"}"
@@ -179,7 +144,8 @@ Color psychology: ${JSON.stringify((content as any)?.colorPsychology || "match t
 - listicle/tips: numbered or icon cards in a tidy grid.
 - educational/explainer: header + two-column (text | visual) or full-width sections.
 - social/marketing: bold headline, one hero stat, punchy sub-points, branded colors.
-Chosen purpose: ${purpose || "auto (pick the most fitting structure)"}
+
+${memoryBlock}
 
 ## DESIGN PRINCIPLES (non-negotiable)
 1. **Visual hierarchy** - Apply an F-pattern (text-heavy content), Z-pattern (story-driven), or pyramid (data/statistical content). The hero stat must be 2-3x larger than body text.
@@ -227,8 +193,10 @@ Chosen purpose: ${purpose || "auto (pick the most fitting structure)"}
 // the final HTML/CSS exactly as the blueprint specifies. The result is
 // validated and scored, then kept if it passes quality gates.
 // ============================================================
-export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest): string {
+export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest, memoryContext?: string): string {
   const { width, height } = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
+
+  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (design decisions already established — follow them exactly)\n${memoryContext}\n` : "";
 
   return `## PHASE 3: HTML/CSS GENERATION & REFINEMENT
 You are a senior frontend engineer and visual designer. Code the COMPLETE HTML/CSS for this infographic. It will be rendered inside a fixed-size canvas (${width}x${height}px), so it MUST fit perfectly and look polished. This is the final build phase — the output IS the product.
@@ -237,14 +205,16 @@ You are a senior frontend engineer and visual designer. Code the COMPLETE HTML/C
 The blueprint below is the design system. Use its colors, typography, spacing, card style, stats style, background, decorations, layout grid, and animations VERBATIM. Convert it into CSS custom properties (tokens) in your <style> block, then build every element from those tokens.
 ${JSON.stringify(blueprint, null, 2)}
 
-### THEME DIRECTION (keep the design inside it)
-${themeDirection(request.theme)}
+### PALETTE DIRECTION
+Choose a cohesive palette that best matches the content and mood — premium and intentional.
 
 ### USER DESIGN INTENT
 "${request.userIntent || "none"}"
 
 ### CONTENT TO DISPLAY (ALL of it — nothing empty, nothing omitted)
 ${JSON.stringify(content, null, 2)}
+
+${memoryBlock}
 
 ### CANVAS DIMENSIONS (MUST match exactly; content MUST FIT — no overflow, no clipping)
 - Width: ${width}px

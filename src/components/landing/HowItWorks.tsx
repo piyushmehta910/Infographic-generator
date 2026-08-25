@@ -8,13 +8,13 @@ const STEPS = [
     icon: <FileText className="w-5 h-5" />,
     step: "01",
     title: "Paste content",
-    desc: "Text, article URL, CSV data, or an image.",
+    desc: "Any text — an article, notes, or a rough idea.",
   },
   {
     icon: <SlidersHorizontal className="w-5 h-5" />,
     step: "02",
-    title: "Pick your style",
-    desc: "Purpose, color theme, density, and format.",
+    title: "Choose format",
+    desc: "Pick an aspect ratio; the AI handles the design.",
   },
   {
     icon: <Sparkles className="w-5 h-5" />,

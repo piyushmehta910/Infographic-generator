@@ -11,28 +11,20 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
-    "fabric": "^7.4.0",
     "framer-motion": "^11.11.0",
     "html-to-image": "^1.11.11",
     "idb": "^8.0.3",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.460.0",
     "next": "^15.0.0",
-    "openai": "^4.73.0",
-    "papaparse": "^5.6.0",
-    "pdf-lib": "^1.17.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tesseract.js": "^7.0.0",
     "zod": "^3.23.8",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
-    "@types/papaparse": "^5.5.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@typescript-eslint/eslint-plugin": "^8.14.0",

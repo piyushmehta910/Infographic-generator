@@ -1,13 +1,13 @@
 "use client";
 
-import { Zap, Server, Download, Tags } from "lucide-react";
+import { Zap, Server, Download, Lock } from "lucide-react";
 import { Reveal } from "./Reveal";
 
 const STATS = [
-  { icon: <Zap className="w-5 h-5" />, value: "30s", label: "Average generation" },
+  { icon: <Zap className="w-5 h-5" />, value: "4", label: "AI pipeline phases" },
   { icon: <Server className="w-5 h-5" />, value: "5", label: "AI providers" },
   { icon: <Download className="w-5 h-5" />, value: "5", label: "Export formats" },
-  { icon: <Tags className="w-5 h-5" />, value: "10+", label: "Design purposes" },
+  { icon: <Lock className="w-5 h-5" />, value: "0", label: "Accounts required" },
 ];
 
 export function Stats() {

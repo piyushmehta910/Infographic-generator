@@ -3,26 +3,20 @@ import { devtools, persist } from "zustand/middleware";
 import {
   AIProviderId,
   AIProviderConfig,
-  AIGenerationResult,
 } from "@/lib/types";
 
 interface AIStore {
   // State
   providers: AIProviderConfig[];
   activeProvider: AIProviderId;
-  lastResult: AIGenerationResult | null;
-  isProcessing: boolean;
 
   // Actions
   setProvider: (provider: AIProviderConfig) => void;
-  removeProvider: (providerId: AIProviderId) => void;
   setActiveProvider: (provider: AIProviderId) => void;
-  setLastResult: (result: AIGenerationResult | null) => void;
-  setProcessing: (processing: boolean) => void;
   getActiveConfig: () => AIProviderConfig | undefined;
 }
 
-const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim", "mistral"] as const;
+const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim", "mistral", "custom"] as const;
 
 const defaultProviders: AIProviderConfig[] = [
   {
@@ -61,6 +55,16 @@ const defaultProviders: AIProviderConfig[] = [
     maxTokens: 1024,
     enabled: false,
   },
+  {
+    id: "custom",
+    name: "Custom API",
+    apiKey: "",
+    model: "",
+    temperature: 0.5,
+    maxTokens: 1024,
+    enabled: false,
+    baseUrl: "",
+  },
 ];
 
 export const useAIStore = create<AIStore>()(
@@ -69,8 +73,6 @@ export const useAIStore = create<AIStore>()(
       (set, get) => ({
         providers: defaultProviders,
         activeProvider: "openrouter",
-        lastResult: null,
-        isProcessing: false,
 
         setProvider: (provider) =>
           set((state) => ({
@@ -79,18 +81,7 @@ export const useAIStore = create<AIStore>()(
             ),
           })),
 
-        removeProvider: (providerId) =>
-          set((state) => ({
-            providers: state.providers.map((p) =>
-              p.id === providerId ? { ...p, apiKey: "", enabled: false } : p,
-            ),
-          })),
-
         setActiveProvider: (provider) => set({ activeProvider: provider }),
-
-        setLastResult: (result) => set({ lastResult: result }),
-
-        setProcessing: (processing) => set({ isProcessing: processing }),
 
         getActiveConfig: () => {
           const { providers, activeProvider } = get();

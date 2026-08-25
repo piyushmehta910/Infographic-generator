@@ -1,9 +1,8 @@
 "use client";
 
-import { Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, FileImage, FileJson, FileType, PenLine } from "lucide-react";
+import { Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, FileImage, FileJson, FileType } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AIDesignRenderer } from "@/components/templates/AIDesignRenderer";
-import EditableCanvas from "@/components/editor/EditableCanvas";
 import { AspectRatio } from "@/lib/types";
 import { ASPECT_RATIOS } from "@/lib/constants";
 
@@ -16,17 +15,12 @@ interface CanvasViewProps {
   onExport: (format: "png" | "jpg" | "pdf" | "svg" | "json") => void;
   onRegenerate: () => void;
   isGenerating: boolean;
-  mode: "preview" | "edit";
-  setMode: (m: "preview" | "edit") => void;
-  canvasState: unknown;
-  onCanvasStateChange: (state: unknown) => void;
-  onThumbnail: (dataUrl: string) => void;
+  hasContent: boolean;
 }
 
 export default function CanvasView(p: CanvasViewProps) {
   const {
-    html, aspectRatio, setAspectRatio, zoom, onExport, onRegenerate, isGenerating,
-    mode, setMode, canvasState, onCanvasStateChange, onThumbnail,
+    html, aspectRatio, setAspectRatio, zoom, onExport, onRegenerate, isGenerating, hasContent,
   } = p;
 
   const exportOptions = [
@@ -41,37 +35,9 @@ export default function CanvasView(p: CanvasViewProps) {
     <main id="generate-app" className="flex-1 overflow-auto flex flex-col bg-navy-950">
       {/* Toolbar */}
       <div className="flex-shrink-0 border-b border-white/5 px-4 py-3 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          {/* Preview / Edit toggle */}
-          <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5">
-            <button
-              onClick={() => setMode("preview")}
-              disabled={!html}
-              className={`px-2.5 py-1.5 rounded text-[11px] font-medium touch-target transition-all flex items-center gap-1.5 disabled:opacity-40 ${
-                mode === "preview"
-                  ? "bg-brand-gradient text-white shadow-sm"
-                  : "text-surface-400 hover:text-white"
-              }`}
-              title="View the AI design"
-            >
-              <Eye className="w-3.5 h-3.5" /> Preview
-            </button>
-            <button
-              onClick={() => setMode("edit")}
-              disabled={!html}
-              className={`px-2.5 py-1.5 rounded text-[11px] font-medium touch-target transition-all flex items-center gap-1.5 disabled:opacity-40 ${
-                mode === "edit"
-                  ? "bg-brand-gradient text-white shadow-sm"
-                  : "text-surface-400 hover:text-white"
-              }`}
-              title="Edit text, colors, positions (Fabric)"
-            >
-              <PenLine className="w-3.5 h-3.5" /> Edit
-            </button>
-          </div>
-
-          {/* Aspect ratio presets */}
-          <div className="hidden sm:flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Aspect ratio presets (visible on all screen sizes) */}
+          <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5 overflow-x-auto max-w-full">
             {Object.values(ASPECT_RATIOS).slice(0, 6).map((ar) => (
               <button
                 key={ar.id}
@@ -88,8 +54,8 @@ export default function CanvasView(p: CanvasViewProps) {
             ))}
           </div>
 
-          {/* Zoom controls (preview only) */}
-          {mode === "preview" && (
+          {/* Zoom controls */}
+          {html && (
             <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg px-2 py-0.5">
               <button onClick={() => p.setZoom(Math.max(25, zoom - 10))} className="p-1.5 text-surface-400 hover:text-white touch-target" title="Zoom out">
                 <ZoomOut className="w-3.5 h-3.5" />
@@ -106,11 +72,11 @@ export default function CanvasView(p: CanvasViewProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={!html || isGenerating} title="Regenerate">
+          <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={!hasContent || isGenerating} title="Regenerate">
             <RefreshCw className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline ml-1">Regenerate</span>
           </Button>
-          {html && mode === "preview" && (
+          {html && (
             <div className="flex items-center gap-1">
               <div className="h-6 w-px bg-white/5" />
               {exportOptions.map((opt) => (
@@ -127,24 +93,12 @@ export default function CanvasView(p: CanvasViewProps) {
       {/* Canvas area */}
       <div className="flex-1 overflow-auto flex items-start justify-center p-4 sm:p-6 lg:p-8 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.08),transparent_60%)]">
         {html ? (
-          mode === "edit" ? (
-            <EditableCanvas
-              html={html}
-              width={aspectRatio.width}
-              height={aspectRatio.height}
-              canvasState={canvasState}
-              onStateChange={onCanvasStateChange}
-              onThumbnail={onThumbnail}
-              active
-            />
-          ) : (
-            <div
-              className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10"
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-            >
-              <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
-            </div>
-          )
+          <div
+            className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10"
+            style={{ zoom: zoom / 100 }}
+          >
+            <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
+          </div>
         ) : (
           <div className="text-center max-w-md mt-8 lg:mt-16">
             <div className="relative w-20 h-20 mx-auto mb-6">
@@ -155,12 +109,12 @@ export default function CanvasView(p: CanvasViewProps) {
             </div>
             <h2 className="text-2xl font-display font-bold text-white mb-3">Ready to create</h2>
             <p className="text-surface-400 text-sm leading-relaxed mb-8">
-              Enter your content, pick a purpose, then hit{" "}
+              Enter your content, then hit{" "}
               <span className="text-brand-300 font-medium">Generate</span>. The AI analyzes
               your input and designs a publication-ready infographic.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2">
-              {["Paste your text", "Pick a purpose", "Hit Generate"].map((hint, i) => (
+              {["Paste your text", "Hit Generate"].map((hint, i) => (
                 <div key={hint} className="flex items-center gap-2">
                   {i > 0 && <div className="h-px w-4 bg-surface-700" />}
                   <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-800/70 text-surface-300 border border-white/5">
@@ -174,7 +128,7 @@ export default function CanvasView(p: CanvasViewProps) {
       </div>
 
       {/* Mobile export bar */}
-      {html && mode === "preview" && (
+      {html && (
         <div className="sm:hidden flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center gap-2">
           {exportOptions.map((opt) => (
             <button

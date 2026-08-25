@@ -1,133 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Globe, ImageIcon, Upload, Brain, Sparkles, Loader2, ScanText } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Purpose, PURPOSES } from "@/lib/purposes";
-import { parseCSV, ParsedCSV } from "@/lib/parsers/csv";
+  import { Brain, Sparkles } from "lucide-react";
+  import { Button } from "@/components/ui/Button";
 
-export type InputTab = "text" | "url" | "image" | "data";
+  export type InputTab = "text";
 
-interface InputPanelProps {
-  input: string;
-  setInput: (v: string) => void;
-  inputType: InputTab;
-  setInputType: (t: InputTab) => void;
-  imageUrl: string;
-  setImageUrl: (v: string) => void;
-  imageFile: File | null;
-  setImageFile: (f: File | null) => void;
-  purpose: Purpose;
-  setPurpose: (p: Purpose) => void;
-  userIntent: string;
-  setUserIntent: (v: string) => void;
-  onGenerateClick: () => void;
-  isGenerating: boolean;
-}
+  interface InputPanelProps {
+    input: string;
+    setInput: (v: string) => void;
+    onGenerateClick: () => void;
+    isGenerating: boolean;
+  }
 
-const INPUT_TABS: { id: InputTab; label: string; icon: React.ReactNode }[] = [
-  { id: "text", label: "Text", icon: <FileText className="w-4 h-4" /> },
-  { id: "url", label: "URL", icon: <Globe className="w-4 h-4" /> },
-  { id: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
-  { id: "data", label: "CSV", icon: <Upload className="w-4 h-4" /> },
-];
+  const inputFieldClass =
+    "w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none";
 
-const inputFieldClass =
-  "w-full px-4 py-3 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none";
+  export default function InputPanel(p: InputPanelProps) {
+    const { input, setInput, onGenerateClick, isGenerating } = p;
 
-export default function InputPanel(p: InputPanelProps) {
-  const {
-    input, setInput, inputType, setInputType, imageUrl, setImageUrl,
-    imageFile, setImageFile, purpose, setPurpose, userIntent, setUserIntent,
-    onGenerateClick, isGenerating,
-  } = p;
+    const canGenerate = Boolean(input) && input.trim().length > 0;
 
-  const [csvPreview, setCsvPreview] = useState<ParsedCSV | null>(null);
-  const [ocrBusy, setOcrBusy] = useState(false);
-  const [urlBusy, setUrlBusy] = useState(false);
-  const [urlError, setUrlError] = useState("");
-
-  const canGenerate =
-    inputType === "url"
-      ? Boolean(imageUrl) && imageUrl.trim().length > 0
-      : Boolean(input) && input.trim().length > 0;
-
-  const handleCSVFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result || "");
-      setInput(text);
-      setCsvPreview(parseCSV(text));
-    };
-    reader.readAsText(file);
-  };
-
-  const handleOCRExtract = async () => {
-    if (!input) return;
-    setOcrBusy(true);
-    try {
-      const { ocrImage } = await import("@/lib/parsers/image");
-      const text = await ocrImage(input);
-      setInput(text);
-      setInputType("text");
-    } catch {
-      setInputType("text");
-    } finally {
-      setOcrBusy(false);
-    }
-  };
-
-  const handleURLFetch = async () => {
-    if (!imageUrl.trim()) return;
-    setUrlBusy(true);
-    setUrlError("");
-    try {
-      const res = await fetch(`/api/extract?url=${encodeURIComponent(imageUrl.trim())}`);
-      const data = await res.json();
-      if (data.success) {
-        setInput(`${data.title}\n\n${data.text}`.trim());
-        setInputType("text");
-      } else {
-        setUrlError(data.error || "Extraction failed.");
-      }
-    } catch {
-      setUrlError("Failed to fetch the page. Try pasting the text directly.");
-    } finally {
-      setUrlBusy(false);
-    }
-  };
-
-  return (
-    <div className="w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
-      <div className="p-4 flex-1 flex flex-col gap-3 overflow-y-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
-            <Sparkles className="w-5 h-5 text-white" />
+    return (
+      <div className="w-80 flex-shrink-0 flex flex-col h-screen border-r border-white/5 bg-surface-900/80">
+        <div className="p-4 flex-1 flex flex-col gap-3 overflow-y-auto">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-display font-bold text-white leading-tight">Create Infographic</h1>
+              <p className="text-[11px] text-surface-400 leading-tight">AI designs unique visuals from your content</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-display font-bold text-white leading-tight">Create Infographic</h1>
-            <p className="text-[11px] text-surface-400 leading-tight">AI designs unique visuals from your content</p>
-          </div>
-        </div>
 
-        <div className="flex gap-1 bg-surface-800/60 p-1 rounded-xl">
-          {INPUT_TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setInputType(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium touch-target transition-all ${
-                inputType === t.id ? "bg-brand-gradient text-white shadow" : "text-surface-300 hover:text-white"
-              }`}
-            >
-              {t.icon}{t.label}
-            </button>
-          ))}
-        </div>
-
-        {inputType === "text" && (
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-surface-200">Your Content</label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="infographic-input" className="text-xs font-medium text-surface-200">
+                Your Content
+              </label>
+              <span
+                className={`text-[10px] ${input.length >= 8000 ? "text-amber-400" : "text-surface-500"}`}
+              >
+                {input.length}/8000
+              </span>
+            </div>
             <textarea
+              id="infographic-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Paste a blog post, article, or describe your idea..."
@@ -136,190 +54,22 @@ export default function InputPanel(p: InputPanelProps) {
               className={inputFieldClass}
             />
           </div>
-        )}
 
-        {inputType === "url" && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-surface-200">Article URL</label>
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/article"
-              className="w-full h-11 px-4 rounded-xl bg-surface-800/60 border border-white/10 text-surface-100 placeholder-surface-400/70 focus:outline-none focus:ring-2 focus:ring-brand-400"
-            />
+          <div className="pt-1">
             <Button
-              variant="secondary"
-              size="sm"
-              className="w-full h-10"
-              onClick={handleURLFetch}
-              disabled={urlBusy || !imageUrl.trim()}
+              variant="primary"
+              className="w-full h-12"
+              disabled={!canGenerate || isGenerating}
+              onClick={onGenerateClick}
             >
-              {urlBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-              Fetch & extract content
+              {isGenerating ? (
+                <>Generating…</>
+              ) : (
+                <><Brain className="w-5 h-5" /> Generate Infographic</>
+              )}
             </Button>
-            {urlError && <p className="text-[11px] text-red-400">{urlError}</p>}
-            <p className="text-[11px] text-surface-400">We fetch the page and extract its main text server-side.</p>
           </div>
-        )}
-
-        {inputType === "image" && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-surface-200">Upload Image</label>
-            <label className="flex flex-col items-center justify-center h-24 rounded-xl border-2 border-dashed border-surface-600 bg-surface-800/40 cursor-pointer hover:border-brand-400 transition-colors">
-              <Upload className="w-5 h-5 text-surface-400 mb-1.5" />
-              <span className="text-xs text-surface-400">
-                {imageFile ? imageFile.name : "Click or drag to upload"}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  setImageFile(f);
-                  setImageUrl("");
-                  if (f) {
-                    const r = new FileReader();
-                    r.onload = () => setInput((r.result as string) || "");
-                    r.readAsDataURL(f);
-                  }
-                  setInputType("image");
-                }}
-              />
-            </label>
-            {imageFile && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full h-10"
-                onClick={handleOCRExtract}
-                disabled={ocrBusy || !input}
-              >
-                {ocrBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanText className="w-4 h-4" />}
-                {ocrBusy ? "Extracting text…" : "Extract text (OCR)"}
-              </Button>
-            )}
-            <p className="text-[11px] text-surface-400">OCR extracts readable text from the image into your input.</p>
-          </div>
-        )}
-
-        {inputType === "data" && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-surface-200">CSV data</label>
-            <label className="flex flex-col items-center justify-center h-20 rounded-xl border-2 border-dashed border-surface-600 bg-surface-800/40 cursor-pointer hover:border-brand-400 transition-colors mb-2">
-              <Upload className="w-4 h-4 text-surface-400 mb-1" />
-              <span className="text-[11px] text-surface-400">Upload .csv file</span>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleCSVFile(f);
-                }}
-              />
-            </label>
-            <textarea
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                setCsvPreview(parseCSV(e.target.value));
-              }}
-              placeholder={"label,value\nRevenue,2.1M\nCosts,1.2M"}
-              rows={4}
-              className={inputFieldClass + " font-mono text-xs"}
-            />
-            {csvPreview && (
-              <div className="text-[11px] text-surface-400 space-y-1">
-                <div>
-                  <span className="text-emerald-400 font-medium">Detected:</span>{" "}
-                  {csvPreview.headers.length} columns, {csvPreview.rows.length} rows
-                </div>
-                <div>
-                  <span className="text-emerald-400 font-medium">Suggested charts:</span>{" "}
-                  {csvPreview.suggestions.join(", ")}
-                </div>
-                <div className="overflow-x-auto rounded-lg border border-white/10">
-                  <table className="w-full text-[10px] text-surface-300">
-                    <thead>
-                      <tr className="bg-surface-800/60">
-                        {csvPreview.headers.slice(0, 6).map((h) => (
-                          <th key={h} className="px-2 py-1 text-left font-medium text-surface-200">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {csvPreview.rows.slice(0, 5).map((row, i) => (
-                        <tr key={i} className="border-t border-white/5">
-                          {csvPreview.headers.slice(0, 6).map((h) => (
-                            <td key={h} className="px-2 py-1">{row[h]}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-            <p className="text-[11px] text-surface-400">We auto-detect columns and map them to charts.</p>
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-surface-200">Purpose</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {PURPOSES.map((pt) => (
-              <button
-                key={pt.id}
-                onClick={() => setPurpose(pt.id)}
-                title={pt.label}
-                className={`py-1.5 px-1 rounded-lg text-center border transition-all touch-target ${
-                  purpose === pt.id
-                    ? "border-brand-400 bg-brand-900/30"
-                    : "border-surface-700 hover:border-surface-500"
-                }`}
-              >
-                <div className="text-base leading-none mb-0.5">{pt.icon}</div>
-                <div className={`text-[10px] font-medium leading-tight truncate ${purpose === pt.id ? "text-white" : "text-surface-300"}`}>
-                  {pt.label}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-surface-200">Design Intent</label>
-            <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> AI suggests
-            </span>
-          </div>
-          <textarea
-            value={userIntent}
-            onChange={(e) => setUserIntent(e.target.value)}
-            placeholder="e.g. Dark theme with neon accents"
-            rows={2}
-            className={inputFieldClass}
-          />
-        </div>
-
-        <div className="pt-1">
-          <Button
-            variant="primary"
-            className="w-full h-12"
-            disabled={!canGenerate || isGenerating}
-            onClick={onGenerateClick}
-          >
-            {isGenerating ? (
-              <>Generating…</>
-            ) : (
-              <><Brain className="w-5 h-5" /> Generate Infographic</>
-            )}
-          </Button>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

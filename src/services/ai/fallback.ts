@@ -5,6 +5,7 @@ export interface StoredProvider {
   id: AIProviderId;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }
 
 const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
@@ -65,6 +66,7 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
     "open-mistral-7b",
     "codestral-latest",
   ],
+  custom: [],
 };
 
 /**
@@ -78,13 +80,14 @@ export async function generateWithFallback(
   temperature: number,
   maxTokens: number,
   providerId: AIProviderId,
+  baseUrl?: string,
 ): Promise<string> {
   const fallbackModels = FALLBACK_MODELS[providerId] || [];
   const modelsToTry = [model, ...fallbackModels.filter((m) => m !== model)];
   let lastError = "";
   for (const currentModel of modelsToTry) {
     try {
-      const result = await provider.generate(prompt, apiKey, currentModel, temperature, maxTokens);
+      const result = await provider.generate(prompt, apiKey, currentModel, temperature, maxTokens, baseUrl);
       if (result && result.length > 0) return result;
       lastError = "Empty response";
     } catch (error) {
@@ -95,37 +98,36 @@ export async function generateWithFallback(
 }
 
 /**
- * Try all providers that have API keys, sequentially.
- * The provider list is passed in explicitly by the caller (from UI store state).
+ * Try all OTHER configured providers sequentially.
+ * The caller's own provider is skipped: generateWithFallback has already
+ * exhausted its full model chain before this function gets invoked.
  */
 export async function tryAllProviders(
   prompt: string,
-  userApiKey: string,
   userProviderId: AIProviderId,
-  userModel: string,
   temperature: number,
   maxTokens: number,
   storedProviders: StoredProvider[],
 ): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
-  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq", "mistral"];
+  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq", "mistral", "custom"];
   for (const pid of providerPriority) {
-    let apiKeyToUse = "";
-    let modelToUse = "";
-    if (pid === userProviderId) {
-      apiKeyToUse = userApiKey;
-      modelToUse = userModel;
-    } else {
-      const stored = storedProviders.find((p) => p.id === pid);
-      if (!stored?.apiKey) continue;
-      apiKeyToUse = stored.apiKey;
-      modelToUse = stored.model || FALLBACK_MODELS[pid]?.[0] || "";
-    }
-    if (!apiKeyToUse) continue;
+    if (pid === userProviderId) continue;
+    const stored = storedProviders.find((p) => p.id === pid);
+    if (!stored?.apiKey) continue;
     const prov = providerMap[pid];
     if (!prov) continue;
     try {
-      const text = await generateWithFallback(prov, prompt, apiKeyToUse, modelToUse, temperature, maxTokens, pid);
-      return { text, provider: pid, model: modelToUse };
+      const text = await generateWithFallback(
+        prov,
+        prompt,
+        stored.apiKey,
+        stored.model || FALLBACK_MODELS[pid]?.[0] || "",
+        temperature,
+        maxTokens,
+        pid,
+        stored.baseUrl,
+      );
+      return { text, provider: pid, model: stored.model || FALLBACK_MODELS[pid]?.[0] || "" };
     } catch {
       // try next provider
     }

@@ -12,18 +12,19 @@ const icons = {
   info: Info,
 };
 
+// Dark-theme styling that matches the navy app shell.
 const colors = {
-  success: "bg-green-50 border-green-200 text-green-800",
-  error: "bg-red-50 border-red-200 text-red-800",
-  warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-  info: "bg-blue-50 border-blue-200 text-blue-800",
+  success: "bg-surface-800 border-emerald-500/30 text-emerald-100",
+  error: "bg-surface-800 border-red-500/40 text-red-100",
+  warning: "bg-surface-800 border-amber-500/40 text-amber-100",
+  info: "bg-surface-800 border-brand-500/40 text-brand-100",
 };
 
 const iconColors = {
-  success: "text-green-600",
-  error: "text-red-600",
-  warning: "text-yellow-600",
-  info: "text-blue-600",
+  success: "text-emerald-400",
+  error: "text-red-400",
+  warning: "text-amber-400",
+  info: "text-brand-400",
 };
 
 export default function Toast() {
@@ -34,10 +35,12 @@ export default function Toast() {
     <AnimatePresence>
       {toast && Icon && (
         <motion.div
+          role="status"
+          aria-live="polite"
           initial={{ opacity: 0, y: -50, x: "-50%" }}
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: -50, x: "-50%" }}
-          className={`fixed top-4 left-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-lg ${colors[toast.type]}`}
+          className={`fixed top-4 left-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-lg backdrop-blur-md ${colors[toast.type]}`}
         >
           <Icon className={`w-5 h-5 ${iconColors[toast.type]}`} />
           <div>
@@ -46,7 +49,11 @@ export default function Toast() {
               <p className="text-xs opacity-80">{toast.message}</p>
             )}
           </div>
-          <button onClick={dismissToast} className="ml-4 p-1 hover:opacity-70">
+          <button
+            onClick={dismissToast}
+            aria-label="Dismiss notification"
+            className="ml-4 p-1 hover:opacity-70"
+          >
             <X className="w-4 h-4" />
           </button>
         </motion.div>

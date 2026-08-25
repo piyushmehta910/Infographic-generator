@@ -11,12 +11,54 @@ import { AIProviderId } from "@/lib/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/**
+ * SSRF guard for custom-provider base URLs: only public http(s) origins are
+ * allowed. Blocks loopback, link-local (incl. cloud metadata), RFC1918
+ * ranges, and credential-embedded URLs.
+ */
+function validateBaseUrl(raw: unknown): string | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  if (typeof raw !== "string") return "Base URL must be a string.";
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "Base URL is not a valid URL.";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return "Base URL must use http or https.";
+  }
+  if (url.username || url.password) {
+    return "Base URL must not embed credentials.";
+  }
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const blocked =
+    host === "localhost" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".local") ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^::1$/.test(host) ||
+    /^f[cd][0-9a-f]{2}:/i.test(host);
+  if (blocked) {
+    return "Base URL points to a private or reserved address.";
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const { providerId, apiKey, model } = body as {
+  const { providerId, apiKey, model, baseUrl } = body as {
     providerId: AIProviderId;
     apiKey: string;
     model: string;
+    baseUrl?: string;
   };
 
   if (!providerId || !apiKey) {
@@ -32,6 +74,15 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  if (providerId === "custom") {
+    const baseUrlError = validateBaseUrl(baseUrl);
+    if (baseUrlError) {
+      return NextResponse.json(
+        { success: false, error: baseUrlError },
+        { status: 400 },
+      );
+    }
+  }
 
   const started = Date.now();
   try {
@@ -41,6 +92,7 @@ export async function POST(request: NextRequest) {
       model || "",
       0.2,
       50,
+      baseUrl,
     );
     return NextResponse.json({
       success: true,

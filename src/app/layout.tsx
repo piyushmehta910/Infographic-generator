@@ -5,7 +5,7 @@ import { APP_NAME, APP_DESCRIPTION, APP_URL } from "@/lib/site";
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    default: `${APP_NAME} - AI-Powered Infographic Generator`,
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     title: APP_NAME,
   },
   openGraph: {
-    title: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    title: `${APP_NAME} - AI-Powered Infographic Generator`,
     description: APP_DESCRIPTION,
     type: "website",
     locale: "en_US",
@@ -32,13 +32,13 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+        alt: `${APP_NAME} - AI-Powered Infographic Generator`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} - Generate Data-Driven Infographics in 30 Seconds`,
+    title: `${APP_NAME} - AI-Powered Infographic Generator`,
     description: APP_DESCRIPTION,
     images: ["/opengraph-image"],
   },
@@ -62,7 +62,6 @@ const softwareApplicationJsonLd = JSON.stringify({
   applicationCategory: "BusinessApplication",
   operatingSystem: "All",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", ratingCount: "200" },
 });
 
 export default function RootLayout({
@@ -80,7 +79,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
         <script

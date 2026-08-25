@@ -368,4 +368,18 @@ export const AI_PROVIDERS: AIProviderOption[] = [
       },
     ],
   },
+  {
+    id: "custom",
+    name: "Custom API",
+    requiresApiKey: true,
+    docsUrl: "#",
+    models: [
+      {
+        id: "custom-model",
+        name: "Custom Model",
+        contextWindow: 8192,
+        maxOutput: 4096,
+      },
+    ],
+  },
 ];

@@ -47,7 +47,7 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl sm:text-6xl lg:text-7xl font-display font-bold leading-[1.05] tracking-tight text-white text-balance"
             >
-              Beautiful infographics <span className="text-gradient">in 30 seconds</span>
+              Beautiful infographics <span className="text-gradient">in seconds</span>
             </motion.h1>
 
             <motion.p

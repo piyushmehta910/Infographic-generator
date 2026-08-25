@@ -9,14 +9,6 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   // Remove the default "X-Powered-By: Next.js" header (info disclosure).
   poweredByHeader: false,
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-    ],
-  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

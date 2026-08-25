@@ -2,6 +2,8 @@
 // Infographic Generator - Core Type Definitions
 // ============================================================
 
+import type { MemoryEntry } from "@/services/ai/memory";
+
 // --- Content Types ---
 
 export interface InfographicContent {
@@ -14,7 +16,6 @@ export interface InfographicContent {
   colors: string[];
   icons: string[];
   callToAction: string;
-  metadata?: ContentMetadata;
 }
 
 export interface Section {
@@ -44,13 +45,6 @@ export interface TimelineEvent {
   icon?: string;
 }
 
-export interface ContentMetadata {
-  language: string;
-  wordCount: number;
-  readingTime: number;
-  source?: string;
-}
-
 // --- Aspect Ratio Types ---
 
 export type AspectRatioId =
@@ -71,82 +65,6 @@ export interface AspectRatio {
   height: number;
 }
 
-// --- Template Types ---
-
-export type TemplateCategory =
-  | "business"
-  | "marketing"
-  | "sales"
-  | "finance"
-  | "startup"
-  | "technology"
-  | "ai"
-  | "education"
-  | "healthcare"
-  | "medical"
-  | "fitness"
-  | "food"
-  | "travel"
-  | "real-estate"
-  | "timeline"
-  | "roadmap"
-  | "process"
-  | "comparison"
-  | "checklist"
-  | "statistics"
-  | "flowchart"
-  | "swot"
-  | "pyramid"
-  | "circular"
-  | "instagram"
-  | "instagram-carousel"
-  | "linkedin"
-  | "facebook"
-  | "pinterest"
-  | "youtube"
-  | "poster"
-  | "flyer"
-  | "report"
-  | "certificate";
-
-export interface TemplateConfig {
-  id: string;
-  name: string;
-  description: string;
-  category: TemplateCategory;
-  aspectRatios: AspectRatioId[];
-  placeholders: Placeholder[];
-  themes: string[];
-  fonts: string[];
-  preview?: string;
-  version: string;
-}
-
-export interface Placeholder {
-  id: string;
-  type: "text" | "image" | "stat" | "list" | "timeline" | "cta";
-  label: string;
-  defaultValue: string;
-  required: boolean;
-}
-
-// --- Theme Types ---
-
-export type ThemeId =
-  | "auto"
-  | "light"
-  | "dark"
-  | "minimal"
-  | "glassmorphism"
-  | "neumorphism"
-  | "corporate"
-  | "modern"
-  | "gradient"
-  | "midnight-blue"
-  | "midnight-green"
-  | "material"
-  | "custom";
-
 // --- Font Types ---
 
 export type FontId =
@@ -154,7 +72,7 @@ export type FontId =
 
 // --- AI Provider Types ---
 
-export type AIProviderId = "openrouter" | "groq" | "nim" | "mistral";
+export type AIProviderId = "openrouter" | "groq" | "nim" | "mistral" | "custom";
 
 export interface AIProviderConfig {
   id: AIProviderId;
@@ -164,6 +82,7 @@ export interface AIProviderConfig {
   temperature: number;
   maxTokens: number;
   enabled: boolean;
+  baseUrl?: string;
 }
 
 export interface AIProviderOption {
@@ -183,19 +102,13 @@ export interface AIModelOption {
 
 export interface AIGenerationRequest {
   input: string;
-  inputType: "text" | "idea" | "image" | "image-url" | "design";
-  templateId?: string;
-  theme?: ThemeId;
+  inputType: "text" | "idea";
   aspectRatio?: AspectRatioId;
   aspectRatioWidth?: number;
   aspectRatioHeight?: number;
-  purpose?: string;
-  alignment?: string;
   font?: FontId;
   language?: string;
   audience?: string;
-  imageData?: string;
-  imageUrl?: string;
   userIntent?: string;
 }
 
@@ -205,10 +118,19 @@ export interface AIGenerationStep {
   durationMs?: number;
 }
 
+export type AIGenerationErrorType =
+  | "rate_limit"
+  | "auth_failed"
+  | "invalid_request"
+  | "upstream_error"
+  | "timeout";
+
 export interface AIGenerationResult {
   success: boolean;
   content?: InfographicContent;
   error?: string;
+  /** Coarse failure class so API routes can map to proper HTTP statuses. */
+  errorType?: AIGenerationErrorType;
   provider?: AIProviderId;
   model?: string;
   processingTime?: number;
@@ -218,15 +140,8 @@ export interface AIGenerationResult {
   blueprint?: unknown;
   /** Ordered record of the pipeline phases that ran, with per-phase timing. */
   steps?: AIGenerationStep[];
-  concepts?: Array<{
-    id: string;
-    title: string;
-    description: string;
-    colorPalette: Record<string, string>;
-    layoutStyle: string;
-    vibe: string;
-    keyFeatures: string[];
-  }>;
+  /** Working-memory distilled from this run; send it back on the next generation. */
+  memory?: MemoryEntry[];
 }
 
 /**

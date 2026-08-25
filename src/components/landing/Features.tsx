@@ -5,7 +5,7 @@ import { Reveal } from "./Reveal";
 
 const FEAT_BARS = [45, 70, 52, 85, 62, 95];
 const FORMATS = ["PNG", "JPG", "SVG", "PDF", "JSON"];
-const PURPOSE_CHIPS = ["📱 Social", "📊 Slides", "📄 Report", "📚 Edu", "📢 Ads", "✨ Custom"];
+const CAPABILITY_CHIPS = ["6 aspect ratios", "5 AI providers", "Auto-fallback", "Local-first", "No sign-up"];
 
 export function Features() {
   return (
@@ -32,7 +32,7 @@ export function Features() {
               </div>
               <h3 className="font-display font-bold text-white text-xl mb-2">Real data, visualized</h3>
               <p className="text-sm text-surface-400 leading-relaxed max-w-md">
-                Paste text, CSV, or a URL and the AI extracts stats, builds timelines, and turns
+                Paste any text and the AI extracts stats, builds timelines, and turns
                 numbers into charts you can actually present.
               </p>
               <div className="mt-6 flex items-end gap-2 h-32 rounded-xl bg-white/[0.03] border border-white/[0.06] p-4">
@@ -70,9 +70,9 @@ export function Features() {
                 <Zap className="w-5 h-5" />
                 <span className="text-xs font-semibold uppercase tracking-wider">Fast generation</span>
               </div>
-              <div className="font-display font-bold text-4xl text-white mb-2">~30s</div>
+              <div className="font-display font-bold text-4xl text-white mb-2">Seconds</div>
               <p className="text-sm text-surface-400 leading-relaxed">
-                Three-step AI pipeline: analyze, blueprint, render. Ready before your coffee cools.
+                Multi-phase AI pipeline: analyze, blueprint, render. Ready before your coffee cools.
               </p>
             </div>
           </Reveal>
@@ -108,8 +108,8 @@ export function Features() {
               </div>
               <h3 className="font-display font-bold text-white text-lg mb-2">Private by design</h3>
               <p className="text-sm text-surface-400 leading-relaxed">
-                Your API key and content never touch our servers. All generation runs on
-                your chosen AI provider.
+                Your API key is stored only in your browser and never saved on our
+                servers. Generation runs on your chosen AI provider.
               </p>
             </div>
           </Reveal>
@@ -122,7 +122,7 @@ export function Features() {
                   <span className="text-xs font-semibold uppercase tracking-wider">Built for every use</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {PURPOSE_CHIPS.map((p) => (
+                  {CAPABILITY_CHIPS.map((p) => (
                     <span
                       key={p}
                       className="px-4 py-2 rounded-full text-sm bg-white/[0.04] border border-white/10 text-surface-200 hover:border-brand-400/40 hover:text-white transition-colors"

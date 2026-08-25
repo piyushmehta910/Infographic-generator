@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap");
-
 /* ============================================================
    InfoGraphic AI — Dark Premium Brand Design System
    ============================================================ */
@@ -36,14 +34,6 @@ body {
    Brand utilities
    ============================================================ */
 
-/* Glassmorphism card (branded) */
-.glass-card {
-  background: color-mix(in srgb, #ffffff 6%, transparent);
-  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-}
-
 /* Stronger glass variant for sidebars/modals */
 .glass-panel {
   background: color-mix(in srgb, #ffffff 4%, transparent);
@@ -55,9 +45,6 @@ body {
 /* Brand gradients */
 .bg-brand-gradient {
   background: linear-gradient(135deg, #8b5cf6 0%, #10b981 100%);
-}
-.bg-brand-gradient-warm {
-  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 60%, #10b981 100%);
 }
 
 .text-balance {
@@ -111,45 +98,15 @@ input, textarea, select {
 /* ============================================================
    Shared micro-interaction helpers
    ============================================================ */
-.anim-gradient-x {
-  background-size: 300% 300%;
-  animation: gradient-x 8s ease infinite;
-}
-@keyframes gradient-x {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Canvas color reset (inframes are self-contained) */
-.template-canvas * {
-  color: inherit;
-}
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   body { font-size: 14px; }
   header { min-height: 48px; }
-  .sidebar-mobile {
-    position: fixed;
-    top: 0; left: 0;
-    width: 85vw; max-width: 320px; height: 100vh;
-    z-index: 50;
-    background-color: #0f172a;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,.45), 0 10px 10px -5px rgba(0,0,0,.4);
-  }
   button { min-height: 44px; }
 }
 @media (max-width: 480px) {
   header { padding-left: 8px; padding-right: 8px; }
-  .sidebar-mobile { width: 100vw; }
-}
-
-@supports (padding-top: env(safe-area-inset-top)) {
-  .sidebar-mobile {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
 }
 
 /* Scrollbar */
@@ -191,14 +148,6 @@ input, textarea, select {
   color: transparent;
 }
 
-/* Brand glow shadows */
-.glow-brand {
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.18), 0 10px 40px -10px rgba(139, 92, 246, 0.45);
-}
-.glow-emerald {
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.18), 0 10px 40px -10px rgba(16, 185, 129, 0.4);
-}
-
 /* Premium card hover */
 .card-glow {
   transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
@@ -209,15 +158,6 @@ input, textarea, select {
   box-shadow: 0 12px 40px -12px rgba(139, 92, 246, 0.35);
 }
 
-/* Marquee */
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee {
-  animation: marquee 30s linear infinite;
-}
-
 /* Soft floating orbs */
 @keyframes float-y {
   0%, 100% { transform: translateY(0); }
@@ -225,15 +165,4 @@ input, textarea, select {
 }
 .animate-float {
   animation: float-y 6s ease-in-out infinite;
-}
-
-/* Animated conic ring for feature cards */
-.ring-conic {
-  background: conic-gradient(
-    from 180deg,
-    transparent 0%,
-    rgba(139, 92, 246, 0.6) 40%,
-    rgba(52, 211, 153, 0.6) 60%,
-    transparent 100%
-  );
 }
