@@ -36,6 +36,7 @@ import {
   summarizeBlueprint,
 } from "./memory";
 import type { PipelineProgressEvent } from "./progress";
+import { getModelMaxOutput, isSmallModelId } from "@/lib/constants";
 
 export interface GenerateContentOptions {
   apiKey: string;
@@ -69,11 +70,38 @@ function tokensFor(maxTokens: number, cap: number, floor: number): number {
   return Math.min(Math.max(maxTokens, floor), cap);
 }
 
-const STEP_TOKEN_CAP = 1024;
-const BLUEPRINT_TOKEN_CAP = 2048;
-const HTML_TOKEN_CAP = 4096;
+/** Get model-aware token cap for a phase. Uses the model's maxOutput from catalog if available,
+ *  otherwise falls back to the phase's hardcoded cap. */
+function tokensForPhase(
+  maxTokens: number,
+  phaseCap: number,
+  floor: number,
+  providerId: AIProviderId,
+  model: string,
+): number {
+  const modelMaxOutput = getModelMaxOutput(providerId, model, phaseCap);
+  // Use the smaller of: phase cap, model maxOutput, or user's maxTokens
+  // But ensure at least the floor
+  const effectiveCap = Math.min(phaseCap, modelMaxOutput);
+  return Math.min(Math.max(maxTokens, floor), effectiveCap);
+}
+
+const STEP_TOKEN_CAP = 2048;
+const BLUEPRINT_TOKEN_CAP = 4096;
+const HTML_TOKEN_CAP = 8192;
 const MAX_HTML_ATTEMPTS = 3;
-const MIN_QUALITY_SCORE = 40;
+const MIN_QUALITY_SCORE = 50;
+
+/** Detect if a model is a small/free tier model that may produce simpler output.
+ *  Uses the shared detector from constants to stay in sync with the catalog. */
+function isSmallModel(model: string): boolean {
+  return isSmallModelId(model);
+}
+
+/** Get quality threshold based on model size — lower for small/free models */
+function getQualityThreshold(model: string): number {
+  return isSmallModel(model) ? 40 : MIN_QUALITY_SCORE;
+}
 
 function getBaseUrl(providerId: AIProviderId, storedProviders: StoredProvider[]): string {
   const stored = storedProviders.find((p) => p.id === providerId);
@@ -131,6 +159,7 @@ function failedResult(
   startTime: number,
   status?: number,
   extras?: { content?: InfographicContent; blueprint?: unknown },
+  originalError?: { message: string; provider: AIProviderId; model: string },
 ): AIGenerationResult {
   return {
     success: false,
@@ -141,6 +170,9 @@ function failedResult(
     processingTime: Date.now() - startTime,
     steps,
     usedFallback: false,
+    originalError: originalError?.message,
+    originalErrorProvider: originalError?.provider,
+    originalErrorModel: originalError?.model,
     ...extras,
   };
 }
@@ -272,7 +304,7 @@ REQUIREMENTS:
         key,
         modelId,
         temperature,
-        tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
+        tokensForPhase(maxTokens, HTML_TOKEN_CAP, 2560, pid, modelId),
         pid,
         getBaseUrl(pid, storedProviders),
         limits,
@@ -386,7 +418,7 @@ async function runPipeline(
         apiKey,
         model,
         temperature,
-        tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
+        tokensForPhase(maxTokens, STEP_TOKEN_CAP, 1024, providerId, model),
         providerId,
         getBaseUrl(providerId, storedProviders),
         limits,
@@ -449,7 +481,7 @@ async function runPipeline(
           strictCreds.key,
           strictCreds.model,
           Math.min(temperature, 0.4),
-          tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
+          tokensForPhase(maxTokens, STEP_TOKEN_CAP, 1024, usedProvider, strictCreds.model),
           usedProvider,
           getBaseUrl(usedProvider, storedProviders),
           limits,
@@ -488,7 +520,7 @@ async function runPipeline(
         blueprintCreds.key,
         blueprintCreds.model,
         temperature,
-        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 1200),
+        tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 1200, usedProvider, blueprintCreds.model),
         usedProvider,
         getBaseUrl(usedProvider, storedProviders),
         limits,
@@ -603,7 +635,7 @@ async function runPipeline(
         htmlCreds.key,
         htmlCreds.model,
         temperature,
-        tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
+        tokensForPhase(maxTokens, HTML_TOKEN_CAP, 2560, usedProvider, htmlCreds.model),
         usedProvider,
         getBaseUrl(usedProvider, storedProviders),
         limits,
@@ -612,6 +644,8 @@ async function runPipeline(
       if (error instanceof GenerationStoppedError) throw error;
       // Cross-provider fallback: if the active provider can't produce good
       // HTML, try every other configured provider before giving up.
+      const originalError = error instanceof Error ? error.message : String(error);
+      const originalStatus = statusOf(error);
       emit({ type: "info", phase: "html", message: "Primary provider failed — trying fallback providers…" });
       const fallback = await tryAllProviders(
         htmlPrompt,
@@ -634,8 +668,9 @@ async function runPipeline(
           "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
           steps,
           startTime,
-          statusOf(error),
+          originalStatus,
           { content: infographicContent, blueprint },
+          { message: originalError, provider: usedProvider, model: usedModel },
         );
       }
     }
@@ -667,7 +702,7 @@ async function runPipeline(
             retryCreds.key,
             retryCreds.model,
             Math.min(temperature, 0.3 + attempt * 0.05),
-            tokensFor(maxTokens, HTML_TOKEN_CAP, 2560),
+            tokensForPhase(maxTokens, HTML_TOKEN_CAP, 2560, usedProvider, retryCreds.model),
             usedProvider,
             getBaseUrl(usedProvider, storedProviders),
             limits,
@@ -675,6 +710,8 @@ async function runPipeline(
         } catch (error) {
           if (error instanceof GenerationStoppedError) throw error;
           if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
+          const retryError = error instanceof Error ? error.message : String(error);
+          const retryStatus = statusOf(error);
           steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
           emit({ type: "phase_end", phase: "html", status: "failed" });
           return failedResult(
@@ -683,8 +720,9 @@ async function runPipeline(
             "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
             steps,
             startTime,
-            statusOf(error),
+            retryStatus,
             { content: infographicContent, blueprint },
+            { message: retryError, provider: usedProvider, model: usedModel },
           );
         }
       }
@@ -729,9 +767,10 @@ async function runPipeline(
     // result (best attempt + warning) instead of being thrown away — the
     // user decides whether to regenerate.
     let degraded = blueprintUsedFallback || contentParseFailed;
-    if (bestScore < MIN_QUALITY_SCORE) {
+    const qualityThreshold = getQualityThreshold(usedModel);
+    if (bestScore < qualityThreshold) {
       degraded = true;
-      const qualityMessage = `Design scored ${bestScore}/100 (target ${MIN_QUALITY_SCORE}) — showing the best attempt.`;
+      const qualityMessage = `Design scored ${bestScore}/100 (target ${qualityThreshold}${isSmallModel(usedModel) ? " for small model" : ""}) — showing the best attempt.`;
       warnings.push(qualityMessage);
       steps.push({ name: "Quality gate", status: "fallback", durationMs: 0 });
       emit({ type: "warning", phase: "html", message: qualityMessage });
@@ -768,6 +807,16 @@ async function runPipeline(
       error instanceof Error && error.message
         ? error.message
         : "Unexpected error during generation. Please try again.";
-    return failedResult(providerId, model, message, steps, startTime, statusOf(error));
+    const originalError = error instanceof Error ? error.message : String(error);
+    return failedResult(
+      providerId,
+      model,
+      message,
+      steps,
+      startTime,
+      statusOf(error),
+      undefined,
+      { message: originalError, provider: providerId, model: model },
+    );
   }
 }

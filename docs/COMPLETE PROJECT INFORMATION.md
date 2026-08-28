@@ -7,17 +7,18 @@ It converts text, ideas, and image-based input into polished infographic output.
 
 ## Key capabilities
 
-- Multi-input generation (text, idea, upload, URL)
-- AI content analysis and improvement
-- AI-driven design blueprint + HTML generation
-- Multiple visual themes and purposes
-- Export support (PNG/JPG/SVG/PDF/JSON in the generate flow)
+- Content-driven generation (text, blog posts, articles, reports, ideas)
+- 4-phase AI pipeline (Content Structuring -> Design Blueprint -> HTML/CSS Generation -> Export)
+- Real-time SSE streaming for live progress feedback
+- High-resolution multi-format export (PNG, JPG, SVG, PDF, JSON)
+- Local browser project persistence via IndexedDB
 
 ## Technical foundation
 
-- Frontend: Next.js 15 + React 19 + Tailwind CSS
-- State: Zustand stores for AI/editor/project/UI
-- AI providers: OpenRouter, NVIDIA NIM, Groq, Mistral
+- Frontend: Next.js 15 (App Router) + React 19 + Tailwind CSS
+- State: Zustand persisted stores for AI settings & editor state
+- Storage: IndexedDB (`idb`) for local projects and working-memory context
+- AI providers: OpenRouter, NVIDIA NIM, Groq, Mistral, Custom
 - Type safety: strict TypeScript with central type definitions
 
 ## Core folders

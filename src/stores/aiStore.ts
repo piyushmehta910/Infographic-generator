@@ -23,7 +23,7 @@ const defaultProviders: AIProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     apiKey: "",
-    model: "openrouter/free",
+    model: "openrouter/auto",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: true,
@@ -95,8 +95,8 @@ export const useAIStore = create<AIStore>()(
           activeProvider: state.activeProvider,
         }),
         merge: (persisted, current) => {
-          // Migrate persisted state: drop removed providers (OpenAI/Gemini/Claude),
-          // reset OpenRouter to a free model, fix stale active provider, and
+          // Migrate persisted state: drop removed providers, fix stale active provider,
+          // migrate legacy openrouter/free model to openrouter/auto, and
           // add back any default providers missing from an older persisted store.
           const merged = { ...current, ...(persisted as Partial<AIStore>) };
           if (merged.providers) {
@@ -104,13 +104,8 @@ export const useAIStore = create<AIStore>()(
             merged.providers = (merged.providers || [])
               .filter((p: AIProviderConfig) => supported.has(p.id))
               .map((p: AIProviderConfig) => {
-                if (
-                  p.id === "openrouter" &&
-                  p.model &&
-                  p.model !== "openrouter/free" &&
-                  !p.model.endsWith(":free")
-                ) {
-                  return { ...p, model: "openrouter/free" };
+                if (p.id === "openrouter" && p.model === "openrouter/free") {
+                  return { ...p, model: "openrouter/auto" };
                 }
                 return p;
               });

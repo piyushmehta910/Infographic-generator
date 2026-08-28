@@ -27,7 +27,7 @@ export async function renderOffscreenForCapture(
   holder.setAttribute("data-export-capture", "");
   Object.assign(holder.style, {
     position: "fixed",
-    left: "-200vw",
+    left: "-300vw",
     top: "0px",
     width: `${width}px`,
     height: `${height}px`,
@@ -38,23 +38,52 @@ export async function renderOffscreenForCapture(
   });
 
   const inner = document.createElement("div");
+  inner.setAttribute("data-export-inner", "");
   Object.assign(inner.style, {
     width: "100%",
     height: "100%",
     position: "relative",
+    overflow: "hidden",
+    boxSizing: "border-box",
   });
 
-  // Clone stylesheet/link nodes from the generated document's head.
-  const headNodes = doc.head.querySelectorAll("style, link[rel='stylesheet']");
-  for (const node of Array.from(headNodes)) {
-    inner.appendChild(node.cloneNode(true));
+  // If the generated body has inline style or class attributes, transfer them to inner
+  if (doc.body) {
+    if (doc.body.getAttribute("style")) {
+      inner.style.cssText += ";" + doc.body.getAttribute("style");
+    }
+    if (doc.body.className) {
+      inner.className = doc.body.className;
+    }
   }
 
-  // Append the body content (cloned so the parsed doc stays intact).
+  // Clone and scope stylesheet rules so body/html rules target inner instead of leaking
+  const headNodes = doc.querySelectorAll("style, link[rel='stylesheet']");
+  for (const node of Array.from(headNodes)) {
+    if (node.tagName.toLowerCase() === "style") {
+      const styleEl = document.createElement("style");
+      let css = node.textContent || "";
+      // Scope body/html selectors to the export inner container
+      css = css.replace(/(?:^|(?<=[},;]))\s*(?:html\s*,\s*body|html|body)\b/gi, "[data-export-inner]");
+      styleEl.textContent = css;
+      inner.appendChild(styleEl);
+    } else {
+      inner.appendChild(node.cloneNode(true));
+    }
+  }
+
+  // Append the body's child contents directly into inner (avoids invalid nested <body> tag)
   if (doc.body) {
-    inner.appendChild(doc.body.cloneNode(true));
+    const children = Array.from(doc.body.childNodes);
+    if (children.length > 0) {
+      for (const child of children) {
+        inner.appendChild(child.cloneNode(true));
+      }
+    } else {
+      inner.innerHTML += doc.body.innerHTML;
+    }
   } else {
-    inner.innerHTML = html;
+    inner.innerHTML += html;
   }
 
   holder.appendChild(inner);

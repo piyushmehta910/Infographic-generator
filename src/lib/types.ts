@@ -149,6 +149,11 @@ export interface AIGenerationResult {
   steps?: AIGenerationStep[];
   /** Working-memory distilled from this run; send it back on the next generation. */
   memory?: MemoryEntry[];
+  /** The first error encountered before any fallbacks — for debugging. */
+  originalError?: string;
+  /** The provider/model that produced the original error. */
+  originalErrorProvider?: AIProviderId;
+  originalErrorModel?: string;
 }
 
 /**

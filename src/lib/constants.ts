@@ -1,4 +1,53 @@
-import { AspectRatio, AIProviderOption } from "./types";
+import { AspectRatio, AIProviderOption, AIProviderId, AIModelOption } from "./types";
+
+/**
+ * Look up a model's catalog entry by provider ID and model ID.
+ * Returns undefined if the provider or model isn't in the catalog.
+ */
+export function getModelInfo(
+  providerId: AIProviderId,
+  modelId: string,
+): AIModelOption | undefined {
+  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
+  if (!provider) return undefined;
+  // Exact match first
+  const exact = provider.models.find((m) => m.id === modelId);
+  if (exact) return exact;
+  // Partial match (model might be a fallback variant)
+  const partial = provider.models.find(
+    (m) => modelId.includes(m.id) || m.id.includes(modelId),
+  );
+  return partial;
+}
+
+/**
+ * Get the maxOutput tokens for a model, with a sensible default.
+ */
+export function getModelMaxOutput(
+  providerId: AIProviderId,
+  modelId: string,
+  fallback: number = 4096,
+): number {
+  const info = getModelInfo(providerId, modelId);
+  return info?.maxOutput ?? fallback;
+}
+
+/**
+ * Detect if a model is a small/free tier model (≤9B params).
+ * These produce simpler output and should have relaxed quality thresholds.
+ */
+export function isSmallModelId(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return /\b(8b|7b|3b|3\.5|mini|small|8b-instant|7b-instruct|3b-instruct|9b)\b/.test(lower);
+}
+
+export const DESIGN_INTENTS = [
+  { id: "auto", label: "Auto", desc: "Let the AI choose" },
+  { id: "professional", label: "Professional", desc: "Clean, corporate, trustworthy" },
+  { id: "minimal", label: "Minimal", desc: "Whitespace, subtle, elegant" },
+  { id: "bold", label: "Bold", desc: "High contrast, punchy colors" },
+  { id: "creative", label: "Creative", desc: "Playful, experimental layouts" },
+] as const;
 
 export const ASPECT_RATIOS: Record<string, AspectRatio> = {
   "1:1": { id: "1:1", label: "Square 1:1", ratio: "1:1", width: 1080, height: 1080 },
@@ -19,94 +68,58 @@ export const AI_PROVIDERS: AIProviderOption[] = [
     docsUrl: "https://openrouter.ai/keys",
     models: [
       {
-        id: "openrouter/free",
-        name: "OpenRouter Free (Auto-Select)",
-        contextWindow: 8192,
-        maxOutput: 4096,
-      },
-      {
-        id: "nvidia/nemotron-3-ultra-550b-a55b:free",
-        name: "NVIDIA Nemotron 3 Ultra 550B (Free)",
-        contextWindow: 1000000,
+        id: "openrouter/auto",
+        name: "OpenRouter Auto (Best Available)",
+        contextWindow: 128000,
         maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-3-super-120b-a12b:free",
-        name: "NVIDIA Nemotron 3 Super 120B (Free)",
-        contextWindow: 262000,
+        id: "meta-llama/llama-3.3-70b-instruct:free",
+        name: "Meta Llama 3.3 70B Instruct (Free)",
+        contextWindow: 131072,
         maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-3.5-lightning-30b-a3b:free",
-        name: "NVIDIA Nemotron 3.5 Lightning 30B (Free)",
-        contextWindow: 1000000,
+        id: "google/gemini-2.0-flash-exp:free",
+        name: "Google Gemini 2.0 Flash Experimental (Free)",
+        contextWindow: 1048576,
         maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-3-nano-30b-a3b:free",
-        name: "NVIDIA Nemotron 3 Nano 30B (Free)",
-        contextWindow: 256000,
+        id: "google/gemini-2.0-flash-thinking-exp:free",
+        name: "Google Gemini 2.0 Flash Thinking (Free)",
+        contextWindow: 1048576,
         maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-nano-9b-v2:free",
-        name: "NVIDIA Nemotron Nano 9B v2 (Free)",
+        id: "deepseek/deepseek-r1:free",
+        name: "DeepSeek R1 (Free)",
+        contextWindow: 64000,
+        maxOutput: 8192,
+      },
+      {
+        id: "deepseek/deepseek-chat:free",
+        name: "DeepSeek V3 (Free)",
+        contextWindow: 64000,
+        maxOutput: 8192,
+      },
+      {
+        id: "qwen/qwen-2.5-coder-32b-instruct:free",
+        name: "Qwen 2.5 Coder 32B (Free)",
+        contextWindow: 32768,
+        maxOutput: 8192,
+      },
+      {
+        id: "meta-llama/llama-3.1-8b-instruct:free",
+        name: "Meta Llama 3.1 8B Instruct (Free)",
         contextWindow: 131072,
         maxOutput: 4096,
       },
       {
-        id: "nvidia/nemotron-nano-12b-2-vl:free",
-        name: "NVIDIA Nemotron Nano 12B 2 VL (Free)",
-        contextWindow: 131072,
+        id: "mistralai/mistral-7b-instruct:free",
+        name: "Mistral 7B Instruct (Free)",
+        contextWindow: 32768,
         maxOutput: 4096,
-      },
-      {
-        id: "openai/gpt-oss-120b:free",
-        name: "OpenAI GPT-OSS 120B (Free)",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "openai/gpt-oss-20b:free",
-        name: "OpenAI GPT-OSS 20B (Free)",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "google/gemma-4-31b-it:free",
-        name: "Google Gemma 4 31B (Free)",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "google/gemma-4-26b-a4b-it:free",
-        name: "Google Gemma 4 26B A4B (Free)",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "poolside/laguna-s-2.1:free",
-        name: "Poolside Laguna S 2.1 (Free)",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "poolside/laguna-xs-2.1:free",
-        name: "Poolside Laguna XS 2.1 (Free)",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "cohere/north-mini-code:free",
-        name: "Cohere North Mini Code (Free)",
-        contextWindow: 256000,
-        maxOutput: 8192,
-      },
-      {
-        id: "dots-studio/dots3-note-preview:free",
-        name: "Dots3 Note Preview (Free)",
-        contextWindow: 512000,
-        maxOutput: 8192,
       },
     ],
   },
@@ -123,62 +136,32 @@ export const AI_PROVIDERS: AIProviderOption[] = [
         maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-3-ultra-550b-a55b",
-        name: "Nemotron 3 Ultra 550B",
-        contextWindow: 1000000,
-        maxOutput: 8192,
-      },
-      {
-        id: "nvidia/nemotron-3-super-120b-a12b",
-        name: "Nemotron 3 Super 120B",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "nvidia/nemotron-3.5-lightning-30b-a3b",
-        name: "Nemotron 3.5 Lightning 30B",
-        contextWindow: 1000000,
-        maxOutput: 8192,
-      },
-      {
-        id: "nvidia/nemotron-3-nano-30b-a3b",
-        name: "Nemotron 3 Nano 30B",
-        contextWindow: 256000,
-        maxOutput: 8192,
-      },
-      {
-        id: "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-        name: "Nemotron Ultra 253B",
+        id: "meta/llama-3.1-70b-instruct",
+        name: "Llama 3.1 70B Instruct",
         contextWindow: 131072,
         maxOutput: 8192,
       },
       {
-        id: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-        name: "Nemotron Super 49B v1.5",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "nvidia/llama-3.1-nemotron-nano-8b-v1",
-        name: "Nemotron Nano 8B v1",
+        id: "meta/llama-3.1-8b-instruct",
+        name: "Llama 3.1 8B Instruct",
         contextWindow: 131072,
         maxOutput: 4096,
       },
       {
-        id: "nvidia/nvidia-nemotron-nano-9b-v2",
-        name: "Nemotron Nano 9B v2",
+        id: "nvidia/llama-3.1-nemotron-70b-instruct",
+        name: "Llama 3.1 Nemotron 70B",
         contextWindow: 131072,
-        maxOutput: 4096,
+        maxOutput: 8192,
       },
       {
-        id: "nvidia/nemotron-mini-4b-instruct",
-        name: "Nemotron Mini 4B",
-        contextWindow: 131072,
-        maxOutput: 4096,
+        id: "deepseek-ai/deepseek-r1",
+        name: "DeepSeek R1",
+        contextWindow: 64000,
+        maxOutput: 8192,
       },
       {
-        id: "mistralai/mistral-nemotron",
-        name: "Mistral Nemotron",
+        id: "qwen/qwen2.5-72b-instruct",
+        name: "Qwen 2.5 72B Instruct",
         contextWindow: 131072,
         maxOutput: 8192,
       },
@@ -195,70 +178,16 @@ export const AI_PROVIDERS: AIProviderOption[] = [
         maxOutput: 4096,
       },
       {
-        id: "openai/gpt-oss-120b",
-        name: "GPT-OSS 120B",
-        contextWindow: 131072,
+        id: "mistralai/mistral-large-2-instruct",
+        name: "Mistral Large 2",
+        contextWindow: 128000,
         maxOutput: 8192,
       },
       {
-        id: "openai/gpt-oss-20b",
-        name: "GPT-OSS 20B",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "qwen/qwen3-next-80b-a3b-instruct",
-        name: "Qwen3 Next 80B A3B",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "moonshotai/kimi-k2-instruct",
-        name: "Kimi K2 Instruct",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "deepseek-ai/deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "meta/llama-3.1-8b-instruct",
-        name: "Llama 3.1 8B Instruct",
+        id: "microsoft/phi-3.5-mini-instruct",
+        name: "Phi-3.5 Mini Instruct",
         contextWindow: 131072,
         maxOutput: 4096,
-      },
-      {
-        id: "microsoft/phi-4-mini-instruct",
-        name: "Phi-4 Mini Instruct",
-        contextWindow: 131072,
-        maxOutput: 4096,
-      },
-      {
-        id: "deepseek-ai/deepseek-v4-pro",
-        name: "DeepSeek V4 Pro",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "moonshotai/kimi-k2-thinking",
-        name: "Kimi K2 Thinking",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "qwen/qwen3-coder-480b-a35b-instruct",
-        name: "Qwen3 Coder 480B",
-        contextWindow: 262000,
-        maxOutput: 8192,
-      },
-      {
-        id: "z-ai/glm5.1",
-        name: "GLM 5.1",
-        contextWindow: 131072,
-        maxOutput: 8192,
       },
     ],
   },
@@ -269,46 +198,34 @@ export const AI_PROVIDERS: AIProviderOption[] = [
     docsUrl: "https://console.groq.com/keys",
     models: [
       {
+        id: "llama-3.3-70b-versatile",
+        name: "Llama 3.3 70B Versatile",
+        contextWindow: 131072,
+        maxOutput: 8192,
+      },
+      {
         id: "llama-3.1-8b-instant",
         name: "Llama 3.1 8B Instant",
         contextWindow: 131072,
         maxOutput: 8192,
       },
       {
-        id: "llama-3.3-70b-versatile",
-        name: "Llama 3.3 70B",
+        id: "deepseek-r1-distill-llama-70b",
+        name: "DeepSeek R1 Distill Llama 70B",
         contextWindow: 131072,
         maxOutput: 8192,
       },
       {
-        id: "meta-llama/llama-4-scout-17b-16e-instruct",
-        name: "Llama 4 Scout 17B",
-        contextWindow: 131072,
-        maxOutput: 8192,
+        id: "mixtral-8x7b-32768",
+        name: "Mixtral 8x7B",
+        contextWindow: 32768,
+        maxOutput: 4096,
       },
       {
-        id: "openai/gpt-oss-20b",
-        name: "GPT OSS 20B",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "openai/gpt-oss-120b",
-        name: "GPT OSS 120B",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "qwen/qwen3-32b",
-        name: "Qwen3 32B",
-        contextWindow: 131072,
-        maxOutput: 8192,
-      },
-      {
-        id: "groq/compound",
-        name: "Groq Compound",
-        contextWindow: 131072,
-        maxOutput: 8192,
+        id: "gemma2-9b-it",
+        name: "Gemma 2 9B IT",
+        contextWindow: 8192,
+        maxOutput: 4096,
       },
     ],
   },
@@ -327,6 +244,12 @@ export const AI_PROVIDERS: AIProviderOption[] = [
       {
         id: "mistral-small-latest",
         name: "Mistral Small",
+        contextWindow: 32768,
+        maxOutput: 8192,
+      },
+      {
+        id: "codestral-latest",
+        name: "Codestral",
         contextWindow: 32768,
         maxOutput: 8192,
       },
@@ -359,12 +282,6 @@ export const AI_PROVIDERS: AIProviderOption[] = [
         name: "Mistral 7B",
         contextWindow: 32768,
         maxOutput: 4096,
-      },
-      {
-        id: "codestral-latest",
-        name: "Codestral",
-        contextWindow: 32768,
-        maxOutput: 8192,
       },
     ],
   },

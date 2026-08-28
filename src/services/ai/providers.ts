@@ -274,7 +274,8 @@ class CustomProviderImpl implements AIProvider {
     baseUrl?: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    const url = (baseUrl || "").replace(/\/$/, "") + "/chat/completions";
+    const base = (baseUrl || "").replace(/\/$/, "");
+    const url = base.endsWith("/chat/completions") ? base : `${base}/chat/completions`;
     const response = await fetchWithTimeout(
       url,
       {

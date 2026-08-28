@@ -46,8 +46,8 @@ export function extractJSON(text: string): any {
 
 export function extractHTML(text: string): string {
   let html = text.trim();
-  const codeBlockMatch = html.match(/```(?:html)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) html = codeBlockMatch[1].trim();
+  const codeBlockMatch = html.match(/```(?:html)?\s*([\s\S]*?)(?:```|$)/);
+  if (codeBlockMatch && codeBlockMatch[1].trim().length > 0) html = codeBlockMatch[1].trim();
   if (!html.startsWith("<!") && !html.startsWith("<html") && !html.startsWith("<div") && !html.startsWith("<section")) {
     html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;overflow:hidden}</style></head><body>${html}</body></html>`;
   }

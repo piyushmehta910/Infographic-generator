@@ -255,12 +255,44 @@ export default function CanvasView(p: CanvasViewProps) {
             </p>
           </div>
         ) : html ? (
-          <div
-            className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10"
-            style={{ zoom: zoom / 100 }}
-          >
-            <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
-          </div>
+          <>
+            {error && !isGenerating && (
+              <div className="w-full max-w-xl mx-auto mb-4 flex items-start gap-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-red-300">Regeneration failed</p>
+                  <p className="mt-0.5 text-red-200/80 break-words">{error}</p>
+                </div>
+                {onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 text-red-200 hover:bg-red-500/30 transition-all flex-shrink-0"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Retry
+                  </button>
+                )}
+              </div>
+            )}
+            <div
+              style={{
+                width: `${aspectRatio.width * (zoom / 100)}px`,
+                height: `${aspectRatio.height * (zoom / 100)}px`,
+              }}
+              className="flex-shrink-0 relative my-auto"
+            >
+              <div
+                style={{
+                  width: `${aspectRatio.width}px`,
+                  height: `${aspectRatio.height}px`,
+                  transform: `scale(${zoom / 100})`,
+                  transformOrigin: "top left",
+                }}
+                className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10 absolute top-0 left-0"
+              >
+                <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
+              </div>
+            </div>
+          </>
         ) : (
           <div className="text-center max-w-md mt-8 lg:mt-16">
             <div className="relative w-20 h-20 mx-auto mb-6">

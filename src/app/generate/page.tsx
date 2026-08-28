@@ -27,6 +27,28 @@ function formatElapsed(ms: number): string {
   return `${m}:${rs.toString().padStart(2, "0")}`;
 }
 
+/** Map raw error text to a user-friendly one-line message. */
+function friendlyErrorMessage(raw: string, errorType?: string): string {
+  const lower = raw.toLowerCase();
+  if (errorType === "auth_failed" || /api.?key|unauthorized|401|403/i.test(lower))
+    return "Your API key was rejected. Open Settings and check it's correct.";
+  if (errorType === "rate_limit" || /429|rate.?limit|quota|too many/i.test(lower))
+    return "Too many requests — wait a minute and try again.";
+  if (errorType === "timeout" || /timeout|timed.?out|abort|cancel/i.test(lower))
+    return "The AI took too long to respond. Try a faster model or try again.";
+  if (errorType === "invalid_request" || /context.?length|max.?tokens|400|invalid/i.test(lower))
+    return "Your input is too long for this model. Shorten it and try again.";
+  if (/connection.?drop|stream.?end|connection.*without/i.test(lower))
+    return "The connection dropped before generation finished — the AI providers were too slow. Try again, or pick a faster model.";
+  if (/invalid design|could not be refined/i.test(lower))
+    return "The AI produced a design that didn't meet quality standards. Try again — a different model may help.";
+  if (/endpoint.*error|internal.?server|upstream/i.test(lower))
+    return "Something went wrong on the server. Try again in a moment.";
+  if (/provider.?call|no response|empty/i.test(lower))
+    return "The AI provider returned no output. Try a different provider in Settings.";
+  return raw.length > 120 ? raw.slice(0, 117) + "…" : raw;
+}
+
 /** Map a pipeline progress event to a human progress label. */
 function labelForEvent(e: PipelineProgressEvent): string | null {
   switch (e.type) {
@@ -100,8 +122,12 @@ export default function GeneratePage() {
   // re-seeds with it so the AI stays consistent (e.g. "regenerate, new theme").
   const memoryRef = useRef<MemoryEntry[]>([]);
 
+  // Check if any provider has an API key configured
+  const hasApiKey = providers.some((p) => p.apiKey && p.apiKey.trim().length > 0);
+
   const [input, setInput] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS["1:1"]);
+  const [designIntent, setDesignIntent] = useState("auto");
   const [zoom, setZoom] = useState(100);
   const [html, setHtml] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -120,8 +146,9 @@ export default function GeneratePage() {
   const requestInput = input;
   const hasContent = Boolean(requestInput) && requestInput.trim().length > 0;
 
-  const persistProject = useCallback(async () => {
-    if (!html) return;
+  const persistProject = useCallback(async (htmlOverride?: string) => {
+    const targetHtml = htmlOverride ?? html;
+    if (!targetHtml) return;
     const id = projectIdRef.current ?? newProjectId();
     projectIdRef.current = id;
     projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
@@ -139,7 +166,7 @@ export default function GeneratePage() {
       aspectRatioHeight: aspectRatio.height,
       phase1_content: null,
       phase2_blueprint: null,
-      phase3_html: html,
+      phase3_html: targetHtml,
       thumbnail: "",
     };
     await saveProject(project);
@@ -175,6 +202,11 @@ export default function GeneratePage() {
       showToast({ type: "error", title: "Input required", message: "Please provide some content before generating." });
       return;
     }
+    if (!hasApiKey) {
+      showToast({ type: "error", title: "API Key Required", message: "Please add an API key in Settings first. Free tiers available for all providers." });
+      setShowSettings(true);
+      return;
+    }
     // Assign the project id up front so AI memory and the saved project
     // always share the same key.
     if (!projectIdRef.current) projectIdRef.current = newProjectId();
@@ -195,6 +227,7 @@ export default function GeneratePage() {
       font: "inter" as FontId,
       language: "en",
       audience: "general",
+      userIntent: designIntent === "auto" ? undefined : designIntent,
     };
     generatingRef.current = true;
     setIsGenerating(true);
@@ -291,7 +324,7 @@ export default function GeneratePage() {
         memoryRef.current = result.memory ?? memoryRef.current;
         // Save the memory for possible future regenerations (auto-deleted at next generation start).
         await saveAIMemory(projectIdRef.current ?? "temp", result.memory ?? []);
-        persistProject();
+        persistProject(result.generatedHtml);
       } else {
         memoryRef.current = result.memory ?? memoryRef.current;
         // Save the memory even on failure for possible retry.
@@ -299,13 +332,14 @@ export default function GeneratePage() {
         const failedStep =
           result.steps?.find((s) => s.status === "failed")?.name ||
           (result.steps?.length ? "setup" : "provider call");
-        const message = `${result.error || "Please try again."}${result.provider ? ` [${result.provider}/${result.model ?? "?"} — ${failedStep}]` : ""}`;
+        const friendly = friendlyErrorMessage(result.error || "Please try again.", result.errorType);
+        const detail = result.provider ? `${result.provider}/${result.model ?? "?"} — ${failedStep}` : "";
         console.error("Generation failed", { provider: result.provider, model: result.model, error: result.error, steps: result.steps });
-        setGenError(message);
+        setGenError(friendly);
         showToast({
           type: "error",
           title: "Generation failed",
-          message,
+          message: friendly + (detail ? `\n${detail}` : ""),
           duration: 10000,
         });
       }
@@ -313,12 +347,13 @@ export default function GeneratePage() {
       if (e?.name === "AbortError") {
         showToast({ type: "info", title: "Generation cancelled", message: "No further provider calls were made." });
       } else {
-        const message = e?.message || "Please try again.";
-        setGenError(message);
+        const raw = e?.message || "Please try again.";
+        const friendly = friendlyErrorMessage(raw);
+        setGenError(friendly);
         showToast({
           type: "error",
           title: "Generation failed",
-          message,
+          message: friendly,
           duration: 10000,
         });
       }
@@ -329,7 +364,7 @@ export default function GeneratePage() {
       abortRef.current = null;
       setGenerating(false);
     }
-  }, [requestInput, genInputType, aspectRatio, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
+  }, [requestInput, genInputType, aspectRatio, designIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
@@ -402,6 +437,12 @@ export default function GeneratePage() {
             setInput={setInput}
             onGenerateClick={handleGenerate}
             isGenerating={isGenerating}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
+            designIntent={designIntent}
+            setDesignIntent={setDesignIntent}
+            onOpenSettings={() => setShowSettings(true)}
+            hasApiKey={hasApiKey}
           />
         </div>
         {/* Mobile drawer input */}
@@ -431,6 +472,12 @@ export default function GeneratePage() {
                     handleGenerate();
                   }}
                   isGenerating={isGenerating}
+                  aspectRatio={aspectRatio}
+                  setAspectRatio={setAspectRatio}
+                  designIntent={designIntent}
+                  setDesignIntent={setDesignIntent}
+                  onOpenSettings={() => setShowSettings(true)}
+                  hasApiKey={hasApiKey}
                 />
                 <button
                   onClick={() => setMobileInputOpen(false)}
@@ -461,7 +508,7 @@ export default function GeneratePage() {
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-surface-300 min-w-0">
                     <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
                     <span className="truncate max-w-[9rem] sm:max-w-[16rem]" aria-live="polite">{progressLabel}</span>
-                    <span className="tabular-nums text-surface-500 hidden sm:inline">{formatElapsed(elapsed)}</span>
+                    <span className="tabular-nums text-surface-500">{formatElapsed(elapsed)}</span>
                   </div>
                   <button
                     onClick={handleCancel}
