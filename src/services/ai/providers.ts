@@ -11,13 +11,14 @@ export interface AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string>;
 }
 
 export const SYSTEM_PROMPT =
   "You are an expert content analyst, designer, and developer. Follow the 4-phase workflow exactly.";
 
-export const REQUEST_TIMEOUT_MS = 30000;
+export const REQUEST_TIMEOUT_MS = 45000;
 
 /**
  * Upstream provider returned a non-OK HTTP response. Carrying the status
@@ -98,9 +99,17 @@ async function fetchWithTimeout(
   options: RequestInit,
   timeoutMs: number = REQUEST_TIMEOUT_MS,
   signal?: AbortSignal,
+  deadlineMs?: number,
 ): Promise<Response> {
+  // Never run past the pipeline deadline: trim the per-call timeout to the
+  // remaining budget (plus a short last-chance grace) so the TOTAL generation
+  // time stays under the serverless execution limit. Without this, a fresh
+  // fallback window could push total time past maxDuration and the platform
+  // severs the SSE stream mid-generation ("connection dropped").
+  const remaining = deadlineMs ? deadlineMs - Date.now() : Number.MAX_SAFE_INTEGER;
+  const effective = Math.min(timeoutMs, Math.max(remaining, 0) + 3000);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), effective);
   const onExternalAbort = () => controller.abort();
   signal?.addEventListener("abort", onExternalAbort, { once: true });
   try {
@@ -122,6 +131,7 @@ class NIMProviderImpl implements AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string> {
     const response = await fetchWithTimeout(
       "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -143,6 +153,7 @@ class NIMProviderImpl implements AIProvider {
       },
       REQUEST_TIMEOUT_MS,
       signal,
+      deadlineMs,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `NVIDIA NIM (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
     return messageText(await response.json(), `NVIDIA NIM (${model})`);
@@ -159,6 +170,7 @@ class OpenRouterProviderImpl implements AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string> {
     const response = await fetchWithTimeout(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -181,6 +193,7 @@ class OpenRouterProviderImpl implements AIProvider {
       },
       REQUEST_TIMEOUT_MS,
       signal,
+      deadlineMs,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `OpenRouter (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
     return messageText(await response.json(), `OpenRouter (${model})`);
@@ -197,6 +210,7 @@ class GroqProviderImpl implements AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string> {
     const isSmallModel = model.includes("8b") || model.includes("20b");
     const reducedMaxTokens = isSmallModel ? Math.min(maxTokens, 4000) : maxTokens;
@@ -220,6 +234,7 @@ class GroqProviderImpl implements AIProvider {
       },
       REQUEST_TIMEOUT_MS,
       signal,
+      deadlineMs,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Groq (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
     return messageText(await response.json(), `Groq (${model})`);
@@ -236,6 +251,7 @@ class MistralProviderImpl implements AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string> {
     const response = await fetchWithTimeout(
       "https://api.mistral.ai/v1/chat/completions",
@@ -257,6 +273,7 @@ class MistralProviderImpl implements AIProvider {
       },
       REQUEST_TIMEOUT_MS,
       signal,
+      deadlineMs,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Mistral (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
     return messageText(await response.json(), `Mistral (${model})`);
@@ -273,6 +290,7 @@ class CustomProviderImpl implements AIProvider {
     maxTokens: number,
     baseUrl?: string,
     signal?: AbortSignal,
+    deadlineMs?: number,
   ): Promise<string> {
     const base = (baseUrl || "").replace(/\/$/, "");
     const url = base.endsWith("/chat/completions") ? base : `${base}/chat/completions`;
@@ -296,6 +314,7 @@ class CustomProviderImpl implements AIProvider {
       },
       REQUEST_TIMEOUT_MS,
       signal,
+      deadlineMs,
     );
     if (!response.ok) throw new ProviderHttpError(response.status, `Custom (${model}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
     return messageText(await response.json(), `Custom (${model})`);

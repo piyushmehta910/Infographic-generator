@@ -7,8 +7,7 @@ import {
   InfographicContent,
 } from "@/lib/types";
 import {
-  buildContentAnalysisPrompt,
-  buildDesignBlueprintPrompt,
+  buildContentBlueprintPrompt,
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
 import { validateOutline } from "@/lib/schemas";
@@ -18,6 +17,7 @@ import {
   tryAllProviders,
   StoredProvider,
   CallLimits,
+  checkStop,
 } from "./fallback";
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
 import { normalizeContent, heuristicOutlineFromInput } from "./normalize";
@@ -62,8 +62,10 @@ export interface GenerateContentOptions {
 // Override with GENERATION_BUDGET_MS env var for tuning.
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const ENV_BUDGET = Number(process.env.GENERATION_BUDGET_MS);
-export const DEFAULT_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET : IS_VERCEL ? 55_000 : 110_000;
-const MAX_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET + 5_000 : IS_VERCEL ? 58_000 : 120_000;
+export const DEFAULT_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET : IS_VERCEL ? 50_000 : 110_000;
+// The budget ceiling + a small last-chance grace (3s in fetchWithTimeout) must
+// stay UNDER maxDuration (60s on Vercel) so the SSE stream is never severed.
+const MAX_BUDGET_MS = ENV_BUDGET > 0 ? ENV_BUDGET : IS_VERCEL ? 53_000 : 115_000;
 
 /** Per-phase output-token floors: tiny user maxTokens used to truncate JSON/HTML into unparseable sludge. */
 function tokensFor(maxTokens: number, cap: number, floor: number): number {
@@ -86,7 +88,6 @@ function tokensForPhase(
   return Math.min(Math.max(maxTokens, floor), effectiveCap);
 }
 
-const STEP_TOKEN_CAP = 2048;
 const BLUEPRINT_TOKEN_CAP = 4096;
 const HTML_TOKEN_CAP = 8192;
 const MAX_HTML_ATTEMPTS = 3;
@@ -195,6 +196,60 @@ const THEME_FALLBACK: Record<
 };
 
 /**
+ * Build the full-shape generic blueprint used when the AI didn't return one
+ * (or returned one that didn't parse). Mirrors the shape the HTML phase
+ * prompt expects (colorPalette, typography, cardStyle, cssDirectives…).
+ */
+function defaultBlueprint(request: AIGenerationRequest): Record<string, unknown> {
+  const palette = THEME_FALLBACK.modern;
+  const dimensions = getCanvasDimensions(
+    request.aspectRatio,
+    request.aspectRatioWidth,
+    request.aspectRatioHeight,
+  );
+  return {
+    concept: "Clean, premium design system",
+    layoutStyle: "magazine-grid",
+    colorPalette: {
+      primary: palette.primary,
+      secondary: palette.secondary,
+      accent: palette.accent,
+      background: palette.background,
+      surface: palette.background,
+      text: palette.text,
+      textMuted: "#94a3b8",
+      border: "rgba(255,255,255,0.1)",
+    },
+    typography: {
+      headingFont: "Inter",
+      bodyFont: "Inter",
+      heroSize: "clamp(48px, 5vw, 72px)",
+      h2Size: "clamp(28px, 3vw, 36px)",
+      bodySize: "clamp(16px, 1.5vw, 20px)",
+    },
+    cardStyle: {
+      borderRadius: "16px",
+      background: palette.background,
+      border: "1px solid rgba(255,255,255,0.08)",
+      shadow: "0 8px 32px rgba(0,0,0,0.24)",
+      backdropFilter: "blur(12px)",
+    },
+    heroStatStyle: {
+      fontSize: "clamp(48px, 5vw, 72px)",
+      fontWeight: "800",
+      color: palette.accent,
+      gradient: `linear-gradient(135deg, ${palette.primary}, ${palette.secondary})`,
+    },
+    cssDirectives: [
+      "Use CSS custom properties for all colors and typography",
+      `Set the outer container to exactly ${dimensions.width}x${dimensions.height}px with overflow:hidden and zero scrollbars`,
+      "Render each section inside a distinct styled card",
+      "Use inline SVG icons — no emoji, no external images",
+    ],
+  };
+}
+
+/**
  * MAIN PIPELINE: 4-PHASE WORKFLOW — one generation at a time.
  * 1. Content Analysis & Structuring  (AI completes the user's input into a rich content package)
  * 2. Design Architecture & Planning  (AI specifies HOW to design it in HTML/CSS for aspect ratio + intent)
@@ -221,35 +276,47 @@ export async function generateContent(
     return { ...result, memory: memory.toJSON() };
   }
   // If the multi-phase pipeline failed (very common on flaky free models),
-  // retry with a single-shot HTML generation: one call instead of five has
+  // retry with a single-shot HTML generation: one call instead of several has
   // a far higher chance of succeeding when providers are rate-limited.
-  // singleShotAttempt gets its own FRESH 30s budget so it always has a
-  // realistic chance even when the full pipeline burned the main budget.
-  let single: AIGenerationResult | null = null;
+  //
+  // CRITICAL: the fallback shares the SAME deadline as the pipeline. A fresh
+  // window here used to push total time past the serverless maxDuration
+  // (pipeline 55s + fallback 45s > 60s Vercel cap), which severed the SSE
+  // stream mid-generation — the "connection dropped before generation
+  // finished" bug. Sharing the deadline guarantees we always finish in time.
   try {
-    const singleLimits: CallLimits = {
-      signal: options.signal,
-      deadline: Date.now() + 30_000,
-    };
-    single = await singleShotAttempt(request, options, memory, singleLimits);
+    const remaining = (limits.deadline ?? 0) - Date.now();
+    if (remaining > 15_000) {
+      const single = await singleShotAttempt(request, options, memory, limits, {
+        // Reuse whatever the pipeline managed before failing: when content +
+        // blueprint exist, the fallback just renders them into HTML instead of
+        // regenerating everything from scratch (higher quality + less time).
+        content: result.content,
+        blueprint: result.blueprint,
+      });
+      if (single) return { ...single, memory: memory.toJSON() };
+    }
   } catch {
     // Deadline or abort during single-shot: fall through to report the
     // original pipeline failure rather than crashing the stream.
   }
-  if (single) return { ...single, memory: memory.toJSON() };
   return { ...result, memory: memory.toJSON() };
 }
 
 /**
  * Single-shot fallback: one AI call that returns a complete HTML infographic
- * directly. Used only when the full 4-phase pipeline fails. Returns a success
- * result, or null so the caller can report the original pipeline failure.
+ * directly. Used only when the multi-phase pipeline fails. If the pipeline
+ * already produced content + blueprint before failing, it renders THOSE into
+ * HTML (equivalent to the HTML phase) instead of regenerating everything from
+ * scratch. Returns a success result, or null so the caller can report the
+ * original pipeline failure.
  */
 async function singleShotAttempt(
   request: AIGenerationRequest,
   options: GenerateContentOptions,
   memory: SessionMemory,
   limits: CallLimits,
+  preset?: { content?: InfographicContent; blueprint?: unknown },
 ): Promise<AIGenerationResult | null> {
   const { apiKey, providerId, model } = options;
   const storedProviders = options.storedProviders ?? [];
@@ -270,7 +337,12 @@ async function singleShotAttempt(
     request.aspectRatioHeight,
   );
   const source = (request.input || "").slice(0, 6000);
-  const prompt = `Design a complete, self-contained HTML infographic that visualizes the content below.
+
+  // When the failed pipeline left usable content + blueprint, reuse them: the
+  // fallback becomes the HTML phase itself (one call, no pumped-up prompts).
+  const prompt = preset?.content && preset.blueprint
+    ? buildHTMLGenerationPrompt(preset.content, preset.blueprint, request, memoryContext)
+    : `Design a complete, self-contained HTML infographic that visualizes the content below.
 
 CANVAS: exactly ${dimensions.width}px wide and ${dimensions.height}px high. The outer container must be exactly those dimensions with overflow:hidden. Do not use viewport units.
 THEME: modern color palette.
@@ -402,215 +474,147 @@ async function runPipeline(
 
   try {
     // ============================================
-    // STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
+    // STEP 1+2: CONTENT ANALYSIS & DESIGN BLUEPRINT
+    // ONE AI call returns BOTH the enriched content package and the visual
+    // design blueprint. Merging two slow phases into one round-trip roughly
+    // halves the number of sequential provider calls — the main reason
+    // generation used to run out of time on slow free-tier models.
     // ============================================
-    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
-    let contentResponse: string;
+    const designPrompt = buildContentBlueprintPrompt(request, memoryContext);
+    let designResponse: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
     const phaseStart = Date.now();
     emit({ type: "phase_start", phase: "content" });
 
     try {
-      contentResponse = await generateWithFallback(
+      designResponse = await generateWithFallback(
         provider,
-        contentPrompt,
+        designPrompt,
         apiKey,
         model,
         temperature,
-        tokensForPhase(maxTokens, STEP_TOKEN_CAP, 1024, providerId, model),
+        tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 2048, providerId, model),
         providerId,
         getBaseUrl(providerId, storedProviders),
         limits,
       );
     } catch (primaryError) {
-      // If the user's provider fails, try ALL other configured providers.
       if (primaryError instanceof GenerationStoppedError) throw primaryError;
       emit({ type: "info", phase: "content", message: "Primary provider failed — trying fallback providers…" });
       const fallback = await tryAllProviders(
-        contentPrompt,
+        designPrompt,
         providerId,
         temperature,
-        tokensFor(maxTokens, STEP_TOKEN_CAP, 1024),
+        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 2048),
         storedProviders,
         limits,
       );
       if (fallback) {
-        contentResponse = fallback.text;
+        designResponse = fallback.text;
         usedProvider = fallback.provider;
         usedModel = fallback.model;
       } else {
         throw primaryError;
       }
     }
-    let contentResult: any;
-    let contentParseFailed = false;
+
+    // Parse a single response that may be EITHER {content, blueprint} OR a
+    // bare content object. The blueprint defaults to the generic design
+    // system whenever the model doesn't provide one.
+    let parsedDesign: any;
     try {
-      contentResult = extractJSON(contentResponse);
+      parsedDesign = extractJSON(designResponse);
     } catch {
-      // The model answered but not in usable JSON (refusal, prose, or a
-      // reasoning-only reply). Rather than killing the whole generation,
-      // build the outline straight from the user's text and say so.
+      parsedDesign = null;
+    }
+    let contentCandidate: any = null;
+    let blueprintCandidate: any | null = null;
+    if (parsedDesign && typeof parsedDesign === "object") {
+      const inner = parsedDesign.content;
+      if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+        contentCandidate = inner;
+      } else {
+        contentCandidate = parsedDesign;
+      }
+      const bp = parsedDesign.blueprint;
+      if (bp && typeof bp === "object" && !Array.isArray(bp)) {
+        blueprintCandidate = bp;
+      }
+    }
+
+    let contentParseFailed = false;
+    if (!contentCandidate) {
       contentParseFailed = true;
-      contentResult = heuristicOutlineFromInput(request.input);
+      contentCandidate = heuristicOutlineFromInput(request.input);
       warnings.push("The AI's structured analysis came back malformed — the outline was built directly from your text. Try a stronger model for richer output.");
       emit({ type: "warning", phase: "content", message: "AI response wasn't valid JSON — building the outline from your text instead." });
     }
-    steps.push({
-      name: "Content analysis & structuring",
-      status: contentParseFailed ? "fallback" : usedProvider === providerId ? "completed" : "fallback",
-      durationMs: Date.now() - phaseStart,
-    });
-    emit({ type: "phase_end", phase: "content", status: contentParseFailed ? "fallback" : usedProvider === providerId ? "completed" : "fallback" });
 
-    // ============================================
-    // STEP 1.5a: ZOD VALIDATION (single stricter retry)
-    // ============================================
-    const outlineCheck = validateOutline(contentResult);
-    if (!outlineCheck.ok) {
+    // Strict single retry when the content shape fails Zod (spends a call
+    // only if the deadline still allows it).
+    const outlineCheck = validateOutline(contentCandidate);
+    if (!outlineCheck.ok && !contentParseFailed) {
       const fixPrompt =
-        contentPrompt +
+        designPrompt +
         "\n\nVALIDATION ERROR: " +
         outlineCheck.errors.join("; ") +
-        "\nRewrite the outline JSON so every required field is present, non-empty, and contains REAL content derived from the source input (no placeholders, no empty arrays). Return ONLY valid JSON.";
+        "\nYour previous output's \"content\" field was rejected because required fields are missing or empty. Rewrite the ENTIRE JSON object so the \"content\" object has a non-empty title, sections with non-empty title and content, and the \"blueprint\" object intact, all derived from the source input. Return ONLY valid JSON: { \"content\": {…}, \"blueprint\": {…} }.";
       try {
+        checkStop(limits);
         const strictCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
-        const strictContentResponse = await generateWithFallback(
+        const strictResponse = await generateWithFallback(
           providerMap[usedProvider],
           fixPrompt,
           strictCreds.key,
           strictCreds.model,
           Math.min(temperature, 0.4),
-          tokensForPhase(maxTokens, STEP_TOKEN_CAP, 1024, usedProvider, strictCreds.model),
+          tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 2048, usedProvider, strictCreds.model),
           usedProvider,
           getBaseUrl(usedProvider, storedProviders),
           limits,
         );
-        const strictResult = extractJSON(strictContentResponse);
-        if (validateOutline(strictResult).ok) {
-          contentResult = strictResult;
+        const strictParsed = extractJSON(strictResponse);
+        if (strictParsed && typeof strictParsed === "object") {
+          const inner = strictParsed.content;
+          const strictContent = inner && typeof inner === "object" && !Array.isArray(inner) ? inner : strictParsed;
+          if (validateOutline(strictContent).ok) {
+            contentCandidate = strictContent;
+            const bp = strictParsed.blueprint;
+            if (bp && typeof bp === "object" && !Array.isArray(bp)) blueprintCandidate = bp;
+          }
         }
       } catch {
-        // continue with the first result
+        // Keep the first, imperfect result.
       }
     }
 
-    // ============================================
-    // STEP 1.5: NORMALIZE CONTENT
-    // ============================================
-    const normalizedContent = normalizeContent(contentResult, request);
+    const normalizedContent = normalizeContent(contentCandidate, request);
     memory.add("fact", "Structured content", summarizeContent(normalizedContent));
 
-    // ============================================
-    // STEP 2: DESIGN BLUEPRINT
-    // AI specifies exactly how to design the content in HTML/CSS
-    // for the chosen aspect ratio, honoring theme + design intent.
-    // ============================================
-    const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request, memoryContext);
-    let blueprintResponse: string;
     let blueprintUsedFallback = false;
-    const blueprintStart = Date.now();
-    emit({ type: "phase_start", phase: "blueprint" });
-
-    try {
-      const blueprintCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
-      blueprintResponse = await generateWithFallback(
-        providerMap[usedProvider],
-        blueprintPrompt,
-        blueprintCreds.key,
-        blueprintCreds.model,
-        temperature,
-        tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 1200, usedProvider, blueprintCreds.model),
-        usedProvider,
-        getBaseUrl(usedProvider, storedProviders),
-        limits,
-      );
-    } catch (error) {
-      if (error instanceof GenerationStoppedError) throw error;
-      // Cross-provider fallback for blueprint before using generic design system
-      const fallback = await tryAllProviders(
-        blueprintPrompt,
-        usedProvider,
-        temperature,
-        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 1200),
-        storedProviders,
-        limits,
-      );
-      if (fallback) {
-        blueprintResponse = fallback.text;
-        usedProvider = fallback.provider;
-        usedModel = fallback.model;
-      } else {
-        blueprintUsedFallback = true;
-        emit({ type: "warning", phase: "blueprint", message: "Blueprint generation failed — using a generic design system." });
-        const palette = THEME_FALLBACK.modern;
-        const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
-        blueprintResponse = JSON.stringify({
-        designSystem: {
-          aspectRatio: request.aspectRatio || "1:1",
-          canvasDimensions: { width: dimensions.width, height: dimensions.height, responsiveBehavior: "scale_down" },
-          designIntent: request.userIntent || "modern",
-          shapeLanguage: { borderRadius: "16px", cardStyle: "elevated", cornerTreatment: "rounded" },
-        },
-        designConcept: "Clean, premium design system",
-        layoutStyle: "magazine-grid",
-        heroMoment: "Display heading with gradient accent",
-        visualHierarchy: { "1st": "Title", "2nd": "Stats", "3rd": "Sections" },
-        sectionCount: Math.max(2, normalizedContent.sections.length),
-        readingFlow: "Top to bottom",
-        spacingSystem: "8px grid",
-        colorPalette: palette,
-        colorDetails: {
-          gradients: [
-            { name: "hero_gradient", type: "linear", direction: "135deg", stops: [`${palette.primary} 0%`, `${palette.secondary} 100%`], usage: "header background" },
-          ],
-          neutrals: { surface: palette.background, surfaceVariant: palette.background, textSecondary: palette.text, border: palette.text },
-          contrastValidation: { titleOnBackground: "pass", bodyOnSurface: "pass", accentOnPrimary: "pass", wcagAACompliant: true },
-        },
-        typography: { headingFont: "Inter", bodyFont: "Inter", headingSize: "48px", bodySize: "16px", headingWeight: "800", subheadingWeight: "600", bodyWeight: "400", style: "modern", typeScale: { hero: "clamp(64px, 8vw, 120px)", h1: "clamp(48px, 5vw, 72px)", h2: "clamp(28px, 3vw, 36px)", body: "clamp(16px, 1.5vw, 20px)", caption: "clamp(12px, 1vw, 14px)" }, specialTreatments: { heroStat: "Extra bold, accent color", pullQuote: "Italic, left border accent", callout: "Bold, accent background" } },
-        icons: { style: "crisp-svg", consistency: "ALL icons use same stroke and weight", perSection: normalizedContent.suggestedIcons.slice(0, 4) },
-        cardStyle: "Rounded rectangle with soft shadow",
-        spacing: "8px-grid-based",
-        alignment: "center",
-        statsStyle: "big-numbers",
-        decorations: ["Subtle gradient background", "Accent stat callouts"],
-        background: "Non-flat gradient treatment",
-        header: "Large title with subtitle",
-        cta: "No CTA - static image",
-        layoutGrid: { gridType: "12-column", sectionsPlacement: [{ sectionId: 1, gridArea: "1 / 1 / span 1 / -1", backgroundTreatment: "gradient", minHeight: "20%" }], responsiveBehavior: "desktop full grid / tablet 2-col / mobile single column" },
-        visualElements: [{ type: "pattern", placement: "background", style: "gradient", animation: "none" }],
-        cssArchitecture: { approach: "vanilla_css_inline", methodology: "BEM", keyCustomProperties: ["--color-primary", "--font-heading", "--spacing-unit", "--radius-base"], responsiveStrategy: "desktop-first", performanceNotes: "inline critical CSS, no external images" },
-        animations: { pageLoad: "staggered fade-in for sections", statCounter: "count-up for hero stat", hoverStates: "subtle scale or shadow", reducedMotion: "respect prefers-reduced-motion: disable all animation" },
-        specialFeatures: "Clean and professional",
-        animationHints: ["Hover effects on cards"],
-        designRationale: "Clean and professional",
-        canvas: `${dimensions.width}x${dimensions.height}px`,
-      });
-      }
-    }
-    steps.push({
-      name: "Design architecture & planning",
-      status: blueprintUsedFallback ? "fallback" : "completed",
-      durationMs: Date.now() - blueprintStart,
-    });
-    emit({ type: "phase_end", phase: "blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
-
-    let blueprint: any;
-    try {
-      blueprint = extractJSON(blueprintResponse);
-    } catch {
-      // Unparseable blueprint ≈ no blueprint: flag it so the result is honest.
-      blueprint = {};
+    if (!blueprintCandidate || Object.keys(blueprintCandidate).length === 0) {
       blueprintUsedFallback = true;
+      emit({ type: "warning", phase: "blueprint", message: "Blueprint was missing — using a generic design system." });
     }
+    const blueprint: any = blueprintCandidate && !blueprintUsedFallback
+      ? blueprintCandidate
+      : defaultBlueprint(request);
     if (blueprintUsedFallback) {
-      memory.add("note", "Design blueprint", "Blueprint fell back to the theme's default palette/layout.");
-      warnings.push("The AI design blueprint failed — a generic design system was used instead.");
+      memory.add("note", "Design blueprint", "Blueprint fell back to the generic design system.");
+      warnings.push("The AI design blueprint was missing or invalid — a generic design system was used instead.");
     }
     const blueprintSummary = summarizeBlueprint(blueprint);
     if (blueprintSummary) {
       memory.add("decision", "Design blueprint", blueprintSummary);
     }
+
+    steps.push({
+      name: "Content analysis & design planning",
+      status: contentParseFailed || blueprintUsedFallback || usedProvider !== providerId ? "fallback" : "completed",
+      durationMs: Date.now() - phaseStart,
+    });
+    emit({ type: "phase_end", phase: "content", status: contentParseFailed || blueprintUsedFallback ? "fallback" : "completed" });
 
     // Build once — reused in the success result AND in partial-failure results.
     const infographicContent: InfographicContent = {
@@ -630,6 +634,25 @@ async function runPipeline(
       icons: normalizedContent.suggestedIcons,
       callToAction: "",
     };
+
+    // If the combined analysis+design step consumed most of the budget (slow
+    // providers), don't burn the tail on a doomed HTML phase with retries —
+    // hand the partial content+blueprint to the single-shot fallback, which
+    // renders them into HTML in ONE call with all the remaining time.
+    const budgetLeft = (limits.deadline ?? 0) - Date.now();
+    if (budgetLeft < 35_000 && limits.deadline) {
+      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: 0 });
+      emit({ type: "phase_end", phase: "html", status: "failed" });
+      return failedResult(
+        providerId,
+        model,
+        "Timed out before rendering — trying a single faster pass.",
+        steps,
+        startTime,
+        undefined,
+        { content: infographicContent, blueprint },
+      );
+    }
 
     // ============================================
     // STEP 3: HTML/CSS GENERATION

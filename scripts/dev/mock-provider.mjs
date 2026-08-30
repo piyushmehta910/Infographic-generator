@@ -101,9 +101,13 @@ h2 { font-size:20px; font-weight:600; margin-bottom:8px; color:#10B981; }
 
 function pickContent(prompt) {
   // Check for HTML prompt FIRST — it contains the full blueprint JSON (with
-  // "designSystem") embedded as context, so checking "designSystem" first
-  // would mis-route HTML requests back to the blueprint response.
+  // "designSystem") embedded as context. The combined content+blueprint prompt
+  // is identified by its OUTPUT FORMAT containing the literal `"blueprint":`
+  // key (which the embedded blueprint JSON never contains).
   if (prompt.includes("<!DOCTYPE")) return generateHTML();
+  if (prompt.includes('"blueprint"')) {
+    return JSON.stringify({ content: CONTENT_RESPONSE.correctedContent, blueprint: BLUEPRINT_RESPONSE });
+  }
   if (prompt.includes("designSystem")) return JSON.stringify(BLUEPRINT_RESPONSE);
   return JSON.stringify(CONTENT_RESPONSE);
 }

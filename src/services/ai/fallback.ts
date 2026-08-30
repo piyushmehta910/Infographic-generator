@@ -79,7 +79,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
  * Throw early instead of making doomed calls when the caller aborted or the
  * time budget is exhausted.
  */
-function checkStop(limits?: CallLimits): void {
+export function checkStop(limits?: CallLimits): void {
   if (!limits) return;
   if (limits.signal?.aborted) throw new GenerationStoppedError("Generation cancelled.");
   if (limits.deadline && Date.now() >= limits.deadline) {

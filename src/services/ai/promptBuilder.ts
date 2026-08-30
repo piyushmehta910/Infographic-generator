@@ -89,6 +89,108 @@ Return ONLY valid JSON (no code fences, no explanations):
 }
 
 // ============================================================
+// STEP 1+2 COMBINED: CONTENT ANALYSIS & DESIGN BLUEPRINT
+// ONE AI call returns BOTH the enriched content package AND the visual
+// design blueprint. Merging the two phases into a single round-trip halves
+// the number of sequential provider calls, which is what makes generation
+// fit inside the serverless time budget on slow free-tier models.
+// ============================================================
+export function buildContentBlueprintPrompt(request: AIGenerationRequest, memoryContext?: string): string {
+  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
+  const aspectRatioStr = aspectRatio || "1:1";
+  const fontStr = font || "Inter";
+  const languageStr = language || "English";
+  const audienceStr = audience || "General";
+  const userIntentStr = userIntent || "Clean and modern";
+
+  const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
+  const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
+
+  const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
+  const dimensionsStr = `${width}x${height}px`;
+
+  const memoryBlock = memoryContext ? `\n## CONTEXT MEMORY\n${memoryContext}\n` : "";
+
+  let conversationBlock = "";
+  if (chatHistory && chatHistory.length > 0) {
+    const historyText = chatHistory.slice(-4).map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.content}`).join("\n");
+    conversationBlock = `\n## CONVERSATION HISTORY\n${historyText}\n`;
+  }
+
+  let refinementBlock = "";
+  if (refinementPrompt || previousContent) {
+    refinementBlock = `\n## EDIT / REFINEMENT INSTRUCTION\nUser requested edit: "${refinementPrompt || "Update content"}"\nPrevious content: ${JSON.stringify(previousContent || {})}\nApply the user's edit while preserving established core facts and structure.\n`;
+  }
+
+  const layoutGuidance = isPortrait
+    ? "PORTRAIT: Vertical card stack from top to bottom. Bold hero header, compact horizontal stat band, then 3-4 distinct cards. Ensure vertical rhythm fits within height without scrolling."
+    : isWide
+      ? "WIDE: Horizontal balance. Left hero/stats column with right multi-card grid, or wide top header with a 3-column card layout."
+      : "SQUARE: Symmetrical grid. Prominent top header, central 2-column or 3-column card layout, and highlighted bottom hero stat.";
+
+  return `You are a senior content strategist AND art director preparing a PROFESSIONAL INFOGRAPHIC.
+In this ONE step, do two things in a single JSON response: (1) analyze/enrich the input into a rich content package, and (2) produce the complete visual design specification.
+
+## TASK 1 — CONTENT (key "content")
+1. **ASSESS**: Check the input. Whether it is a single phrase, an idea, a draft, or an article, evaluate what it needs to become an engaging infographic.
+2. **AUTO-EXPAND & ENRICH**: If the input is brief or minimal, expand it using accurate general knowledge. Add concrete, realistic statistics (percentages, multipliers, counts), actionable insights, and structured bullet points.
+3. **STRUCTURE**: Engaging Title (max 8 words), Clear Subtitle (max 14 words), 3 to 5 distinct Sections with description (1-2 sentences) and 2-3 actionable bullets, 3-4 concrete Statistics with realistic values and labels, ONE "heroStat", optional Timeline (2-4 items) or [], 4-6 descriptive icon keywords (e.g. "chart", "users", "globe", "rocket") — NEVER emoji.
+
+## TASK 2 — DESIGN BLUEPRINT (key "blueprint")
+Design how the infographic will be built in HTML/CSS:
+- **60-30-10 Palette**: 60% background/neutrals, 30% card/sections, 10% vibrant accent for stats. WCAG AA contrast (>=4.5:1).
+- **Typography**: Google Font pairing (e.g. "Plus Jakarta Sans", "Inter", "Poppins", "Outfit", "Space Grotesk").
+- **Card styling**: border-radius 12-20px, subtle border, soft drop shadow, gradient accents.
+- **Layout guidance for this canvas**: ${layoutGuidance}
+
+## SOURCE INPUT
+"${input}"
+
+## CONTEXT
+- Canvas: ${dimensionsStr} (${aspectRatioStr})
+- Input Mode: ${inputType || "text"}
+- Preferred Font: ${fontStr}
+- Target Audience: ${audienceStr}
+- Tone / Intent: ${userIntentStr}
+- Language: ${languageStr}
+${conversationBlock}${refinementBlock}${memoryBlock}
+## OUTPUT FORMAT
+Return ONLY ONE valid JSON object (no code fences, no markdown, no explanations) with EXACTLY these two keys:
+
+{
+  "content": {
+    "title": "string (max 8 words)",
+    "subtitle": "string (max 14 words)",
+    "heroStat": { "value": "95%", "label": "Key primary metric" },
+    "statistics": [
+      { "id": "stat-1", "value": "95%", "label": "Metric description", "icon": "keyword" },
+      { "id": "stat-2", "value": "3.5x", "label": "Metric description", "icon": "keyword" }
+    ],
+    "sections": [
+      { "id": "sec-1", "title": "Section Title", "content": "Short 1-2 sentence overview.", "bullets": ["Concrete point 1", "Concrete point 2"], "icon": "keyword" }
+    ],
+    "timeline": [],
+    "suggestedIcons": ["chart", "shield", "rocket", "bolt"],
+    "suggestedColors": { "primary": "#3b82f6", "secondary": "#8b5cf6", "accent": "#ec4899", "background": "#ffffff", "text": "#0f172a" }
+  },
+  "blueprint": {
+    "concept": "One-line visual theme summary",
+    "layoutStyle": "${isPortrait ? "vertical-flow" : isWide ? "multi-column-grid" : "balanced-grid"}",
+    "colorPalette": { "primary": "#3b82f6", "secondary": "#8b5cf6", "accent": "#ec4899", "background": "#0f172a", "surface": "#1e293b", "text": "#f8fafc", "textMuted": "#94a3b8", "border": "rgba(255,255,255,0.1)" },
+    "typography": { "headingFont": "Plus Jakarta Sans", "bodyFont": "Inter", "heroSize": "clamp(36px, 4vw, 56px)", "h2Size": "clamp(20px, 2vw, 28px)", "bodySize": "clamp(13px, 1.2vw, 15px)" },
+    "cardStyle": { "borderRadius": "16px", "background": "rgba(30, 41, 59, 0.7)", "border": "1px solid rgba(255,255,255,0.08)", "shadow": "0 8px 32px rgba(0,0,0,0.24)", "backdropFilter": "blur(12px)" },
+    "heroStatStyle": { "fontSize": "clamp(48px, 5vw, 72px)", "fontWeight": "800", "color": "#ec4899", "gradient": "linear-gradient(135deg, #ec4899, #8b5cf6)" },
+    "cssDirectives": [
+      "Use CSS custom properties for all colors and typography",
+      "Set the outer container to exactly ${width}x${height}px with overflow:hidden and zero scrollbars",
+      "Render each section inside a distinct styled card",
+      "Use inline SVG icons — no emoji, no external images"
+    ]
+  }
+}`;
+}
+
+// ============================================================
 // STEP 2: DESIGN ARCHITECTURE & CSS BLUEPRINT
 // AI specifies exactly how to design the infographic in HTML/CSS
 // for the chosen aspect ratio, theme, and aesthetic mood.
