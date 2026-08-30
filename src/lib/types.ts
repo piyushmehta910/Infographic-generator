@@ -98,6 +98,8 @@ export interface AIModelOption {
   name: string;
   contextWindow: number;
   maxOutput: number;
+  isFree?: boolean;
+  description?: string;
 }
 
 export interface ChatMessage {

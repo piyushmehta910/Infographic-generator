@@ -13,6 +13,7 @@ interface ProviderSettingsProps {
 export default function ProviderSettings({ open, onClose }: ProviderSettingsProps) {
   const { providers, activeProvider, setProvider, setActiveProvider } = useAIStore();
   const [testing, setTesting] = useState(false);
+  const [freeOnly, setFreeOnly] = useState(true);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     message: string;
@@ -292,7 +293,20 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                       </div>
                     )}
                     <div>
-                      <label className="text-sm font-medium text-surface-200 block mb-1.5">Model</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-sm font-medium text-surface-200">Model</label>
+                        <button
+                          type="button"
+                          onClick={() => setFreeOnly(!freeOnly)}
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
+                            freeOnly
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                              : "bg-surface-800 text-surface-400 border-white/10"
+                          }`}
+                        >
+                          {freeOnly ? "✓ Showing Free Models Only" : "Show All Models"}
+                        </button>
+                      </div>
                       <div className="relative">
                         <select
                           value={provider.model}
@@ -300,13 +314,34 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                           className="w-full appearance-none px-4 py-3 pr-10 bg-navy-950 border border-white/10 rounded-xl text-sm text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                           style={{ colorScheme: "dark" }}
                         >
-                          {(AI_PROVIDERS.find((p) => p.id === provider.id)?.models || []).map((model) => (
-                            <option key={model.id} value={model.id}>
-                              {model.name}
-                            </option>
-                          ))}
+                          {(AI_PROVIDERS.find((p) => p.id === provider.id)?.models || [])
+                            .filter((m) => !freeOnly || m.isFree !== false)
+                            .map((model) => (
+                              <option key={model.id} value={model.id}>
+                                {model.name} {model.isFree ? "— 100% Free" : ""}
+                              </option>
+                            ))}
                         </select>
                         <ChevronDown className="w-4 h-4 text-surface-400 pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                      {(() => {
+                        const currentModelInfo = (
+                          AI_PROVIDERS.find((p) => p.id === provider.id)?.models || []
+                        ).find((m) => m.id === provider.model);
+                        return (
+                          currentModelInfo?.description && (
+                            <p className="text-xs text-surface-400 mt-1.5 leading-relaxed bg-surface-950/60 p-2.5 rounded-lg border border-white/5">
+                              <span className="text-brand-300 font-medium">Model Info: </span>
+                              {currentModelInfo.description}
+                            </p>
+                          )
+                        );
+                      })()}
+                      <div className="mt-2 text-[11px] text-surface-400 bg-brand-950/40 border border-brand-500/20 p-2.5 rounded-lg flex items-start gap-2">
+                        <span className="text-brand-300 text-xs">🛡️</span>
+                        <span>
+                          <strong className="text-surface-200">Auto-Switch Failover:</strong> If this model is busy or hits a rate limit, the system automatically tries next free models or backup providers with no interruption.
+                        </span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

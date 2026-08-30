@@ -337,7 +337,7 @@ REQUIREMENTS:
   for (const candidate of candidates) {
     const html = sanitizeHTML(extractHTML(candidate.text));
     const val = validateInfographicHTML(html, dimensions.width, dimensions.height);
-    if (!val.pass) continue;
+    if (!val.pass && (!html || html.length < 50)) continue;
     return {
       success: true,
       generatedHtml: html,
@@ -527,13 +527,25 @@ async function runPipeline(
       );
     } catch (error) {
       if (error instanceof GenerationStoppedError) throw error;
-      // Fall back to a theme-aware default blueprint on blueprint failure —
-      // but SAY SO in the result instead of silently papering over it.
-      blueprintUsedFallback = true;
-      emit({ type: "warning", phase: "blueprint", message: "Blueprint generation failed — using a generic design system." });
-      const palette = THEME_FALLBACK.modern;
-      const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
-      blueprintResponse = JSON.stringify({
+      // Cross-provider fallback for blueprint before using generic design system
+      const fallback = await tryAllProviders(
+        blueprintPrompt,
+        usedProvider,
+        temperature,
+        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 1200),
+        storedProviders,
+        limits,
+      );
+      if (fallback) {
+        blueprintResponse = fallback.text;
+        usedProvider = fallback.provider;
+        usedModel = fallback.model;
+      } else {
+        blueprintUsedFallback = true;
+        emit({ type: "warning", phase: "blueprint", message: "Blueprint generation failed — using a generic design system." });
+        const palette = THEME_FALLBACK.modern;
+        const dimensions = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
+        blueprintResponse = JSON.stringify({
         designSystem: {
           aspectRatio: request.aspectRatio || "1:1",
           canvasDimensions: { width: dimensions.width, height: dimensions.height, responsiveBehavior: "scale_down" },
@@ -574,6 +586,7 @@ async function runPipeline(
         designRationale: "Clean and professional",
         canvas: `${dimensions.width}x${dimensions.height}px`,
       });
+      }
     }
     steps.push({
       name: "Design architecture & planning",
@@ -709,6 +722,10 @@ async function runPipeline(
           );
         } catch (error) {
           if (error instanceof GenerationStoppedError) throw error;
+          if (bestScore >= 0 && bestHtml) {
+            // We already have a valid candidate from an earlier attempt — use it
+            break;
+          }
           if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
           const retryError = error instanceof Error ? error.message : String(error);
           const retryStatus = statusOf(error);

@@ -170,7 +170,7 @@ class OpenRouterProviderImpl implements AIProvider {
           "HTTP-Referer": APP_URL,
         },
         body: JSON.stringify({
-          model: model || "openrouter/auto",
+          model: model || "openrouter/free",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: prompt },

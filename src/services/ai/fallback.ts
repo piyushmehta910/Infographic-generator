@@ -10,13 +10,12 @@ export interface StoredProvider {
 
 const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   openrouter: [
-    "openrouter/auto",
+    "openrouter/free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-2.0-flash-exp:free",
-    "google/gemini-2.0-flash-thinking-exp:free",
-    "deepseek/deepseek-r1:free",
-    "deepseek/deepseek-chat:free",
     "qwen/qwen-2.5-coder-32b-instruct:free",
+    "deepseek/deepseek-chat:free",
+    "deepseek/deepseek-r1:free",
     "meta-llama/llama-3.1-8b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
   ],
@@ -30,31 +29,25 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   nim: [
     "meta/llama-3.3-70b-instruct",
     "meta/llama-3.1-70b-instruct",
-    "meta/llama-3.1-8b-instruct",
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "deepseek-ai/deepseek-r1",
     "qwen/qwen2.5-72b-instruct",
-    "mistralai/mixtral-8x22b-instruct",
-    "mistralai/mixtral-8x7b-instruct",
-    "mistralai/mistral-large-2-instruct",
+    "meta/llama-3.1-8b-instruct",
     "microsoft/phi-3.5-mini-instruct",
   ],
   mistral: [
-    "mistral-large-latest",
     "mistral-small-latest",
     "codestral-latest",
-    "ministral-8b-latest",
-    "ministral-3b-latest",
-    "open-mixtral-8x22b",
-    "open-mixtral-8x7b",
     "open-mistral-7b",
+    "open-mixtral-8x7b",
+    "mistral-large-latest",
   ],
   custom: [],
 };
 
 /** Hard caps that stop the old worst-case of hundreds of sequential calls. */
-export const MAX_MODELS_PER_CALL = 5;
-export const MAX_PROVIDERS_FANOUT = 3;
+export const MAX_MODELS_PER_CALL = 8;
+export const MAX_PROVIDERS_FANOUT = 4;
 
 export interface CallLimits {
   /** Aborts all in-flight provider fetches when fired. */

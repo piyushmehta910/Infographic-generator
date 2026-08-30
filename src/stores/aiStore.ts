@@ -23,10 +23,19 @@ const defaultProviders: AIProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     apiKey: "",
-    model: "openrouter/auto",
+    model: "openrouter/free",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: true,
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    apiKey: "",
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.5,
+    maxTokens: 1024,
+    enabled: false,
   },
   {
     id: "nim",
@@ -38,19 +47,10 @@ const defaultProviders: AIProviderConfig[] = [
     enabled: false,
   },
   {
-    id: "groq",
-    name: "Groq",
-    apiKey: "",
-    model: "llama-3.1-8b-instant",
-    temperature: 0.5,
-    maxTokens: 1024,
-    enabled: false,
-  },
-  {
     id: "mistral",
     name: "Mistral",
     apiKey: "",
-    model: "mistral-large-latest",
+    model: "mistral-small-latest",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: false,
@@ -95,17 +95,15 @@ export const useAIStore = create<AIStore>()(
           activeProvider: state.activeProvider,
         }),
         merge: (persisted, current) => {
-          // Migrate persisted state: drop removed providers, fix stale active provider,
-          // migrate legacy openrouter/free model to openrouter/auto, and
-          // add back any default providers missing from an older persisted store.
           const merged = { ...current, ...(persisted as Partial<AIStore>) };
           if (merged.providers) {
             const supported = new Set(SUPPORTED_PROVIDER_IDS);
             merged.providers = (merged.providers || [])
               .filter((p: AIProviderConfig) => supported.has(p.id))
               .map((p: AIProviderConfig) => {
-                if (p.id === "openrouter" && p.model === "openrouter/free") {
-                  return { ...p, model: "openrouter/auto" };
+                // If OpenRouter was left on paid auto, migrate to free router
+                if (p.id === "openrouter" && (!p.model || p.model === "openrouter/auto")) {
+                  return { ...p, model: "openrouter/free" };
                 }
                 return p;
               });
