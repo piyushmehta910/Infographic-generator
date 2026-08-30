@@ -2,255 +2,229 @@ import { AIGenerationRequest } from "@/lib/types";
 import { getCanvasDimensions } from "@/lib/canvas";
 
 // ============================================================
-// STEP 1: CONTENT ANALYSIS & AUTO-COMPLETION
-// The AI receives the raw user input, COMPLETES and structures it
-// into a rich content package. Everything downstream is built from
-// this package, so it must be complete, accurate and publication-ready.
+// STEP 1: CONTENT ASSESSMENT, EXPANSION & STRUCTURING
+// The AI analyzes the user's input, checks if it is sufficient,
+// auto-completes and structures it into a rich publication-ready package.
 // ============================================================
 export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
-  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent } = request;
+  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const fontStr = font || "Inter";
   const languageStr = language || "English";
   const audienceStr = audience || "General";
-  const userIntentStr = userIntent || "No specific design intent";
+  const userIntentStr = userIntent || "Clean and modern";
 
   const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
   const dimensionsStr = `${width}x${height}px`;
 
-  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (context from a previous run/phase — honor it, fill gaps, never contradict)\n${memoryContext}\n` : "";
+  const memoryBlock = memoryContext ? `\n## CONTEXT MEMORY\n${memoryContext}\n` : "";
 
-  let contentText = "";
-  switch (inputType) {
-    case "text": contentText = `Raw text input:\n${input}`; break;
-    case "idea": contentText = `Idea/topic:\n${input}`; break;
-    default: contentText = `Input:\n${input}`;
+  let conversationBlock = "";
+  if (chatHistory && chatHistory.length > 0) {
+    const historyText = chatHistory.slice(-4).map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.content}`).join("\n");
+    conversationBlock = `\n## CONVERSATION HISTORY\n${historyText}\n`;
   }
 
-  return `You are a senior content strategist and data journalist preparing material for a PROFESSIONAL INFOGRAPHIC. This is PHASE 1 (Content Analysis & Structuring) of a 4-phase pipeline (Content -> Design Plan -> HTML/CSS Build -> Export). Your ONLY job is content: produce a COMPLETE, clean, publication-ready content package. The design phase will build from it, so give the designer rich, specific, accurate material.
+  let refinementBlock = "";
+  if (refinementPrompt || previousContent) {
+    refinementBlock = `\n## EDIT / REFINEMENT INSTRUCTION\nUser requested edit: "${refinementPrompt || "Update content"}"\nPrevious content: ${JSON.stringify(previousContent || {})}\nApply the user's edit while preserving established core facts and structure.\n`;
+  }
 
-## YOUR JOB
-Analyze the source input, then produce a complete content package. If the source is brief, vague, or unstructured, AUTO-COMPLETE it using accurate general knowledge so it becomes a rich, well-structured infographic. Never leave gaps, never use placeholders.
+  return `You are a senior content strategist and data journalist preparing material for a PROFESSIONAL INFOGRAPHIC.
+This is PHASE 1 (Content Analysis & Structuring). Your job is to produce a rich, high-quality, publication-ready content package in clean JSON.
 
-## PROCESS
-1. **UNDERSTAND** the source: core message, audience, key facts, tone.
-2. **AUTO-COMPLETE** (mandatory): expand thin or missing content into real, relevant, professional copy derived from the source. If the source contains no data, synthesize realistic illustrative data clearly tied to the topic.
-3. **REFINE**: fix grammar/spelling, remove fluff, write punchy high-impact copy.
-4. **STRUCTURE**: organize into 4-6 ordered sections, extract 3-4 concrete statistics, and add a timeline/process (2-5 items) whenever the content has steps, history, or a progression; otherwise leave the timeline empty.
-5. **DESIGN FOR SCANNING**: convert every idea into scannable formats (bullets, stats, short blocks). Pick ONE "hero stat" — the single most important number — and make sure it stands out.
-
-## ABSOLUTE RULES (a violation breaks the whole pipeline)
-- NEVER return empty arrays for sections/statistics. Always provide real content.
-- NEVER use filler like "TBD", "Lorem ipsum", "placeholder", "...", "text", or empty strings in title, subtitle, section titles, content, or bullets.
-- Title: max 8 words, engaging, specific (never generic like "Infographic").
-- Subtitle: max 14 words, supports the title.
-- Sections: 4 to 6 (hard cap 7 — cognitive load). Each needs "title", "content" (1-2 sentences, max ~25 words), "bullets" (2-4 specific points), an "icon" as a SHORT DESCRIPTIVE KEYWORD (e.g. "growth", "sales", "bulb", "chart", "users") - NOT an emoji, and "type": "mixed".
-- Statistics: 3 to 4 with realistic "value" strings and short "label"s. Prefer numbers with units (e.g. "95%", "3.2x", "120M+"). Set "heroStat" to the single most important number.
-- Timeline: 2 to 5 items only if the content has a progression/steps/history; otherwise [].
-- Visual variety: mix stat cards, icon lists, and a timeline — never a wall of text blocks.
-- Language: match the source language when detectable, otherwise ${languageStr}.
-- Self-check before output: single clear message? stats contextualized? copy scannable? visual variety? makes sense without the original source?
+## TASK INSTRUCTIONS
+1. **ASSESS**: Check the input. Whether it is a single phrase, an idea, a draft, or an article, evaluate what it needs to become an engaging infographic.
+2. **AUTO-EXPAND & ENRICH**: If the input is brief or minimal, expand it using accurate general knowledge. Add concrete, realistic statistics (percentages, multipliers, counts), actionable insights, and structured bullet points.
+3. **STRUCTURE**:
+   - Engaging Title (max 8 words)
+   - Clear Subtitle (max 14 words)
+   - 3 to 5 distinct Sections with concise description (1-2 sentences) and 2 to 3 actionable bullets
+   - 3 to 4 concrete Statistics with realistic values (e.g. "87%", "$4.2B", "3.5x", "10M+") and clear labels
+   - ONE "heroStat" that represents the primary takeaway
+   - Optional Timeline / Process steps (2-4 items) if relevant to the topic, otherwise []
+   - 4-6 descriptive icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.
 
 ## CONTEXT
-- Canvas: ${dimensionsStr}, Aspect Ratio: ${aspectRatioStr}
-- Font preference: ${fontStr}
-- Audience: ${audienceStr}
-- Design Intent: ${userIntentStr}
-- Palette direction: choose a cohesive palette that best matches the content and mood — premium and intentional.
+- Canvas: ${dimensionsStr} (${aspectRatioStr})
+- Input Mode: ${inputType || "text"}
+- Preferred Font: ${fontStr}
+- Target Audience: ${audienceStr}
+- Tone / Intent: ${userIntentStr}
+- Language: ${languageStr}
+${conversationBlock}${refinementBlock}${memoryBlock}
+## SOURCE INPUT
+"${input}"
 
-## SOURCE
-${contentText}
-
-${memoryBlock}
-## OUTPUT FORMAT - Return ONLY valid JSON, no markdown:
+## OUTPUT FORMAT
+Return ONLY valid JSON (no code fences, no explanations):
 {
-  "isComplete": true,
-  "primaryAudience": "string",
-  "keyMessage": "one crisp sentence",
-  "dataDensity": "info-rich|minimal|balanced",
-  "correctedContent": {
-    "title": "string",
-    "subtitle": "string",
-    "sections": [
-      { "id": "section-1", "title": "string", "content": "string", "bullets": ["string"], "icon": "keyword", "type": "mixed" }
-    ],
-    "statistics": [
-      { "id": "stat-1", "value": "95%", "label": "string", "prefix": "", "suffix": "%", "icon": "keyword" }
-    ],
-    "heroStat": { "value": "95%", "label": "string" },
-    "timeline": [
-      { "id": "t-1", "date": "2024", "title": "string", "description": "string", "icon": "keyword" }
-    ],
-    "suggestedIcons": ["keyword1", "keyword2", "keyword3", "keyword4"],
-    "suggestedColors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex", "background": "#hex", "text": "#hex" },
-    "callToAction": "",
-    "language": "detected-language",
-    "storyArc": ["opening problem", "development points", "climax insight", "resolution/CTA"],
-    "toneAnalysis": { "detectedTone": "professional|casual|playful|urgent|educational|luxury|technical", "languageStyle": "formal|conversational|punchy|narrative" },
-    "colorPsychologyRecommendation": { "primaryEmotion": "trust|growth|urgency|calm|energy|luxury|innovation", "suggestedHueFamily": "blue|green|red|orange|purple|teal|monochrome", "rationale": "why this palette fits the content emotion" },
-    "contentGaps": ["assumptions or data that needs verification"]
+  "title": "string (engaging, max 8 words)",
+  "subtitle": "string (supporting, max 14 words)",
+  "heroStat": { "value": "95%", "label": "Key primary metric" },
+  "statistics": [
+    { "id": "stat-1", "value": "95%", "label": "Metric description", "icon": "keyword" },
+    { "id": "stat-2", "value": "3.5x", "label": "Metric description", "icon": "keyword" },
+    { "id": "stat-3", "value": "80M+", "label": "Metric description", "icon": "keyword" }
+  ],
+  "sections": [
+    {
+      "id": "sec-1",
+      "title": "Section Title",
+      "content": "Short 1-2 sentence overview.",
+      "bullets": ["Concrete actionable point 1", "Concrete actionable point 2"],
+      "icon": "keyword"
+    }
+  ],
+  "timeline": [],
+  "suggestedIcons": ["chart", "shield", "rocket", "bolt"],
+  "suggestedColors": {
+    "primary": "#3b82f6",
+    "secondary": "#8b5cf6",
+    "accent": "#ec4899",
+    "background": "#ffffff",
+    "text": "#0f172a"
   }
 }`;
 }
 
 // ============================================================
-// STEP 2: DESIGN BLUEPRINT
-// The AI receives the COMPLETED content and specifies EXACTLY how
-// to design it in HTML/CSS for the chosen aspect ratio, honoring the
-// user's theme + design intent. This blueprint is the contract for STEP 3.
+// STEP 2: DESIGN ARCHITECTURE & CSS BLUEPRINT
+// AI specifies exactly how to design the infographic in HTML/CSS
+// for the chosen aspect ratio, theme, and aesthetic mood.
 // ============================================================
 export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest, memoryContext?: string): string {
-  const { aspectRatio, userIntent } = request;
+  const { aspectRatio, userIntent, chatHistory, refinementPrompt } = request;
   const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
   const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
   const { width, height } = getCanvasDimensions(aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
-  const dimensions = `${width}x${height}`;
+  const dimensions = `${width}x${height}px`;
 
-  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (decisions already made in earlier phases — align your design with them)\n${memoryContext}\n` : "";
+  const memoryBlock = memoryContext ? `\n## MEMORY CONTEXT\n${memoryContext}\n` : "";
+
+  let chatBlock = "";
+  if (chatHistory && chatHistory.length > 0) {
+    chatBlock = `\n## CHAT / REFINEMENT CONTEXT\n${chatHistory.slice(-3).map((m) => `${m.role}: ${m.content}`).join("\n")}\n`;
+  }
+  if (refinementPrompt) {
+    chatBlock += `User requested design edit: "${refinementPrompt}"\n`;
+  }
 
   const layoutGuidance = isPortrait
-    ? "PORTRAIT: stack sections vertically top-to-bottom; a strong header block on top, stats in a row, then a clean vertical flow of cards. Keep vertical rhythm tight so everything fits without scrolling."
+    ? "PORTRAIT: Vertical card stack from top to bottom. Bold hero header, compact horizontal stat band, then 3-4 distinct cards. Ensure vertical rhythm fits within height without scrolling."
     : isWide
-      ? "WIDE: use a bold left header column and a right content zone, or a strong full-width hero with a multi-column grid below. Balance horizontal space."
-      : "SQUARE: balanced all-around; header on top, stats band, and a tidy grid that fills the square without overflow.";
+      ? "WIDE: Horizontal balance. Left hero/stats column with right multi-card grid, or wide top header with a 3-column card layout."
+      : "SQUARE: Symmetrical grid. Prominent top header, central 2-column or 3-column card layout, and highlighted bottom hero stat.";
 
-  return `You are a world-class UI/UX designer and CSS architect. This is PHASE 2 (Design Architecture & Planning) of a 4-phase pipeline. Your job: produce a COMPLETE design specification — the exact design system an engineer will hand-code into HTML/CSS in PHASE 3. The design MUST look modern, intentional and expensive — never generic, never cluttered, never flat.
+  return `You are a world-class Art Director and CSS Architect.
+This is PHASE 2 (Design Architecture & Planning). Your job is to create a complete visual design specification that an engineer will code into HTML/CSS in Phase 3.
 
-## THE CONTENT TO DESIGN (produced in PHASE 1 — use ALL of it)
+## TARGET CANVAS
+- Size: ${dimensions}
+- Layout Guidance: ${layoutGuidance}
+- Design Mood / Intent: "${userIntent || "modern, high-end, clean"}"
+${chatBlock}${memoryBlock}
+## CONTENT TO DESIGN
 ${JSON.stringify(content, null, 2)}
 
-## HARD CONSTRAINTS
-- Canvas: ${dimensions}px (must be filled exactly, nothing clipped, no scrollbars).
-- Orientation: ${isPortrait ? "PORTRAIT" : isWide ? "WIDE (landscape)" : "SQUARE"}.
-- ${layoutGuidance}
-- The PHASE 3 engineer follows this spec VERBATIM. Every value must be concrete and unambiguous: exact hex colors, exact px/clamp font sizes, exact spacing. No vague phrases like "use a nice color".
+## DESIGN RULES
+1. **60-30-10 Palette**: 60% background/neutrals, 30% structural cards/sections, 10% vibrant accent for key stats/highlights. Ensure strong WCAG AA contrast (>=4.5:1).
+2. **Typography**: Google Font pairing (e.g. "Plus Jakarta Sans", "Inter", "Poppins", "Outfit", "Space Grotesk").
+3. **Card Styling**: Tangible visual depth (border-radius 12-20px, subtle border like 1px solid rgba(255,255,255,0.1) or rgba(0,0,0,0.06), soft drop shadow, gradient header).
+4. **Icons**: Crisp inline SVG keywords. NO EMOJI.
 
-## PALETTE DIRECTION
-Choose a cohesive palette that best matches the content and mood — premium and intentional.
-
-## USER DESIGN INTENT (override the theme only where the user explicitly asks)
-"${userIntent || "none — craft a unique premium look that matches the content"}"
-
-## CONTENT TONE & COLOR PSYCHOLOGY (from PHASE 1 — align your palette to them)
-Tone: ${JSON.stringify((content as any)?.tone || "professional")}
-Color psychology: ${JSON.stringify((content as any)?.colorPsychology || "match the content emotion")}
-
-## LAYOUT BY PURPOSE (pick the structure that fits, then adapt to the orientation)
-- timeline/history: vertical timeline with connected nodes, alternating content, dates emphasized.
-- comparison vs: 2-3 clear columns with contrasting headers and a visual divider.
-- statistics/data: 3-6 large-number cards with icons, progress bars, or mini charts.
-- process/how-to: numbered steps with connecting arrows, horizontal or vertical.
-- listicle/tips: numbered or icon cards in a tidy grid.
-- educational/explainer: header + two-column (text | visual) or full-width sections.
-- social/marketing: bold headline, one hero stat, punchy sub-points, branded colors.
-
-${memoryBlock}
-
-## DESIGN PRINCIPLES (non-negotiable)
-1. **Visual hierarchy** - Apply an F-pattern (text-heavy content), Z-pattern (story-driven), or pyramid (data/statistical content). The hero stat must be 2-3x larger than body text.
-2. **Cohesive 60-30-10 palette** - DOMINANT (~60%) for large fills/background, SECONDARY (~30%) for cards/sections, ACCENT (~10%) for key numbers/highlights, plus neutrals for text. Guarantee WCAG AA contrast (>=4.5:1) between body text and its background. Provide EXACT hex values.
-3. **Grid & spacing** - 8px base grid (8/16/24/32/48/64/96). Consistent gutters; breathing room between blocks.
-4. **Shape language** - match the design intent: corporate sharp corners (0-4px), playful rounded (12-24px), luxury subtle (4-8px) with thin borders, modern asymmetric/overlapping shapes.
-5. **Typography scale** - Max 2 font families (1 display + 1 body), max 3 weights. Use clamp() for fluid scaling: hero 64-120px, h1 48-72px, h2 28-36px, body 16-20px, caption 12-14px. Size and weight drive hierarchy.
-6. **Refined details** - subtle gradients, soft shadows, rounded corners, tasteful decorations (badges, chips, dividers, geometric accents, number callouts). Never flat rectangles.
-7. **Icons** - descriptive keywords rendered as crisp inline SVG or geometric marks. NEVER emoji.
-
-## OUTPUT FORMAT - Return ONLY valid JSON, no markdown. Be explicit and complete:
+## OUTPUT FORMAT
+Return ONLY valid JSON (no code fences, no markdown):
 {
-  "designSystem": { "aspectRatio": "chosen ratio", "canvasDimensions": { "width": ${width}, "height": ${height}, "responsiveBehavior": "scale_down|crop|reflow" }, "designIntent": "chosen intent", "shapeLanguage": { "borderRadius": "px value", "cardStyle": "flat|elevated|outlined|glassmorphism", "cornerTreatment": "sharp|rounded|asymmetric" } },
-  "designConcept": "one-line concept for the look and feel",
-  "layoutStyle": "descriptive layout approach for THIS orientation",
-  "heroMoment": "concrete CSS technique for the title hero",
-  "visualHierarchy": { "1st": "element + technique", "2nd": "element + technique", "3rd": "element + technique" },
-  "readingFlow": "how the eye moves across the canvas",
-  "spacingSystem": "exact gutters on an 8px grid",
-  "colorPalette": { "primary": "#hex", "secondary": "#hex", "accent": "#hex", "background": "#hex", "text": "#hex" },
-  "colorDetails": { "gradients": [ { "name": "hero_gradient", "type": "linear|radial", "direction": "135deg", "stops": ["#hex 0%", "#hex 100%"], "usage": "header background" } ], "neutrals": { "surface": "#hex", "surfaceVariant": "#hex", "textSecondary": "#hex", "border": "#hex" }, "contrastValidation": { "titleOnBackground": "pass", "bodyOnSurface": "pass", "accentOnPrimary": "pass", "wcagAACompliant": true } },
-  "typography": { "headingFont": "Google font name", "bodyFont": "Inter", "headingSize": "px", "bodySize": "px", "headingWeight": "800", "subheadingWeight": "600", "bodyWeight": "400", "style": "modern|corporate|playful|elegant|bold|minimal|tech|creative", "typeScale": { "hero": "clamp(64px, 8vw, 120px)", "h1": "clamp(48px, 5vw, 72px)", "h2": "clamp(28px, 3vw, 36px)", "body": "clamp(16px, 1.5vw, 20px)", "caption": "clamp(12px, 1vw, 14px)" }, "specialTreatments": { "heroStat": "extra bold, accent color", "pullQuote": "italic, left border accent", "callout": "bold, accent background" } },
-  "icons": { "style": "crisp-svg|geometric-marker|minimal-line", "consistency": "ALL icons use the same stroke/weight", "perSection": ["keyword1","keyword2","keyword3","keyword4"] },
-  "cardStyle": "tangible CSS treatment (bg, radius, shadow, border) with exact values",
-  "spacing": "8px-grid-based",
-  "alignment": "left|center",
-  "statsStyle": "big-numbers|metric-tiles|progress-bars|circular-rings",
-  "decorations": ["2-3 concrete decorative elements"],
-  "background": "concrete, non-flat background treatment with exact colors",
-  "header": "concrete header treatment",
-  "cta": "no CTA buttons - it is a static image",
-  "layoutGrid": { "gridType": "12-column", "sectionsPlacement": [ { "sectionId": 1, "gridArea": "1 / 1 / span 1 / -1", "backgroundTreatment": "solid|gradient|pattern", "minHeight": "20%" } ], "responsiveBehavior": "desktop full grid / tablet 2-col / mobile single column" },
-  "visualElements": [ { "type": "icon|chart|connector|badge|shape|pattern", "placement": "section id + position + size", "style": "line|filled|gradient", "animation": "none|fade|slide|scale|draw" } ],
-  "cssArchitecture": { "approach": "vanilla_css_inline", "methodology": "BEM", "keyCustomProperties": ["--color-primary", "--font-heading", "--spacing-unit", "--radius-base"], "responsiveStrategy": "desktop-first", "performanceNotes": "inline critical CSS, no external images" },
-  "animations": { "pageLoad": "staggered fade-in for sections", "statCounter": "count-up for hero stat", "hoverStates": "subtle scale or shadow", "reducedMotion": "respect prefers-reduced-motion: disable all animation" },
-  "specialFeatures": "what makes this design feel premium & unique",
-  "animationHints": [],
-  "designRationale": "why these specific colors, layout, and fonts best serve the content emotion and user intent (reference design psychology)"
+  "concept": "One-line visual theme summary",
+  "layoutStyle": "${isPortrait ? "vertical-flow" : isWide ? "multi-column-grid" : "balanced-grid"}",
+  "colorPalette": {
+    "primary": "#3b82f6",
+    "secondary": "#8b5cf6",
+    "accent": "#ec4899",
+    "background": "#0f172a",
+    "surface": "#1e293b",
+    "text": "#f8fafc",
+    "textMuted": "#94a3b8",
+    "border": "rgba(255, 255, 255, 0.1)"
+  },
+  "typography": {
+    "headingFont": "Plus Jakarta Sans",
+    "bodyFont": "Inter",
+    "heroSize": "clamp(36px, 4vw, 56px)",
+    "h2Size": "clamp(20px, 2vw, 28px)",
+    "bodySize": "clamp(13px, 1.2vw, 15px)"
+  },
+  "cardStyle": {
+    "borderRadius": "16px",
+    "background": "rgba(30, 41, 59, 0.7)",
+    "border": "1px solid rgba(255, 255, 255, 0.08)",
+    "shadow": "0 8px 32px rgba(0, 0, 0, 0.24)",
+    "backdropFilter": "blur(12px)"
+  },
+  "heroStatStyle": {
+    "fontSize": "clamp(48px, 5vw, 72px)",
+    "fontWeight": "800",
+    "color": "#ec4899",
+    "gradient": "linear-gradient(135deg, #ec4899, #8b5cf6)"
+  },
+  "cssDirectives": [
+    "Use CSS custom properties for all colors and typography",
+    "Set outer container to exactly ${dimensions} with overflow: hidden",
+    "Render each section inside a distinct styled card with 2-3 bullets",
+    "Use inline SVG icons for sections and stats"
+  ]
 }`;
 }
 
 // ============================================================
 // STEP 3: HTML/CSS GENERATION
 // The AI receives the COMPLETED content AND the blueprint, then codes
-// the final HTML/CSS exactly as the blueprint specifies. The result is
-// validated and scored, then kept if it passes quality gates.
+// the final single-file HTML/CSS document fitting the exact canvas dimensions.
 // ============================================================
 export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest, memoryContext?: string): string {
   const { width, height } = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
 
-  const memoryBlock = memoryContext ? `\n## WORKING MEMORY (design decisions already established — follow them exactly)\n${memoryContext}\n` : "";
+  const memoryBlock = memoryContext ? `\n## WORKING MEMORY\n${memoryContext}\n` : "";
 
-  return `## PHASE 3: HTML/CSS GENERATION & REFINEMENT
-You are a senior frontend engineer and visual designer. Code the COMPLETE HTML/CSS for this infographic. It will be rendered inside a fixed-size canvas (${width}x${height}px), so it MUST fit perfectly and look polished. This is the final build phase — the output IS the product.
+  let chatBlock = "";
+  if (request.chatHistory && request.chatHistory.length > 0) {
+    chatBlock = `\n## RECENT REFINEMENT INSTRUCTIONS\n${request.chatHistory.slice(-2).map((m) => `${m.role}: ${m.content}`).join("\n")}\n`;
+  }
+  if (request.refinementPrompt) {
+    chatBlock += `Apply specific user edit: "${request.refinementPrompt}"\n`;
+  }
 
-### THE DESIGN SYSTEM (THE CONTRACT — FOLLOW EXACTLY)
-The blueprint below is the design system. Use its colors, typography, spacing, card style, stats style, background, decorations, layout grid, and animations VERBATIM. Convert it into CSS custom properties (tokens) in your <style> block, then build every element from those tokens.
-${JSON.stringify(blueprint, null, 2)}
+  return `## PHASE 3: HTML/CSS CODE GENERATION
+You are an expert senior frontend engineer and visual designer. Code the COMPLETE, single-file HTML/CSS for this infographic.
 
-### PALETTE DIRECTION
-Choose a cohesive palette that best matches the content and mood — premium and intentional.
-
-### USER DESIGN INTENT
-"${request.userIntent || "none"}"
-
-### CONTENT TO DISPLAY (ALL of it — nothing empty, nothing omitted)
-${JSON.stringify(content, null, 2)}
-
-${memoryBlock}
-
-### CANVAS DIMENSIONS (MUST match exactly; content MUST FIT — no overflow, no clipping)
+### CANVAS DIMENSIONS (CRITICAL)
 - Width: ${width}px
 - Height: ${height}px
-- html & body: exactly these dimensions, overflow hidden, no scrollbars.
-- Print ratios (A4/Letter): keep the same px dimensions (96dpi) but use generous margins so nothing is cut off when printed.
+- The entire layout MUST fit within ${width}x${height}px with ZERO scrollbars and ZERO clipping.
+- Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
 
-### CODE ARCHITECTURE
-1. Semantic HTML5: <article class="infographic"> wrapper, <header>, <section data-section-id>, <figure>/<figcaption> for data, proper heading hierarchy (h1 -> h2 -> h3, no skips), aria-labels on icon-only/decorative elements.
-2. Define CSS custom properties from the blueprint: --primary, --secondary, --accent, --bg, --text, --heading, --body, --radius, --shadow, --spacing, etc.
-3. Create a non-flat background treatment per the blueprint (gradient, mesh, pattern, or colored bands) using the exact colors.
-4. Build the header/hero per the blueprint's "heroMoment" (e.g. gradient text title, oversized display heading).
-5. Render EVERY statistic as a visual element (big number, progress bar, donut via SVG, or icon counter) — never a lone plain number.
-6. Render EVERY section inside a styled card (border-radius + shadow + colored background) per "cardStyle".
-7. Render the timeline (if any) as the blueprint describes (connected nodes, dates emphasized).
-8. Add the blueprint's "decorations" (badges, dividers, geometric accents, number callouts).
-9. Verify no content is cut off: reduce font sizes gracefully if a block overflows rather than clipping.
+### DESIGN BLUEPRINT SPECIFICATION
+${JSON.stringify(blueprint, null, 2)}
 
-### ANIMATIONS (CSS only — no JavaScript)
-- Use CSS keyframes only. Staggered fade-in for sections, count-up feel for hero stats, subtle hover states.
-- ALWAYS wrap animations in @media (prefers-reduced-motion: no-preference) and disable them otherwise.
-
-### PRINT STYLES (required)
-- Add an @media print block: print-color-adjust: exact, and keep the exact canvas size so nothing clips.
-
-### QUALITY CHECKLIST (every item mandatory — self-evaluate before output)
-1. Self-contained valid HTML + CSS starting with <!DOCTYPE html>. No markdown, no code fences, no explanations.
-2. Load fonts via Google Fonts <link> (the blueprint heading font + Inter). Max 2 font families, max 3 weights.
-3. Readable body text (13px minimum at this resolution, generous line-height).
-4. Real contrast (>=4.5:1) between text and background per the palette.
-5. Icons as inline SVG or clean geometric marks. NO EMOJI anywhere.
-6. Layout matches the orientation (portrait stacks vertically; wide uses side column or multi-column grid).
-7. No CTA buttons, links, forms, or interactive controls — this is a static visual.
-8. Everything is visible without scrolling within the ${width}x${height}px canvas.
-9. No external images, no <script>, no inline event handlers.
+### CONTENT TO RENDER (ALL SECTIONS & STATS)
+${JSON.stringify(content, null, 2)}
+${chatBlock}${memoryBlock}
+### MANDATORY TECHNICAL REQUIREMENTS
+1. Start with <!DOCTYPE html><html><head><meta charset="UTF-8"><style>...</style></head><body>...</body></html>.
+2. Load required Google Fonts in <head> using <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=...">.
+3. In <style>, define CSS custom properties (:root) from the blueprint palette and typography.
+4. Structure:
+   - Root wrapper <div class="infographic-root" style="width: ${width}px; height: ${height}px; ...">
+   - Header with Title and Subtitle
+   - Stat Callouts / Hero Stat with large number, label, and icon
+   - Structured Section Cards with card background, border, radius, title, and bullet points
+   - Clean footer / source tag
+5. Icons: Use inline <svg> with viewBox, stroke="currentColor", and width/height 16-24px. DO NOT use emoji or external image URLs.
+6. Responsive fit: Use CSS flexbox/grid and clamp() font sizes so content naturally fits without overflowing ${height}px.
+7. Pure HTML & CSS only — NO <script> tags, NO external JavaScript.
 
 ### OUTPUT FORMAT
-Start with <!DOCTYPE html>. Output ONLY the complete HTML file. End the file with an HTML comment block named DESIGN NOTES that explains your key layout/color/typography choices in 3-4 lines.`;
+Output ONLY the raw self-contained HTML code starting with <!DOCTYPE html>. Do NOT add markdown code fences, do NOT add explanations.`;
 }

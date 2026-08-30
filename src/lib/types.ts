@@ -100,6 +100,25 @@ export interface AIModelOption {
   maxOutput: number;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+  revisionId?: string;
+}
+
+export interface GenerationRevision {
+  revisionId: string;
+  timestamp: number;
+  prompt: string;
+  content: InfographicContent | null;
+  blueprint: unknown;
+  html: string;
+  aspectRatio: string;
+  label?: string;
+}
+
 export interface AIGenerationRequest {
   input: string;
   inputType: "text" | "idea";
@@ -110,6 +129,11 @@ export interface AIGenerationRequest {
   language?: string;
   audience?: string;
   userIntent?: string;
+  chatHistory?: ChatMessage[];
+  refinementPrompt?: string;
+  previousContent?: InfographicContent;
+  previousBlueprint?: unknown;
+  previousHtml?: string;
 }
 
 export interface AIGenerationStep {

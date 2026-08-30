@@ -13,11 +13,25 @@ import { useAIStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
 import { APP_NAME } from "@/lib/site";
 import { ASPECT_RATIOS } from "@/lib/constants";
-import { AspectRatio, AspectRatioId, FontId, AIGenerationRequest, AIGenerationResult } from "@/lib/types";
+import {
+  AspectRatio,
+  AspectRatioId,
+  FontId,
+  AIGenerationRequest,
+  AIGenerationResult,
+  ChatMessage,
+  GenerationRevision,
+} from "@/lib/types";
 import type { MemoryEntry } from "@/services/ai/memory";
 import type { PipelineProgressEvent } from "@/services/ai/progress";
-import { saveProject, loadProject, newProjectId, Project } from "@/lib/editor/persistence";
-import { getAIMemory, saveAIMemory, clearAIMemory } from "@/lib/storage/memoryDb";
+import {
+  saveProject,
+  loadProject,
+  newProjectId,
+  newRevisionId,
+  Project,
+} from "@/lib/editor/persistence";
+import { getAIMemory, saveAIMemory } from "@/lib/storage/memoryDb";
 
 function formatElapsed(ms: number): string {
   const s = ms / 1000;
@@ -110,16 +124,27 @@ async function consumeSSE(
 }
 
 export default function GeneratePage() {
-  const { setContent, setGenerating, setGenerationContext } = useEditorStore();
+  const {
+    content,
+    setContent,
+    setGenerating,
+    setGenerationContext,
+    messages,
+    revisions,
+    currentRevisionId,
+    addMessage,
+    setMessages,
+    addRevision,
+    setRevisions,
+    setCurrentRevisionId,
+  } = useEditorStore();
   const { showToast } = useUIStore();
   const providers = useAIStore((s) => s.providers);
   const activeConfig = useAIStore((s) => s.getActiveConfig());
   const generatingRef = useRef(false);
   const startTimeRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  // Small working-memory carried across generations in this session: the
-  // server distills each run into facts/decisions, and the next generation
-  // re-seeds with it so the AI stays consistent (e.g. "regenerate, new theme").
+  // Working-memory carried across generations in this session
   const memoryRef = useRef<MemoryEntry[]>([]);
 
   // Check if any provider has an API key configured
@@ -146,31 +171,39 @@ export default function GeneratePage() {
   const requestInput = input;
   const hasContent = Boolean(requestInput) && requestInput.trim().length > 0;
 
-  const persistProject = useCallback(async (htmlOverride?: string) => {
-    const targetHtml = htmlOverride ?? html;
-    if (!targetHtml) return;
-    const id = projectIdRef.current ?? newProjectId();
-    projectIdRef.current = id;
-    projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
-    const project: Project = {
-      id,
-      title: (requestInput || "Untitled infographic").slice(0, 80),
-      createdAt: projectCreatedAtRef.current,
-      updatedAt: Date.now(),
-      input: {
-        mode: "text",
-        content: requestInput.slice(0, 8000),
-      },
-      aspectRatio: aspectRatio.id,
-      aspectRatioWidth: aspectRatio.width,
-      aspectRatioHeight: aspectRatio.height,
-      phase1_content: null,
-      phase2_blueprint: null,
-      phase3_html: targetHtml,
-      thumbnail: "",
-    };
-    await saveProject(project);
-  }, [html, requestInput, aspectRatio]);
+  const persistProject = useCallback(
+    async (htmlOverride?: string, newRev?: GenerationRevision, newMsg?: ChatMessage) => {
+      const targetHtml = htmlOverride ?? html;
+      if (!targetHtml) return;
+      const id = projectIdRef.current ?? newProjectId();
+      projectIdRef.current = id;
+      projectCreatedAtRef.current = projectCreatedAtRef.current || Date.now();
+      const updatedRevisions = newRev ? [...revisions, newRev] : revisions;
+      const updatedMessages = newMsg ? [...messages, newMsg] : messages;
+      const project: Project = {
+        id,
+        title: (requestInput || "Untitled infographic").slice(0, 80),
+        createdAt: projectCreatedAtRef.current,
+        updatedAt: Date.now(),
+        input: {
+          mode: "text",
+          content: requestInput.slice(0, 8000),
+        },
+        aspectRatio: aspectRatio.id,
+        aspectRatioWidth: aspectRatio.width,
+        aspectRatioHeight: aspectRatio.height,
+        phase1_content: newRev?.content ?? content,
+        phase2_blueprint: newRev?.blueprint ?? null,
+        phase3_html: targetHtml,
+        thumbnail: "",
+        messages: updatedMessages,
+        revisions: updatedRevisions,
+        activeRevisionId: newRev?.revisionId ?? currentRevisionId ?? undefined,
+      };
+      await saveProject(project);
+    },
+    [html, requestInput, aspectRatio, revisions, messages, currentRevisionId, content],
+  );
 
   // Load an existing project via ?id=…
   useEffect(() => {
@@ -186,185 +219,281 @@ export default function GeneratePage() {
       setAspectRatio(ASPECT_RATIOS[(project.aspectRatio as AspectRatioId)] || ASPECT_RATIOS["1:1"]);
       projectIdRef.current = project.id;
       projectCreatedAtRef.current = project.createdAt;
+      if (project.messages && project.messages.length > 0) {
+        setMessages(project.messages);
+      }
+      if (project.revisions && project.revisions.length > 0) {
+        setRevisions(project.revisions);
+        setCurrentRevisionId(project.activeRevisionId || project.revisions[project.revisions.length - 1].revisionId);
+      }
     })();
-  }, []);
+  }, [setMessages, setRevisions, setCurrentRevisionId]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
-  const handleGenerate = useCallback(async () => {
-    if (generatingRef.current) {
-      showToast({ type: "info", title: "Already generating", message: "One generation at a time — please wait." });
-      return;
-    }
-    if (!hasContent) {
-      showToast({ type: "error", title: "Input required", message: "Please provide some content before generating." });
-      return;
-    }
-    if (!hasApiKey) {
-      showToast({ type: "error", title: "API Key Required", message: "Please add an API key in Settings first. Free tiers available for all providers." });
-      setShowSettings(true);
-      return;
-    }
-    // Assign the project id up front so AI memory and the saved project
-    // always share the same key.
-    if (!projectIdRef.current) projectIdRef.current = newProjectId();
-    const memKey = projectIdRef.current;
-    try {
-      const persisted = await getAIMemory(memKey);
-      if (persisted.length) memoryRef.current = persisted;
-    } catch {
-      // ignore any errors loading memory
-    }
-    await clearAIMemory(memKey);
-    const request: AIGenerationRequest = {
-      input: requestInput,
-      inputType: genInputType,
-      aspectRatio: aspectRatio.id as AspectRatioId,
-      aspectRatioWidth: aspectRatio.width,
-      aspectRatioHeight: aspectRatio.height,
-      font: "inter" as FontId,
-      language: "en",
-      audience: "general",
-      userIntent: designIntent === "auto" ? undefined : designIntent,
-    };
-    generatingRef.current = true;
-    setIsGenerating(true);
-    setGenError(null);
-    setProgressLabel("Starting…");
-    startTimeRef.current = Date.now();
-    setElapsed(0);
-    setGenerating(true);
-    // NOTE: the previous infographic stays visible under a translucent
-    // overlay while regenerating — wiping it left users with a blank screen
-    // whenever a generation failed.
-    const tv = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 250);
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request,
-          options: {
-            apiKey: activeConfig?.apiKey ?? "",
-            providerId: activeConfig?.id ?? "openrouter",
-            model: activeConfig?.model ?? "",
-            temperature: activeConfig?.temperature ?? 0.5,
-            maxTokens: activeConfig?.maxTokens ?? 2048,
-            storedProviders: providers.map((p) => ({
-              id: p.id,
-              apiKey: p.apiKey,
-              model: p.model,
-              baseUrl: p.baseUrl,
-            })),
-            memory: memoryRef.current,
-          },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok || !response.body) {
-        let serverError = "Generation endpoint error.";
-        try {
-          const data = await response.json();
-          serverError = data?.error || serverError;
-        } catch {
-          /* ignore */
-        }
-        throw new Error(serverError);
+  const executeGeneration = useCallback(
+    async (refinementText?: string) => {
+      if (generatingRef.current) {
+        showToast({ type: "info", title: "Already generating", message: "One generation at a time — please wait." });
+        return;
       }
-
-      let res: AIGenerationResult | null = null;
-      const frames = await consumeSSE(response, (event, data) => {
-        if (event === "progress") {
-          const label = labelForEvent(data as PipelineProgressEvent);
-          if (label) setProgressLabel(label);
-        } else if (event === "result") {
-          res = data as AIGenerationResult;
-        }
-      });
-
-      if (!res) {
-        throw new Error(
-          frames > 0
-            ? "The connection dropped before generation finished — the AI providers were too slow. Try again, or pick a faster model."
-            : "The generation endpoint closed the connection without doing any work. Check your connection and try again.",
-        );
+      if (!hasContent && !refinementText) {
+        showToast({ type: "error", title: "Input required", message: "Please provide some content before generating." });
+        return;
       }
-      const result = res as AIGenerationResult;
-
-      if (result.success && result.generatedHtml) {
-        setHtml(result.generatedHtml);
-        if (result.content) setContent(result.content);
-        setGenerationContext({
-          request,
-          content: result.content ?? null,
-          blueprint: result.blueprint ?? null,
-          html: result.generatedHtml,
-          provider: result.provider,
-          model: result.model,
-          steps: result.steps,
-          processingTime: result.processingTime,
-          usedFallback: result.usedFallback,
-          createdAt: Date.now(),
-        });
-        const totalMs = result.processingTime ?? (Date.now() - startTimeRef.current);
-        const warningNote =
-          result.warnings && result.warnings.length > 0 ? result.warnings[0] : undefined;
-        showToast({
-          type: warningNote ? "warning" : "success",
-          title: warningNote ? "Infographic ready (with caveats)" : "Infographic ready!",
-          message: warningNote
-            ? `${warningNote} Generated in ${formatElapsed(totalMs)}.`
-            : `Generated in ${formatElapsed(totalMs)} across ${result.steps?.length ?? 4} phases.${result.usedFallback ? " (single-shot mode)" : ""}`,
-        });
-        memoryRef.current = result.memory ?? memoryRef.current;
-        // Save the memory for possible future regenerations (auto-deleted at next generation start).
-        await saveAIMemory(projectIdRef.current ?? "temp", result.memory ?? []);
-        persistProject(result.generatedHtml);
-      } else {
-        memoryRef.current = result.memory ?? memoryRef.current;
-        // Save the memory even on failure for possible retry.
-        await saveAIMemory(projectIdRef.current ?? "temp", result.memory ?? []);
-        const failedStep =
-          result.steps?.find((s) => s.status === "failed")?.name ||
-          (result.steps?.length ? "setup" : "provider call");
-        const friendly = friendlyErrorMessage(result.error || "Please try again.", result.errorType);
-        const detail = result.provider ? `${result.provider}/${result.model ?? "?"} — ${failedStep}` : "";
-        console.error("Generation failed", { provider: result.provider, model: result.model, error: result.error, steps: result.steps });
-        setGenError(friendly);
+      if (!hasApiKey) {
         showToast({
           type: "error",
-          title: "Generation failed",
-          message: friendly + (detail ? `\n${detail}` : ""),
-          duration: 10000,
+          title: "API Key Required",
+          message: "Please add an API key in Settings first. Free tiers available for all providers.",
         });
+        setShowSettings(true);
+        return;
       }
-    } catch (e: any) {
-      if (e?.name === "AbortError") {
-        showToast({ type: "info", title: "Generation cancelled", message: "No further provider calls were made." });
-      } else {
-        const raw = e?.message || "Please try again.";
-        const friendly = friendlyErrorMessage(raw);
-        setGenError(friendly);
-        showToast({
-          type: "error",
-          title: "Generation failed",
-          message: friendly,
-          duration: 10000,
+
+      if (!projectIdRef.current) projectIdRef.current = newProjectId();
+      const memKey = projectIdRef.current;
+      try {
+        const persisted = await getAIMemory(memKey);
+        if (persisted.length) memoryRef.current = persisted;
+      } catch {
+        // ignore errors loading memory
+      }
+
+      const isRefine = Boolean(refinementText);
+      const request: AIGenerationRequest = {
+        input: isRefine ? (refinementText || "") : requestInput,
+        inputType: genInputType,
+        aspectRatio: aspectRatio.id as AspectRatioId,
+        aspectRatioWidth: aspectRatio.width,
+        aspectRatioHeight: aspectRatio.height,
+        font: "inter" as FontId,
+        language: "en",
+        audience: "general",
+        userIntent: designIntent === "auto" ? undefined : designIntent,
+        chatHistory: messages,
+        refinementPrompt: refinementText,
+        previousContent: content ?? undefined,
+        previousHtml: html ?? undefined,
+      };
+
+      generatingRef.current = true;
+      setIsGenerating(true);
+      setGenError(null);
+      setProgressLabel(isRefine ? "Refining design…" : "Starting…");
+      startTimeRef.current = Date.now();
+      setElapsed(0);
+      setGenerating(true);
+
+      const tv = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 250);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request,
+            options: {
+              apiKey: activeConfig?.apiKey ?? "",
+              providerId: activeConfig?.id ?? "openrouter",
+              model: activeConfig?.model ?? "",
+              temperature: activeConfig?.temperature ?? 0.5,
+              maxTokens: activeConfig?.maxTokens ?? 2048,
+              storedProviders: providers.map((p) => ({
+                id: p.id,
+                apiKey: p.apiKey,
+                model: p.model,
+                baseUrl: p.baseUrl,
+              })),
+              memory: memoryRef.current,
+            },
+          }),
+          signal: controller.signal,
         });
+
+        if (!response.ok || !response.body) {
+          let serverError = "Generation endpoint error.";
+          try {
+            const data = await response.json();
+            serverError = data?.error || serverError;
+          } catch {
+            /* ignore */
+          }
+          throw new Error(serverError);
+        }
+
+        let res: AIGenerationResult | null = null;
+        const frames = await consumeSSE(response, (event, data) => {
+          if (event === "progress") {
+            const label = labelForEvent(data as PipelineProgressEvent);
+            if (label) setProgressLabel(label);
+          } else if (event === "result") {
+            res = data as AIGenerationResult;
+          }
+        });
+
+        if (!res) {
+          throw new Error(
+            frames > 0
+              ? "The connection dropped before generation finished. Try again, or pick a faster model."
+              : "The generation endpoint closed the connection without doing any work. Check your connection and try again.",
+          );
+        }
+        const result = res as AIGenerationResult;
+
+        if (result.success && result.generatedHtml) {
+          setHtml(result.generatedHtml);
+          if (result.content) setContent(result.content);
+          setGenerationContext({
+            request,
+            content: result.content ?? null,
+            blueprint: result.blueprint ?? null,
+            html: result.generatedHtml,
+            provider: result.provider,
+            model: result.model,
+            steps: result.steps,
+            processingTime: result.processingTime,
+            usedFallback: result.usedFallback,
+            createdAt: Date.now(),
+          });
+
+          const revId = newRevisionId();
+          const newRev: GenerationRevision = {
+            revisionId: revId,
+            timestamp: Date.now(),
+            prompt: isRefine ? (refinementText || "Refinement") : (requestInput.slice(0, 50) || "Initial Design"),
+            content: result.content ?? content ?? null,
+            blueprint: result.blueprint ?? null,
+            html: result.generatedHtml,
+            aspectRatio: aspectRatio.id,
+            label: `v${revisions.length + 1}`,
+          };
+          addRevision(newRev);
+
+          const aiMsg: ChatMessage = {
+            id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            role: "assistant",
+            content: isRefine
+              ? `I've updated the infographic based on your edit: "${refinementText}".`
+              : `I've created your infographic with ${result.content?.sections?.length || 4} structured sections and ${result.content?.statistics?.length || 3} key statistics. Ask me anytime in chat to edit colors, text, or layout!`,
+            timestamp: Date.now(),
+            revisionId: revId,
+          };
+          addMessage(aiMsg);
+
+          const totalMs = result.processingTime ?? (Date.now() - startTimeRef.current);
+          const warningNote =
+            result.warnings && result.warnings.length > 0 ? result.warnings[0] : undefined;
+          showToast({
+            type: warningNote ? "warning" : "success",
+            title: warningNote ? "Infographic ready (with notes)" : "Infographic ready!",
+            message: warningNote
+              ? `${warningNote} (${formatElapsed(totalMs)})`
+              : `Completed in ${formatElapsed(totalMs)} across ${result.steps?.length ?? 4} phases.`,
+          });
+
+          memoryRef.current = result.memory ?? memoryRef.current;
+          await saveAIMemory(projectIdRef.current ?? "temp", result.memory ?? []);
+          persistProject(result.generatedHtml, newRev, aiMsg);
+        } else {
+          memoryRef.current = result.memory ?? memoryRef.current;
+          await saveAIMemory(projectIdRef.current ?? "temp", result.memory ?? []);
+          const failedStep =
+            result.steps?.find((s) => s.status === "failed")?.name ||
+            (result.steps?.length ? "setup" : "provider call");
+          const friendly = friendlyErrorMessage(result.error || "Please try again.", result.errorType);
+          const detail = result.provider ? `${result.provider}/${result.model ?? "?"} — ${failedStep}` : "";
+          console.error("Generation failed", { provider: result.provider, model: result.model, error: result.error, steps: result.steps });
+          setGenError(friendly);
+          showToast({
+            type: "error",
+            title: "Generation failed",
+            message: friendly + (detail ? `\n${detail}` : ""),
+            duration: 10000,
+          });
+        }
+      } catch (e: any) {
+        if (e?.name === "AbortError") {
+          showToast({ type: "info", title: "Generation cancelled", message: "No further provider calls were made." });
+        } else {
+          const raw = e?.message || "Please try again.";
+          const friendly = friendlyErrorMessage(raw);
+          setGenError(friendly);
+          showToast({
+            type: "error",
+            title: "Generation failed",
+            message: friendly,
+            duration: 10000,
+          });
+        }
+      } finally {
+        clearInterval(tv);
+        generatingRef.current = false;
+        setIsGenerating(false);
+        abortRef.current = null;
+        setGenerating(false);
       }
-    } finally {
-      clearInterval(tv);
-      generatingRef.current = false;
-      setIsGenerating(false);
-      abortRef.current = null;
-      setGenerating(false);
-    }
-  }, [requestInput, genInputType, aspectRatio, designIntent, activeConfig, providers, hasContent, setContent, setGenerating, setGenerationContext, showToast, persistProject]);
+    },
+    [
+      requestInput,
+      genInputType,
+      aspectRatio,
+      designIntent,
+      activeConfig,
+      providers,
+      hasContent,
+      messages,
+      content,
+      html,
+      revisions,
+      setContent,
+      setGenerating,
+      setGenerationContext,
+      addRevision,
+      addMessage,
+      showToast,
+      persistProject,
+    ],
+  );
+
+  const handleGenerate = useCallback(() => {
+    executeGeneration();
+  }, [executeGeneration]);
+
+  const handleSendChatMessage = useCallback(
+    async (msgText: string) => {
+      if (!msgText.trim() || isGenerating) return;
+      const userMsg: ChatMessage = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: "user",
+        content: msgText,
+        timestamp: Date.now(),
+      };
+      addMessage(userMsg);
+      await executeGeneration(msgText);
+    },
+    [isGenerating, addMessage, executeGeneration],
+  );
+
+  const handleSelectRevision = useCallback(
+    (rev: GenerationRevision) => {
+      setHtml(rev.html);
+      if (rev.content) setContent(rev.content);
+      setCurrentRevisionId(rev.revisionId);
+      const ar = ASPECT_RATIOS[(rev.aspectRatio as AspectRatioId)];
+      if (ar) setAspectRatio(ar);
+      showToast({
+        type: "info",
+        title: `Switched to ${rev.label || "revision"}`,
+        message: rev.prompt,
+      });
+    },
+    [setContent, setCurrentRevisionId, setAspectRatio, showToast],
+  );
 
   const handleExport = useCallback(
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
@@ -436,6 +565,8 @@ export default function GeneratePage() {
             input={input}
             setInput={setInput}
             onGenerateClick={handleGenerate}
+            onSendChatMessage={handleSendChatMessage}
+            messages={messages}
             isGenerating={isGenerating}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
@@ -443,6 +574,7 @@ export default function GeneratePage() {
             setDesignIntent={setDesignIntent}
             onOpenSettings={() => setShowSettings(true)}
             hasApiKey={hasApiKey}
+            hasExistingHtml={Boolean(html)}
           />
         </div>
         {/* Mobile drawer input */}
@@ -471,6 +603,11 @@ export default function GeneratePage() {
                     setMobileInputOpen(false);
                     handleGenerate();
                   }}
+                  onSendChatMessage={(msg) => {
+                    setMobileInputOpen(false);
+                    handleSendChatMessage(msg);
+                  }}
+                  messages={messages}
                   isGenerating={isGenerating}
                   aspectRatio={aspectRatio}
                   setAspectRatio={setAspectRatio}
@@ -478,6 +615,7 @@ export default function GeneratePage() {
                   setDesignIntent={setDesignIntent}
                   onOpenSettings={() => setShowSettings(true)}
                   hasApiKey={hasApiKey}
+                  hasExistingHtml={Boolean(html)}
                 />
                 <button
                   onClick={() => setMobileInputOpen(false)}
@@ -561,6 +699,9 @@ export default function GeneratePage() {
             onCancel={handleCancel}
             error={genError}
             onRetry={handleGenerate}
+            revisions={revisions}
+            currentRevisionId={currentRevisionId}
+            onSelectRevision={handleSelectRevision}
           />
         </div>
         </div>

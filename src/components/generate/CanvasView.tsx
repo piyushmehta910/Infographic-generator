@@ -7,8 +7,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AIDesignRenderer } from "@/components/templates/AIDesignRenderer";
-import { AspectRatio } from "@/lib/types";
+import { AspectRatio, GenerationRevision } from "@/lib/types";
 import { ASPECT_RATIOS } from "@/lib/constants";
+import { History } from "lucide-react";
 
 interface CanvasViewProps {
   html: string | null;
@@ -24,6 +25,9 @@ interface CanvasViewProps {
   onCancel?: () => void;
   error?: string | null;
   onRetry?: () => void;
+  revisions?: GenerationRevision[];
+  currentRevisionId?: string | null;
+  onSelectRevision?: (rev: GenerationRevision) => void;
 }
 
 const ZOOM_MIN = 25;
@@ -35,6 +39,7 @@ export default function CanvasView(p: CanvasViewProps) {
   const {
     html, aspectRatio, setAspectRatio, zoom, setZoom, onExport, onRegenerate,
     isGenerating, hasContent, progress, onCancel, error, onRetry,
+    revisions = [], currentRevisionId, onSelectRevision,
   } = p;
 
   const areaRef = useRef<HTMLDivElement>(null);
@@ -142,6 +147,33 @@ export default function CanvasView(p: CanvasViewProps) {
               Custom
             </button>
           </div>
+
+          {/* Revisions history pills */}
+          {revisions.length > 1 && (
+            <div className="hidden lg:flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5 border border-white/5">
+              <span className="text-[10px] font-semibold text-surface-400 px-1.5 flex items-center gap-1">
+                <History className="w-3 h-3 text-brand-400" /> Rev
+              </span>
+              {revisions.map((rev, idx) => {
+                const active = (currentRevisionId ? rev.revisionId === currentRevisionId : idx === revisions.length - 1);
+                return (
+                  <button
+                    key={rev.revisionId}
+                    type="button"
+                    onClick={() => onSelectRevision?.(rev)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                      active
+                        ? "bg-brand-500 text-white shadow-sm"
+                        : "text-surface-400 hover:text-surface-200 hover:bg-surface-700/50"
+                    }`}
+                    title={`Switch to Version ${idx + 1}: ${rev.prompt}`}
+                  >
+                    v{idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Zoom controls */}
           {html && (

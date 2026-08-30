@@ -1,8 +1,10 @@
 import { openDB, DBSchema, IDBPDatabase } from "idb";
+import type { ChatMessage, GenerationRevision } from "@/lib/types";
 
 // ============================================================
 // Project persistence (IndexedDB via idb).
-// Stores the pipeline context (content, blueprint, HTML) per project.
+// Stores the pipeline context (content, blueprint, HTML), chat
+// messages, and revision history per project.
 // ============================================================
 
 export interface Project {
@@ -18,6 +20,9 @@ export interface Project {
   phase2_blueprint: unknown;
   phase3_html: string;
   thumbnail: string;
+  messages?: ChatMessage[];
+  revisions?: GenerationRevision[];
+  activeRevisionId?: string;
 }
 
 interface ProjectDB extends DBSchema {
@@ -67,4 +72,44 @@ export async function deleteProject(id: string): Promise<void> {
 export function newProjectId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `proj-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function newRevisionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `rev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export async function addProjectMessage(projectId: string, message: ChatMessage): Promise<void> {
+  const project = await loadProject(projectId);
+  if (!project) return;
+  const messages = project.messages || [];
+  messages.push(message);
+  project.messages = messages;
+  project.updatedAt = Date.now();
+  await saveProject(project);
+}
+
+export async function addProjectRevision(
+  projectId: string,
+  revision: GenerationRevision,
+  message?: ChatMessage,
+): Promise<Project | null> {
+  const project = await loadProject(projectId);
+  if (!project) return null;
+  const revisions = project.revisions || [];
+  revisions.push(revision);
+  project.revisions = revisions;
+  project.activeRevisionId = revision.revisionId;
+  project.phase1_content = revision.content;
+  project.phase2_blueprint = revision.blueprint;
+  project.phase3_html = revision.html;
+  project.aspectRatio = revision.aspectRatio;
+  if (message) {
+    const messages = project.messages || [];
+    messages.push(message);
+    project.messages = messages;
+  }
+  project.updatedAt = Date.now();
+  await saveProject(project);
+  return project;
 }

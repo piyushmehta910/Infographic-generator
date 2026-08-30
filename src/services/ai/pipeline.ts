@@ -741,21 +741,28 @@ async function runPipeline(
         // Store the failing checks for the next retry prompt.
         lastChecks = val.checks;
         if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-        steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-        emit({ type: "phase_end", phase: "html", status: "failed" });
-        return failedResult(
-          providerId,
-          model,
-          "AI produced an invalid design and could not be refined after retries. Please try again.",
-          steps,
-          startTime,
-          undefined,
-          { content: infographicContent, blueprint },
-        );
+
+        // If we have a candidate from this attempt with substance, auto-repair instead of crashing
+        if (!bestHtml && candidate && candidate.length > 50) {
+          bestHtml = candidate;
+          warnings.push("The generated design was automatically repaired for canvas rendering.");
+        } else if (!bestHtml) {
+          steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+          emit({ type: "phase_end", phase: "html", status: "failed" });
+          return failedResult(
+            providerId,
+            model,
+            "AI produced an invalid design and could not be refined after retries. Please try again.",
+            steps,
+            startTime,
+            undefined,
+            { content: infographicContent, blueprint },
+          );
+        }
       }
 
       const scored = scoreInfographicHTML(candidate);
-      if (scored.score > bestScore) {
+      if (scored.score > bestScore || !bestHtml) {
         bestHtml = candidate;
         bestScore = scored.score;
         // Reset lastChecks because we have a successful candidate.
@@ -796,6 +803,7 @@ async function runPipeline(
       usedFallback: false,
       degraded: degraded || undefined,
       warnings: warnings.length > 0 ? warnings : undefined,
+      memory: memory.toJSON(),
     };
   } catch (error) {
     // Unexpected error: report it (with the real cause when available) and elapsed

@@ -45,6 +45,14 @@ const storedProviderSchema = z.object({
     .optional(),
 });
 
+const chatMessageSchema = z.object({
+  id: z.string().optional(),
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().max(8000),
+  timestamp: z.number().optional(),
+  revisionId: z.string().optional(),
+});
+
 const bodySchema = z.object({
   request: z.object({
     input: z.string().max(24000),
@@ -56,6 +64,11 @@ const bodySchema = z.object({
     language: z.string().max(20).optional(),
     audience: z.string().max(120).optional(),
     userIntent: z.string().max(600).optional(),
+    chatHistory: z.array(chatMessageSchema).max(20).optional(),
+    refinementPrompt: z.string().max(4000).optional(),
+    previousContent: z.record(z.unknown()).optional(),
+    previousBlueprint: z.record(z.unknown()).optional(),
+    previousHtml: z.string().max(100000).optional(),
   }),
   options: z.object({
     apiKey: z.string().max(500).default(""),
