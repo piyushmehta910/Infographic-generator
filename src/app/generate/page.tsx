@@ -67,12 +67,12 @@ function friendlyErrorMessage(raw: string, errorType?: string): string {
 function labelForEvent(e: PipelineProgressEvent): string | null {
   switch (e.type) {
     case "phase_start":
-      if (e.phase === "content") return "Analyzing your content…";
-      if (e.phase === "blueprint") return "Designing the layout…";
-      if (e.phase === "html") return "Rendering your infographic…";
+      if (e.phase === "content") return "Polishing copy & checking spelling…";
+      if (e.phase === "blueprint") return "Designing custom layout for this topic…";
+      if (e.phase === "html") return "Coding HTML & CSS design…";
       return null;
     case "attempt":
-      return `Refining design (attempt ${(e.attempt ?? 0) + 1})…`;
+      return `Refining visual design (attempt ${(e.attempt ?? 0) + 1})…`;
     case "info":
       if (e.phase === "singleshot") return "Trying a one-shot generation…";
       return e.message || null;

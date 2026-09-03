@@ -53,24 +53,23 @@ export function buildRetrySuffix(checks: Record<string, boolean>, width: number,
   if (!checks.noMarkdown)
     fixes.push("No markdown fences or explanations. Output the raw HTML only.");
   if (!checks.correctSize)
-    fixes.push(`The outer container MUST be exactly ${width}px x ${height}px with overflow:hidden and nothing clipped or overlapping.`);
+    fixes.push(`The outer container MUST be exactly ${width}px x ${height}px with overflow:hidden and zero scrollbars.`);
   if (!checks.hasSubstance)
-    fixes.push("The document appears empty. Include all outline sections and real content.");
+    fixes.push("The document appears empty. Include all sections, statistics, and real content.");
   if (!checks.hasStyleBlock || !checks.hasColorAndShape || !checks.hasStructuredLayout) {
     fixes.push(
-      "Your previous output was plain prose, NOT a designed infographic. " +
-        "Rewrite it as a real visual layout: include a <style> block with actual CSS, " +
-        "a non-flat background (gradient/color), styled cards with border-radius & shadow, " +
-        "and a grid/flex layout. Structure content with <div>/<section> containers, headings, " +
-        "and cards — never a bare wall of <p> paragraphs. Always honor the exact canvas size.",
+      "Your previous output was plain unstyled text. " +
+        "Faithfully execute the Art Director's visual layout: include a rich <style> block with CSS custom properties, " +
+        "the planned background depth, visual data meters, styled containers matching the layout archetype, " +
+        "and styled typography. Never output a bare wall of plain paragraphs.",
     );
   }
   const base = [
     "",
-    "REVISION: Your previous output was rejected by automated validation.",
+    "REVISION: Your previous output did not meet the design specification.",
     ...fixes,
-    "Use the design contract's palette, typography, spacing and background verbatim.",
-    "Visualize every statistic. No CTA buttons. No emoji icons.",
+    "Follow the Art Director's custom layout strategy, color palette, typography, and visual components verbatim.",
+    "Fit perfectly within the canvas dimensions with zero scrollbars.",
   ];
   return base.join("\n");
 }
@@ -84,11 +83,11 @@ export function scoreInfographicHTML(rawHtml: string): { score: number; metrics:
   const cssProps = (styleTag.match(/[a-zA-Z-]+\s*:/g) || []).length;
   const colors = (allText.match(/#[0-9a-f]{3,8}\b/gi) || []).length;
   const gradients = (allText.match(/gradient/gi) || []).length;
-  const cards = (allText.match(/border-?radius|box-shadow|backdrop-filter/gi) || []).length;
-  const containers = (t.match(/<(?:div|section|main|article|header|footer|aside|table)\b/gi) || []).length;
+  const cards = (allText.match(/border-?radius|box-shadow|backdrop-filter|border\s*:/gi) || []).length;
+  const containers = (t.match(/<(?:div|section|main|article|header|footer|aside|table|ul|ol)\b/gi) || []).length;
   const headings = (t.match(/<h[1-6]\b/gi) || []).length;
   const bodyWords = t.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w: string) => w.length > 2).length;
-  const hasViz = /progress|bar|donut|circle|ring|chart|radial|linear|width:\s*\d+%/i.test(t);
+  const hasViz = /progress|bar|donut|circle|ring|chart|radial|linear|width:\s*\d+%|chip|badge|pill|meter/i.test(t);
   const hasStyle = styleTag.length > 50;
 
   let score = 0;
@@ -107,13 +106,12 @@ export function scoreInfographicHTML(rawHtml: string): { score: number; metrics:
 
 // Build a targeted improvement hint for low-scoring attempts.
 export function buildQualitySuffix(metrics: Record<string, number | boolean>, attempt: number, prevScore: number): string {
-  const hints: string[] = ["", `### QUALITY IMPROVEMENT (attempt ${attempt + 1}, previous score ${prevScore}/100)`];
-  if ((metrics.cssProps as number) < 12) hints.push("- Add MUCH more CSS: define layout (grid/flex), spacing, colors, and styling for every element in a rich <style> block.");
-  if ((metrics.colors as number) < 4) hints.push("- Use at least 4 distinct colors from a cohesive palette (primary, secondary, accent, background, text).");
-  if ((metrics.gradients as number) === 0) hints.push("- Add a gradient background (not flat) or gradient accents on cards so the design looks premium.");
-  if ((metrics.cards as number) < 4) hints.push("- Style each section inside a card with border-radius, box-shadow, and a colored background.");
-  if ((metrics.containers as number) < 3) hints.push("- Structure with <div>/<section> containers in a grid/flex layout for a clean visual hierarchy.");
-  hints.push("- Visualize EVERY statistic as a progress bar, big number with accent, or simple CSS bar.");
-  hints.push("- Use a non-white, non-flat background (gradient, mesh, or pattern).");
+  const hints: string[] = ["", `### QUALITY REFINEMENT (attempt ${attempt + 1}, previous score ${prevScore}/100)`];
+  if ((metrics.cssProps as number) < 12) hints.push("- Implement full CSS styling for every component, defining layout, typography, and colors.");
+  if ((metrics.colors as number) < 4) hints.push("- Apply the Art Director's complete color palette (primary, secondary, accent, background, text).");
+  if ((metrics.gradients as number) === 0) hints.push("- Include gradient text styling, background ambient glow, or gradient accents.");
+  if ((metrics.cards as number) < 4) hints.push("- Structure content using the Art Director's container styling with subtle borders and shadows.");
+  hints.push("- Ensure data metrics, numbers, and key sections are visually highlighted with badges, chips, or meters.");
+  hints.push("- Maintain exact canvas dimensions with zero scrollbars.");
   return hints.join("\n");
 }
