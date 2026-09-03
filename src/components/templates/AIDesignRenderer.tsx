@@ -34,7 +34,7 @@ export const AIDesignRenderer: React.FC<AIDesignRendererProps> = ({
           overflow: "hidden",
         }}
         title="AI Generated Infographic"
-        sandbox="allow-same-origin allow-scripts"
+        sandbox="allow-same-origin"
       />
     </div>
   );
