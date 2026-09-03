@@ -7,17 +7,16 @@ import {
   InfographicContent,
 } from "@/lib/types";
 import {
-  buildContentBlueprintPrompt,
+  buildContentAnalysisPrompt,
+  buildDesignBlueprintPrompt,
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
-import { validateOutline } from "@/lib/schemas";
 import { GenerationStoppedError, ProviderHttpError, providerMap, AIProvider } from "./providers";
 import {
   generateWithFallback,
   tryAllProviders,
   StoredProvider,
   CallLimits,
-  checkStop,
 } from "./fallback";
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
 import { normalizeContent, heuristicOutlineFromInput } from "./normalize";
@@ -88,7 +87,6 @@ function tokensForPhase(
   return Math.min(Math.max(maxTokens, floor), effectiveCap);
 }
 
-const BLUEPRINT_TOKEN_CAP = 4096;
 const HTML_TOKEN_CAP = 8192;
 const MAX_HTML_ATTEMPTS = 3;
 const MIN_QUALITY_SCORE = 50;
@@ -474,44 +472,40 @@ async function runPipeline(
 
   try {
     // ============================================
-    // STEP 1+2: CONTENT ANALYSIS & DESIGN BLUEPRINT
-    // ONE AI call returns BOTH the enriched content package and the visual
-    // design blueprint. Merging two slow phases into one round-trip roughly
-    // halves the number of sequential provider calls — the main reason
-    // generation used to run out of time on slow free-tier models.
+    // PHASE 1: CONTENT POLISH & EXPANSION
     // ============================================
-    const designPrompt = buildContentBlueprintPrompt(request, memoryContext);
-    let designResponse: string;
+    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
+    let contentResponse: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
-    const phaseStart = Date.now();
+    const phase1Start = Date.now();
     emit({ type: "phase_start", phase: "content" });
 
     try {
-      designResponse = await generateWithFallback(
+      contentResponse = await generateWithFallback(
         provider,
-        designPrompt,
+        contentPrompt,
         apiKey,
         model,
         temperature,
-        tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 2048, providerId, model),
+        tokensForPhase(maxTokens, 1500, 800, providerId, model),
         providerId,
         getBaseUrl(providerId, storedProviders),
         limits,
       );
     } catch (primaryError) {
       if (primaryError instanceof GenerationStoppedError) throw primaryError;
-      emit({ type: "info", phase: "content", message: "Primary provider failed — trying fallback providers…" });
+      emit({ type: "info", phase: "content", message: "Primary provider busy — trying fallback providers…" });
       const fallback = await tryAllProviders(
-        designPrompt,
+        contentPrompt,
         providerId,
         temperature,
-        tokensFor(maxTokens, BLUEPRINT_TOKEN_CAP, 2048),
+        tokensFor(maxTokens, 1500, 800),
         storedProviders,
         limits,
       );
       if (fallback) {
-        designResponse = fallback.text;
+        contentResponse = fallback.text;
         usedProvider = fallback.provider;
         usedModel = fallback.model;
       } else {
@@ -519,104 +513,85 @@ async function runPipeline(
       }
     }
 
-    // Parse a single response that may be EITHER {content, blueprint} OR a
-    // bare content object. The blueprint defaults to the generic design
-    // system whenever the model doesn't provide one.
-    let parsedDesign: any;
+    let parsedContent: any = null;
     try {
-      parsedDesign = extractJSON(designResponse);
+      parsedContent = extractJSON(contentResponse);
     } catch {
-      parsedDesign = null;
-    }
-    let contentCandidate: any = null;
-    let blueprintCandidate: any | null = null;
-    if (parsedDesign && typeof parsedDesign === "object") {
-      const inner = parsedDesign.content;
-      if (inner && typeof inner === "object" && !Array.isArray(inner)) {
-        contentCandidate = inner;
-      } else {
-        contentCandidate = parsedDesign;
-      }
-      const bp = parsedDesign.blueprint;
-      if (bp && typeof bp === "object" && !Array.isArray(bp)) {
-        blueprintCandidate = bp;
-      }
+      parsedContent = null;
     }
 
     let contentParseFailed = false;
-    if (!contentCandidate) {
+    if (!parsedContent || typeof parsedContent !== "object") {
       contentParseFailed = true;
-      contentCandidate = heuristicOutlineFromInput(request.input);
-      warnings.push("The AI's structured analysis came back malformed — the outline was built directly from your text. Try a stronger model for richer output.");
-      emit({ type: "warning", phase: "content", message: "AI response wasn't valid JSON — building the outline from your text instead." });
+      parsedContent = heuristicOutlineFromInput(request.input);
+      warnings.push("The AI structured analysis came back malformed — outline was built directly from your text.");
     }
 
-    // Strict single retry when the content shape fails Zod (spends a call
-    // only if the deadline still allows it).
-    const outlineCheck = validateOutline(contentCandidate);
-    if (!outlineCheck.ok && !contentParseFailed) {
-      const fixPrompt =
-        designPrompt +
-        "\n\nVALIDATION ERROR: " +
-        outlineCheck.errors.join("; ") +
-        "\nYour previous output's \"content\" field was rejected because required fields are missing or empty. Rewrite the ENTIRE JSON object so the \"content\" object has a non-empty title, sections with non-empty title and content, and the \"blueprint\" object intact, all derived from the source input. Return ONLY valid JSON: { \"content\": {…}, \"blueprint\": {…} }.";
+    const normalizedContent = normalizeContent(parsedContent, request);
+    memory.add("fact", "Structured content", summarizeContent(normalizedContent));
+    steps.push({
+      name: "Phase 1: Content Polish & Expansion",
+      status: contentParseFailed ? "fallback" : "completed",
+      durationMs: Date.now() - phase1Start,
+    });
+    emit({ type: "phase_end", phase: "content", status: contentParseFailed ? "fallback" : "completed" });
+
+    // ============================================
+    // PHASE 2: CUSTOM LAYOUT & DESIGN ARCHITECTURE
+    // ============================================
+    const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request, memoryContext);
+    let blueprintResponse: string = "";
+    const phase2Start = Date.now();
+    emit({ type: "phase_start", phase: "blueprint" });
+
+    try {
+      const bpCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
+      blueprintResponse = await generateWithFallback(
+        providerMap[usedProvider],
+        blueprintPrompt,
+        bpCreds.key,
+        bpCreds.model,
+        Math.min(temperature, 0.5),
+        tokensForPhase(maxTokens, 1500, 800, usedProvider, bpCreds.model),
+        usedProvider,
+        getBaseUrl(usedProvider, storedProviders),
+        limits,
+      );
+    } catch (bpError) {
+      if (bpError instanceof GenerationStoppedError) throw bpError;
+      // If phase 2 fails, fallback cleanly to defaultBlueprint
+      blueprintResponse = "";
+    }
+
+    let parsedBlueprint: any = null;
+    if (blueprintResponse) {
       try {
-        checkStop(limits);
-        const strictCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
-        const strictResponse = await generateWithFallback(
-          providerMap[usedProvider],
-          fixPrompt,
-          strictCreds.key,
-          strictCreds.model,
-          Math.min(temperature, 0.4),
-          tokensForPhase(maxTokens, BLUEPRINT_TOKEN_CAP, 2048, usedProvider, strictCreds.model),
-          usedProvider,
-          getBaseUrl(usedProvider, storedProviders),
-          limits,
-        );
-        const strictParsed = extractJSON(strictResponse);
-        if (strictParsed && typeof strictParsed === "object") {
-          const inner = strictParsed.content;
-          const strictContent = inner && typeof inner === "object" && !Array.isArray(inner) ? inner : strictParsed;
-          if (validateOutline(strictContent).ok) {
-            contentCandidate = strictContent;
-            const bp = strictParsed.blueprint;
-            if (bp && typeof bp === "object" && !Array.isArray(bp)) blueprintCandidate = bp;
-          }
-        }
+        parsedBlueprint = extractJSON(blueprintResponse);
       } catch {
-        // Keep the first, imperfect result.
+        parsedBlueprint = null;
       }
     }
 
-    const normalizedContent = normalizeContent(contentCandidate, request);
-    memory.add("fact", "Structured content", summarizeContent(normalizedContent));
-
     let blueprintUsedFallback = false;
-    if (!blueprintCandidate || Object.keys(blueprintCandidate).length === 0) {
+    if (!parsedBlueprint || typeof parsedBlueprint !== "object") {
       blueprintUsedFallback = true;
-      emit({ type: "warning", phase: "blueprint", message: "Blueprint was missing — using a generic design system." });
+      parsedBlueprint = defaultBlueprint(request);
     }
-    const blueprint: any = blueprintCandidate && !blueprintUsedFallback
-      ? blueprintCandidate
-      : defaultBlueprint(request);
-    if (blueprintUsedFallback) {
-      memory.add("note", "Design blueprint", "Blueprint fell back to the generic design system.");
-      warnings.push("The AI design blueprint was missing or invalid — a generic design system was used instead.");
-    }
+
+    const blueprint: any = parsedBlueprint;
     const blueprintSummary = summarizeBlueprint(blueprint);
     if (blueprintSummary) {
       memory.add("decision", "Design blueprint", blueprintSummary);
     }
 
     steps.push({
-      name: "Content analysis & design planning",
-      status: contentParseFailed || blueprintUsedFallback || usedProvider !== providerId ? "fallback" : "completed",
-      durationMs: Date.now() - phaseStart,
+      name: "Phase 2: Custom Layout & Design Architecture",
+      status: blueprintUsedFallback ? "fallback" : "completed",
+      durationMs: Date.now() - phase2Start,
     });
-    emit({ type: "phase_end", phase: "content", status: contentParseFailed || blueprintUsedFallback ? "fallback" : "completed" });
+    emit({ type: "phase_end", phase: "blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
 
-    // Build once — reused in the success result AND in partial-failure results.
+    // Build reusable infographicContent structure
     const infographicContent: InfographicContent = {
       title: normalizedContent.title,
       subtitle: normalizedContent.subtitle,
@@ -625,36 +600,18 @@ async function runPipeline(
       timeline: normalizedContent.timeline,
       heroStat: normalizedContent.heroStat,
       colors: [
-        normalizedContent.suggestedColors?.primary || "#3b82f6",
-        normalizedContent.suggestedColors?.secondary || "#8b5cf6",
-        normalizedContent.suggestedColors?.accent || "#ec4899",
-        normalizedContent.suggestedColors?.background || "#ffffff",
-        normalizedContent.suggestedColors?.text || "#0f172a",
+        normalizedContent.suggestedColors?.primary || "#6366f1",
+        normalizedContent.suggestedColors?.secondary || "#ec4899",
+        normalizedContent.suggestedColors?.accent || "#06b6d4",
+        normalizedContent.suggestedColors?.background || "#0b0f19",
+        normalizedContent.suggestedColors?.text || "#f8fafc",
       ],
       icons: normalizedContent.suggestedIcons,
       callToAction: "",
     };
 
-    // If the combined analysis+design step consumed almost all the budget (slow
-    // providers), hand over to single-shot fallback before timing out.
-    const budgetLeft = (limits.deadline ?? 0) - Date.now();
-    if (budgetLeft < 10_000 && limits.deadline) {
-      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: 0 });
-      emit({ type: "phase_end", phase: "html", status: "failed" });
-      return failedResult(
-        providerId,
-        model,
-        "Timed out before rendering — trying a single faster pass.",
-        steps,
-        startTime,
-        undefined,
-        { content: infographicContent, blueprint },
-      );
-    }
-
     // ============================================
-    // STEP 3: HTML/CSS GENERATION
-    // AI codes the final design following the blueprint exactly.
+    // PHASE 3: COMBINED HTML/CSS CODE GENERATION
     // ============================================
     const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request, memoryContext);
     let htmlResponse: string;

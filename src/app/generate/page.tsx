@@ -67,9 +67,9 @@ function friendlyErrorMessage(raw: string, errorType?: string): string {
 function labelForEvent(e: PipelineProgressEvent): string | null {
   switch (e.type) {
     case "phase_start":
-      if (e.phase === "content") return "Polishing copy & checking spelling…";
-      if (e.phase === "blueprint") return "Designing custom layout for this topic…";
-      if (e.phase === "html") return "Coding HTML & CSS design…";
+      if (e.phase === "content") return "Phase 1: Polishing content & expanding topic…";
+      if (e.phase === "blueprint") return "Phase 2: Designing custom visual layout…";
+      if (e.phase === "html") return "Phase 3: Coding combined HTML & CSS infographic…";
       return null;
     case "attempt":
       return `Refining visual design (attempt ${(e.attempt ?? 0) + 1})…`;
