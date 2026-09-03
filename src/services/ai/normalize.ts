@@ -38,23 +38,32 @@ export function heuristicOutlineFromInput(input: string): any {
 }
 
 export function normalizeContent(cr: any, request: AIGenerationRequest) {
-  const src = cr?.correctedContent ?? {};
+  const src =
+    cr?.content && typeof cr.content === "object" && !Array.isArray(cr.content)
+      ? cr.content
+      : cr?.correctedContent && typeof cr.correctedContent === "object" && !Array.isArray(cr.correctedContent)
+        ? cr.correctedContent
+        : cr && typeof cr === "object" && !Array.isArray(cr)
+          ? cr
+          : {};
+
   const inputTitle = (request.input || "").split(/\s+/).filter(Boolean).slice(0, 8).join(" ") || "Your Infographic";
   const title = cleanStr(src.title, inputTitle);
-  const subtitle = cleanStr(src.subtitle, "Key insights, visualized at a glance");
+  const subtitle = cleanStr(src.subtitle, cleanStr(src.kicker, "Comprehensive visual overview"));
 
   let sections = Array.isArray(src.sections) ? src.sections : [];
   sections = sections
     .map((s: any, i: number) => ({
       id: s?.id || `section-${i + 1}`,
-      title: cleanStr(s?.title, `Insight ${i + 1}`),
-      content: cleanStr(s?.content, "High-impact insight backed by clear, concise facts."),
+      title: cleanStr(s?.title, `Section ${i + 1}`),
+      subtitle: cleanStr(s?.subtitle, ""),
+      content: cleanStr(s?.content, ""),
       bullets: Array.isArray(s?.bullets) ? s.bullets.filter((b: unknown) => typeof b === "string" && b.trim()).map((b: unknown) => String(b)) : [],
-      icon: cleanStr(s?.icon, ["growth", "spark", "chart", "target"][i % 4]),
+      icon: cleanStr(s?.icon, ["chart", "shield", "rocket", "users", "globe", "bolt"][i % 6]),
       type: (s?.type === "text" || s?.type === "mixed" ? s.type : "mixed") as "text" | "mixed",
     }))
-    .filter((s: any) => s.title && s.content)
-    .slice(0, 6);
+    .filter((s: any) => s.title && (s.content || s.bullets.length > 0))
+    .slice(0, 8);
 
   if (sections.length === 0) {
     sections = [
