@@ -178,73 +178,56 @@ function failedResult(
   };
 }
 
-const THEME_FALLBACK: Record<
-  string,
-  { primary: string; secondary: string; accent: string; background: string; text: string }
-> = {
-  light: { primary: "#6366f1", secondary: "#8b5cf6", accent: "#ec4899", background: "#ffffff", text: "#0f172a" },
-  dark: { primary: "#8b5cf6", secondary: "#10b981", accent: "#f59e0b", background: "#0f172a", text: "#f1f5f9" },
-  minimal: { primary: "#0f172a", secondary: "#64748b", accent: "#8b5cf6", background: "#f8fafc", text: "#0f172a" },
-  glassmorphism: { primary: "#ffffff", secondary: "#a78bfa", accent: "#34d399", background: "#1e293b", text: "#f8fafc" },
-  neumorphism: { primary: "#5b6770", secondary: "#a3b1c6", accent: "#8b5cf6", background: "#e0e5ec", text: "#404954" },
-  corporate: { primary: "#1d4ed8", secondary: "#3b82f6", accent: "#0ea5e9", background: "#f8fafc", text: "#0f172a" },
-  modern: { primary: "#8b5cf6", secondary: "#6366f1", accent: "#10b981", background: "#ffffff", text: "#0f172a" },
-  gradient: { primary: "#7c3aed", secondary: "#ec4899", accent: "#f59e0b", background: "#fdf2f8", text: "#0f172a" },
-  "midnight-blue": { primary: "#1e40af", secondary: "#3b82f6", accent: "#22d3ee", background: "#0b1e3a", text: "#e0f2fe" },
-  "midnight-green": { primary: "#134e4a", secondary: "#14b8a6", accent: "#fbbf24", background: "#042f2e", text: "#ccfbf1" },
-  material: { primary: "#2563eb", secondary: "#7c3aed", accent: "#f97316", background: "#fafafa", text: "#0f172a" },
-};
-
 /**
  * Build the full-shape generic blueprint used when the AI didn't return one
  * (or returned one that didn't parse). Mirrors the shape the HTML phase
  * prompt expects (colorPalette, typography, cardStyle, cssDirectives…).
  */
 function defaultBlueprint(request: AIGenerationRequest): Record<string, unknown> {
-  const palette = THEME_FALLBACK.modern;
   const dimensions = getCanvasDimensions(
     request.aspectRatio,
     request.aspectRatioWidth,
     request.aspectRatioHeight,
   );
   return {
-    concept: "Clean, premium design system",
-    layoutStyle: "magazine-grid",
+    layoutArchetype: "bento_grid",
+    concept: "Modern glassmorphic tech dashboard",
     colorPalette: {
-      primary: palette.primary,
-      secondary: palette.secondary,
-      accent: palette.accent,
-      background: palette.background,
-      surface: palette.background,
-      text: palette.text,
+      primary: "#3b82f6",
+      secondary: "#8b5cf6",
+      accent: "#ec4899",
+      background: "#0b0f19",
+      surface: "rgba(18, 26, 43, 0.75)",
+      text: "#ffffff",
       textMuted: "#94a3b8",
-      border: "rgba(255,255,255,0.1)",
+      border: "rgba(255, 255, 255, 0.12)",
+      glow: "rgba(59, 130, 246, 0.25)",
     },
     typography: {
-      headingFont: "Inter",
+      headingFont: "Plus Jakarta Sans",
       bodyFont: "Inter",
-      heroSize: "clamp(48px, 5vw, 72px)",
-      h2Size: "clamp(28px, 3vw, 36px)",
-      bodySize: "clamp(16px, 1.5vw, 20px)",
+      heroSize: "clamp(38px, 4.5vw, 52px)",
+      h2Size: "clamp(20px, 2.2vw, 26px)",
+      bodySize: "clamp(14px, 1.4vw, 17px)",
     },
     cardStyle: {
-      borderRadius: "16px",
-      background: palette.background,
-      border: "1px solid rgba(255,255,255,0.08)",
-      shadow: "0 8px 32px rgba(0,0,0,0.24)",
+      borderRadius: "18px",
+      background: "rgba(18, 26, 43, 0.75)",
+      border: "1px solid rgba(255, 255, 255, 0.12)",
+      shadow: "0 12px 30px rgba(0, 0, 0, 0.28)",
       backdropFilter: "blur(12px)",
     },
     heroStatStyle: {
-      fontSize: "clamp(48px, 5vw, 72px)",
+      fontSize: "clamp(38px, 4.5vw, 52px)",
       fontWeight: "800",
-      color: palette.accent,
-      gradient: `linear-gradient(135deg, ${palette.primary}, ${palette.secondary})`,
+      color: "#38bdf8",
+      gradient: "linear-gradient(135deg, #38bdf8, #818cf8)",
     },
     cssDirectives: [
       "Use CSS custom properties for all colors and typography",
       `Set the outer container to exactly ${dimensions.width}x${dimensions.height}px with overflow:hidden and zero scrollbars`,
-      "Render each section inside a distinct styled card",
-      "Use inline SVG icons — no emoji, no external images",
+      "Render a 2x2 grid filling the canvas center without blank space",
+      "Use inline SVG icons with stroke-width 2 — no emoji, no external images",
     ],
   };
 }

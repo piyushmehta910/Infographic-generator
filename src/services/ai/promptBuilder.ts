@@ -2,20 +2,23 @@ import { AIGenerationRequest } from "@/lib/types";
 import { getCanvasDimensions } from "@/lib/canvas";
 
 // ============================================================
-// STAGE 1: CONTENT AI — SPELL CHECK, REFINEMENT & EXPANSION
-// Evaluates input, corrects typos and grammar, completes missing details,
-// and structures high-impact infographic copy.
+// STAGE 1: UNIFIED CONTENT ANALYSIS & ART DIRECTOR BLUEPRINT
+// Generates a rich, publication-grade content package AND the custom
+// visual layout architecture in ONE smart, high-speed round-trip.
 // ============================================================
-export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
+export function buildContentBlueprintPrompt(request: AIGenerationRequest, memoryContext?: string): string {
   const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const fontStr = font || "Inter";
   const languageStr = language || "English";
   const audienceStr = audience || "General";
-  const userIntentStr = userIntent || "Clean and modern";
+  const userIntentStr = userIntent || "Clean, high-impact, modern";
 
   const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
   const dimensionsStr = `${width}x${height}px`;
+
+  const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
+  const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
 
   const memoryBlock = memoryContext ? `\n## CONTEXT MEMORY\n${memoryContext}\n` : "";
 
@@ -27,182 +30,145 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryC
 
   let refinementBlock = "";
   if (refinementPrompt || previousContent) {
-    refinementBlock = `\n## REFINEMENT INSTRUCTION\nUser requested change: "${refinementPrompt || "Update content"}"\nPrevious content: ${JSON.stringify(previousContent || {})}\nApply the user's edit while keeping established facts.\n`;
+    refinementBlock = `\n## REFINEMENT INSTRUCTION\nUser requested change: "${refinementPrompt || "Update content"}"\nPrevious content: ${JSON.stringify(previousContent || {})}\nApply the user's edit while preserving established core facts.\n`;
   }
 
-  return `You are a senior content strategist and editor preparing publication-ready material for an INFOGRAPHIC.
-This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
+  return `You are a world-class Infographic Content Strategist AND visionary Art Director.
+Produce (1) an extensively enriched, publication-ready content package, and (2) a custom visual design layout specification.
 
-## INSTRUCTIONS
-1. **SPELL CHECK & POLISH**: Check spelling, fix grammar mistakes, typos, and clumsy phrasing in the user's input.
-2. **COMPLETE & EXPAND**: If the input is brief or a raw topic/draft, expand it with accurate, realistic facts, statistics, percentages, and actionable insights.
-3. **TOPIC TYPE**: Detect the semantic topic archetype:
-   - "comparison" (e.g. A vs B)
-   - "process_steps" (e.g. 5 steps to master X)
-   - "metrics_data" (e.g. Market report, statistics)
-   - "list_features" (e.g. 7 habits, key tips)
-   - "timeline" (e.g. Historical evolution, roadmap)
-   - "general" (general informative topic)
-4. **STRUCTURE**:
-   - Engaging Title (max 8 words, punchy and polished)
-   - Subtitle (max 14 words, clear value proposition)
-   - Kicker Tag (2-3 words uppercase category, e.g. "2026 INSIGHTS", "EXECUTIVE GUIDE")
-   - 3 to 5 distinct Sections with concise description and 2-3 clear bullet points
-   - 3 to 4 concrete Statistics with realistic values (e.g. "87%", "$4.2B", "3.5x") and labels
-   - ONE Hero Stat representing the primary takeaway
-   - Key Takeaway / Conclusion summary (1 sentence)
-   - Suggested icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.
-
-## CONTEXT
-- Canvas: ${dimensionsStr} (${aspectRatioStr})
-- Input Mode: ${inputType || "text"}
-- Preferred Font: ${fontStr}
-- Target Audience: ${audienceStr}
-- Tone / Intent: ${userIntentStr}
-- Language: ${languageStr}
-${conversationBlock}${refinementBlock}${memoryBlock}
-## SOURCE INPUT
+## SOURCE TOPIC / INPUT
 "${input}"
 
+## CRITICAL CONTENT RULES
+1. **SPELL CHECK & POLISH**: Fix all typos, grammar mistakes, and awkward phrasing.
+2. **COMPREHENSIVE EXPANSION**: Even if the input is only 2-3 words (e.g. "what is ai"), you MUST expand it into a deep, educational, complete infographic package:
+   - Punchy Title (max 8 words)
+   - Descriptive Subtitle (max 14 words)
+   - Kicker Tag (2-3 words uppercase category, e.g. "2026 AI BLUEPRINT", "EXECUTIVE BRIEF")
+   - EXACTLY 4 substantial Sections (each with bold title, 1-2 sentence overview, and 2-3 concrete bullet points with actionable details)
+   - EXACTLY 3 or 4 concrete Statistics with realistic high-impact numbers (e.g. "88%", "$1.3T", "3.7x", "500M+"), clear labels, and percentage growth context
+   - ONE Hero Stat representing the primary metric
+   - ONE Key Takeaway summary sentence
+   - 4 to 6 icon keywords (e.g. "brain", "cpu", "network", "shield", "rocket", "chart") — NO emoji.
+
+## CRITICAL ART DIRECTOR LAYOUT RULES
+1. **CUSTOM LAYOUT FOR THIS TOPIC**: Analyze the topic semantics and choose the best layout archetype:
+   - "bento_grid": 2x2 or 3-panel dynamic bento box for balanced topics
+   - "split_comparison": 2-column versus contrast for comparisons
+   - "process_roadmap": 4-step progressive flow for timelines/how-to guides
+   - "metrics_dashboard": Stat-heavy analytics report
+2. **COLOR HARMONY (60-30-10 Rule)**:
+   - 60% Background: Deep ambient mesh gradient (e.g. dark navy #0b0f19 with radial glowing spheres, or crisp editorial light)
+   - 30% Surface: Elevated glassmorphic cards with 1px border and soft drop shadow
+   - 10% Accent: High-energy vibrant neon/electric accent for stats and meters
+3. **TYPOGRAPHY**: High-contrast pairing (e.g. "Plus Jakarta Sans" for bold titles + "Inter" for body text).
+
+## CONTEXT
+- Canvas: ${dimensionsStr} (${aspectRatioStr} ${isPortrait ? "Portrait" : isWide ? "Landscape" : "Square"})
+- Mode: ${inputType || "text"}
+- Preferred Font: ${fontStr}
+- Target Audience: ${audienceStr}
+- Aesthetic Tone: ${userIntentStr}
+- Language: ${languageStr}
+${conversationBlock}${refinementBlock}${memoryBlock}
 ## OUTPUT FORMAT
-Return ONLY valid JSON (no code fences, no markdown):
+Return ONLY valid JSON (no markdown code fences, no explanations) with EXACTLY "content" and "blueprint":
 {
-  "topicType": "comparison | process_steps | metrics_data | list_features | timeline | general",
-  "kicker": "CATEGORY TAG (2-3 words)",
-  "title": "Polished Engaging Title",
-  "subtitle": "Clear supporting subtitle",
-  "heroStat": { "value": "95%", "label": "Primary key metric" },
-  "statistics": [
-    { "id": "stat-1", "value": "95%", "label": "Metric description", "icon": "chart" },
-    { "id": "stat-2", "value": "3.5x", "label": "Growth factor", "icon": "rocket" },
-    { "id": "stat-3", "value": "80M+", "label": "User reach", "icon": "users" }
-  ],
-  "sections": [
-    {
-      "id": "sec-1",
-      "title": "Section Title",
-      "subtitle": "Short section subtitle or step number",
-      "content": "Short 1-2 sentence overview.",
-      "bullets": ["Actionable point 1", "Actionable point 2"],
-      "icon": "shield"
-    }
-  ],
-  "timeline": [],
-  "keyTakeaway": "One sentence key takeaway or conclusion.",
-  "suggestedIcons": ["chart", "shield", "rocket", "bolt"],
-  "suggestedColors": {
-    "primary": "#3b82f6",
-    "secondary": "#8b5cf6",
-    "accent": "#ec4899",
-    "background": "#0f172a",
-    "text": "#f8fafc"
+  "content": {
+    "topicType": "general | comparison | process_steps | metrics_data | list_features",
+    "kicker": "2026 EXECUTIVE GUIDE",
+    "title": "Comprehensive Title Here",
+    "subtitle": "Detailed engaging subtitle explaining the core value",
+    "heroStat": { "value": "88%", "label": "Enterprise Adoption Rate", "change": "+34% YoY" },
+    "statistics": [
+      { "id": "stat-1", "value": "$1.3T", "label": "Global Market Impact", "icon": "chart" },
+      { "id": "stat-2", "value": "88%", "label": "Enterprise Adoption", "icon": "users" },
+      { "id": "stat-3", "value": "3.7x", "label": "Productivity Multiplier", "icon": "rocket" },
+      { "id": "stat-4", "value": "500M+", "label": "Daily Active Users", "icon": "globe" }
+    ],
+    "sections": [
+      {
+        "id": "sec-1",
+        "title": "1. Core Architecture",
+        "subtitle": "Foundation & Models",
+        "content": "Comprehensive overview explaining the fundamental mechanism.",
+        "bullets": ["Key technical capability 1", "Actionable architectural insight 2"],
+        "icon": "cpu"
+      },
+      {
+        "id": "sec-2",
+        "title": "2. Natural Language Processing",
+        "subtitle": "Large Language Models",
+        "content": "Deep breakdown of language understanding and generative reasoning.",
+        "bullets": ["Context awareness & reasoning", "Multimodal transformer models"],
+        "icon": "brain"
+      },
+      {
+        "id": "sec-3",
+        "title": "3. Computer Vision & Robotics",
+        "subtitle": "Perception & Action",
+        "content": "Visual perception systems enabling autonomous decisions in real time.",
+        "bullets": ["Real-time object detection", "Autonomous spatial navigation"],
+        "icon": "eye"
+      },
+      {
+        "id": "sec-4",
+        "title": "4. Enterprise Impact & Future",
+        "subtitle": "Automation & Scale",
+        "content": "Accelerating workflow automation and delivering measurable ROI.",
+        "bullets": ["10x operational efficiency", "Ethical guardrails & safety"],
+        "icon": "rocket"
+      }
+    ],
+    "timeline": [],
+    "keyTakeaway": "AI transforms complex workflows into automated, high-precision operations.",
+    "suggestedIcons": ["brain", "cpu", "network", "chart", "rocket", "shield"],
+    "suggestedColors": { "primary": "#3b82f6", "secondary": "#8b5cf6", "accent": "#ec4899", "background": "#0b0f19", "text": "#f8fafc" }
+  },
+  "blueprint": {
+    "layoutArchetype": "bento_grid",
+    "concept": "Modern glassmorphic tech dashboard",
+    "colorPalette": {
+      "primary": "#3b82f6",
+      "secondary": "#8b5cf6",
+      "accent": "#ec4899",
+      "background": "#0b0f19",
+      "surface": "rgba(18, 26, 43, 0.75)",
+      "text": "#ffffff",
+      "textMuted": "#94a3b8",
+      "border": "rgba(255, 255, 255, 0.12)",
+      "glow": "rgba(59, 130, 246, 0.25)"
+    },
+    "typography": {
+      "headingFont": "Plus Jakarta Sans",
+      "bodyFont": "Inter",
+      "heroSize": "clamp(38px, 4.5vw, 52px)",
+      "h2Size": "clamp(20px, 2.2vw, 26px)",
+      "bodySize": "clamp(14px, 1.4vw, 17px)"
+    },
+    "visualComponents": [
+      "Deep ambient radial glow background",
+      "Top header banner with kicker tag chip and text gradient",
+      "Horizontal 4-card metric band with progress bars",
+      "2x2 equal height content grid filling the entire center canvas",
+      "Bottom key takeaway bar with gradient border"
+    ]
   }
 }`;
 }
 
-// ============================================================
-// STAGE 2: ART DIRECTOR AI — FREEFORM CUSTOM DESIGN & LAYOUT STRATEGY
-// The AI analyzes the specific topic and content semantics, and freely
-// invents the custom visual layout and design blueprint that fits best.
-// ============================================================
+export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
+  return buildContentBlueprintPrompt(request, memoryContext);
+}
+
 export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest, memoryContext?: string): string {
-  const { aspectRatio, userIntent, chatHistory, refinementPrompt } = request;
-  const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
-  const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
-
-  const { width, height } = getCanvasDimensions(aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
-  const dimensions = `${width}x${height}px`;
-
-  const memoryBlock = memoryContext ? `\n## MEMORY CONTEXT\n${memoryContext}\n` : "";
-
-  let chatBlock = "";
-  if (chatHistory && chatHistory.length > 0) {
-    chatBlock = `\n## CHAT REFINEMENT CONTEXT\n${chatHistory.slice(-3).map((m) => `${m.role}: ${m.content}`).join("\n")}\n`;
-  }
-  if (refinementPrompt) {
-    chatBlock += `User requested design edit: "${refinementPrompt}"\n`;
-  }
-
-  return `You are a visionary Art Director and Master Infographic Designer.
-This is STAGE 2 (Custom Layout & Visual Design Strategy).
-
-Your job: Look at the refined content below, determine the best visual layout for this specific subject, and output a complete creative design specification.
-
-DO NOT force a generic card template. Choose the ideal visual layout archetype based on what the content is about:
-- If comparison: Design a split/versus two-column layout with contrasting color accents.
-- If process/steps: Design a sequential roadmap or step-by-step numbered cards with visual flow.
-- If data/metrics: Design a dynamic Bento Grid or metrics dashboard with visual progress meters and stat chips.
-- If list/tips: Design an editorial layout with numbered micro-badges and icon containers.
-- If timeline: Design a milestone spine connecting key events.
-
-## TARGET CANVAS
-- Dimensions: ${dimensions} (${aspectRatio || "1:1"})
-- Canvas Aspect: ${isPortrait ? "Portrait (tall)" : isWide ? "Landscape (wide)" : "Square"}
-- Aesthetic Intent: "${userIntent || "modern, high-impact, award-winning"}"
-${chatBlock}${memoryBlock}
-## REFINED CONTENT TO DESIGN
-${JSON.stringify(content, null, 2)}
-
-## DESIGN BLUEPRINT INSTRUCTIONS
-1. **Layout Strategy**: Explain the exact layout structure chosen for this topic and how sections should be positioned inside ${dimensions}.
-2. **Color Harmony (60-30-10 Rule)**:
-   - 60% Background & ambient depth (e.g. dark mesh gradient, radial glow, or clean light editorial)
-   - 30% Structural cards, panels, or column containers
-   - 10% Vibrant highlight accents for stats, badges, and key callouts
-   - High contrast WCAG AA compliant.
-3. **Typography**: Google Font pairing that matches the topic mood (e.g. "Plus Jakarta Sans" + "Inter", "Space Grotesk" + "Inter", "Outfit" + "Poppins").
-4. **Visual Components**: Specify what visual components to build (e.g. progress bar meters, category chips, glowing borders, icon containers, numbered step pills).
-5. **CSS Architecture**: Outline custom CSS properties (:root) and responsive layout rules.
-
-## OUTPUT FORMAT
-Return ONLY valid JSON (no code fences, no markdown):
-{
-  "layoutArchetype": "bento_grid | split_comparison | process_roadmap | metrics_dashboard | editorial_list | timeline_spine",
-  "concept": "Creative visual concept summary",
-  "layoutStructure": {
-    "headerStyle": "Large title with category kicker tag and text gradient",
-    "mainFlow": "Description of layout arrangement (e.g. 2-column bento, 3-step vertical path)",
-    "statPlacement": "Placement of stats (e.g. top banner, hero card with progress bar, sidebar)",
-    "sectionCardTreatment": "Description of card styles, borders, and shadows"
-  },
-  "colorPalette": {
-    "primary": "#3b82f6",
-    "secondary": "#8b5cf6",
-    "accent": "#ec4899",
-    "background": "#0b0f19",
-    "surface": "rgba(18, 26, 43, 0.75)",
-    "text": "#f8fafc",
-    "textMuted": "#94a3b8",
-    "border": "rgba(255, 255, 255, 0.1)",
-    "glow": "rgba(59, 130, 246, 0.2)"
-  },
-  "typography": {
-    "headingFont": "Plus Jakarta Sans",
-    "bodyFont": "Inter",
-    "heroSize": "clamp(36px, 4.5vw, 56px)",
-    "h2Size": "clamp(20px, 2.2vw, 28px)",
-    "bodySize": "clamp(13px, 1.2vw, 15px)"
-  },
-  "visualComponents": [
-    "Gradient mesh background with radial glow spheres",
-    "Glassmorphic cards with subtle 1px border and soft shadow",
-    "Visual progress meter for hero statistics",
-    "Category badge chips and numbered step indicators",
-    "Styled icon wrapper containers"
-  ],
-  "cssDirectives": [
-    "Set outer container to exactly ${dimensions} with overflow: hidden",
-    "Use CSS custom properties for all colors, fonts, and spacing",
-    "Use inline SVG icons with stroke-width 2 — NO external images or emoji",
-    "Ensure zero scrollbars and perfect vertical/horizontal fit"
-  ]
-}`;
+  return buildContentBlueprintPrompt(request, memoryContext);
 }
 
 // ============================================================
-// STAGE 3: CODER AI — HTML/CSS CODE GENERATION
-// The Coder AI receives the refined content AND the Art Director's
-// custom design strategy, and writes single-file HTML/CSS.
+// STAGE 2: CODER AI — HTML/CSS CODE GENERATION
+// Codes single-file HTML/CSS strictly adhering to full-canvas
+// layout distribution so the canvas is rich, balanced, and stunning.
 // ============================================================
 export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest, memoryContext?: string): string {
   const { width, height } = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
@@ -214,45 +180,106 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
     chatBlock = `\n## RECENT USER EDITS\n${request.chatHistory.slice(-2).map((m) => `${m.role}: ${m.content}`).join("\n")}\n`;
   }
   if (request.refinementPrompt) {
-    chatBlock += `Apply specific user edit: "${request.refinementPrompt}"\n`;
+    chatBlock += `Apply user edit: "${request.refinementPrompt}"\n`;
   }
 
-  return `## STAGE 3: HTML/CSS CODE GENERATION
+  return `## STAGE 2: HTML/CSS CODE GENERATION
 You are an expert senior frontend engineer and visual designer.
-Code the COMPLETE, single-file HTML/CSS document faithfully executing the custom design strategy planned by the Art Director.
+Code the COMPLETE, single-file HTML/CSS infographic document.
 
-### EXACT CANVAS DIMENSIONS (STRICT)
+### EXACT CANVAS DIMENSIONS (CRITICAL)
 - Width: ${width}px
 - Height: ${height}px
-- Must fit within ${width}x${height}px with ZERO scrollbars and ZERO overflow.
+- The layout MUST fit within ${width}x${height}px with ZERO scrollbars and ZERO clipping.
 - Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
 
-### ART DIRECTOR DESIGN STRATEGY
+### ART DIRECTOR DESIGN BLUEPRINT
 ${JSON.stringify(blueprint, null, 2)}
 
-### REFINED CONTENT TO RENDER
+### FULL CONTENT PACKAGE TO RENDER (RENDER ALL 4 SECTIONS & ALL STATS)
 ${JSON.stringify(content, null, 2)}
 ${chatBlock}${memoryBlock}
-### MANDATORY CODING RULES
-1. Start with <!DOCTYPE html><html><head><meta charset="UTF-8"><style>...</style></head><body>...</body></html>.
-2. Load Google Fonts in <head> via <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=...">.
-3. In <style>, define CSS custom properties (:root) matching the Art Director's palette and typography.
-4. Implement the Art Director's visual layout:
-   - Ambient background depth (mesh gradients, radial glow, or subtle texture).
-   - Category kicker badge chip above the main title.
-   - Title with bold styling / text gradient.
-   - Layout matching the blueprint (Bento grid, comparison split, sequential steps, etc.).
-   - Visual data components: CSS progress bars, stat meters, icon badge wrappers, and step pills.
-   - Clean footer with key takeaway or source tag.
-5. Icons: Use inline <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">...</svg>. NO emoji, NO external <img> links.
-6. Use CSS clamp() sizing and flex/grid so all content naturally fits within ${height}px without overflow.
-7. Pure HTML & CSS only — NO <script> tags.
+### CRITICAL CANVAS PROPORTION & LAYOUT RULES (NO EMPTY SPACES)
+1. **FULL-CANVAS ROOT CONTAINER**:
+   \`\`\`css
+   .infographic-canvas {
+     width: ${width}px;
+     height: ${height}px;
+     box-sizing: border-box;
+     padding: 36px 40px;
+     display: flex;
+     flex-direction: column;
+     justify-content: space-between;
+     overflow: hidden;
+     position: relative;
+     background: radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.22) 0%, transparent 45%),
+                 radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.18) 0%, transparent 45%),
+                 radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.12) 0%, transparent 60%),
+                 #0b0f19;
+     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+     color: #f8fafc;
+   }
+   \`\`\`
+
+2. **ZONE 1: HEADER (top 15-18% of canvas)**:
+   - Kicker tag: \`<span class="kicker-chip">\${content.kicker || "EXECUTIVE SUMMARY"}</span>\`
+     (style: uppercase, letter-spacing 1.5px, font-size 13px, font-weight 700, padding 6px 14px, border-radius 999px, background rgba(59,130,246,0.18), border 1px solid rgba(59,130,246,0.4), color #60a5fa, display inline-block)
+   - Title: \`<h1 class="hero-title">\${content.title}</h1>\`
+     (style: font-size clamp(36px, 4.2vw, 48px), font-weight 800, line-height 1.15, margin 8px 0 4px 0, background linear-gradient(135deg, #ffffff 40%, #c7d2fe 100%), -webkit-background-clip text, -webkit-text-fill-color transparent)
+   - Subtitle: \`<p class="hero-subtitle">\${content.subtitle}</p>\`
+     (style: font-size clamp(16px, 1.8vw, 20px), color #94a3b8, margin 0)
+
+3. **ZONE 2: STAT METRICS BAND (15-18% of canvas)**:
+   - Render a horizontal row of 3 or 4 stat cards with equal width (\`display: flex; gap: 14px; width: 100%;\`).
+   - Each card has:
+     - Stat Number (\`font-size: clamp(34px, 4.2vw, 46px); font-weight: 800; color: #38bdf8; line-height: 1;\`)
+     - Stat Label (\`font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase;\`)
+     - Horizontal gradient progress bar:
+       \`<div class="meter-track" style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.1); margin-top: 8px; overflow: hidden;"><div class="meter-fill" style="height: 100%; width: 85%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px;"></div></div>\`
+
+4. **ZONE 3: CORE CONTENT GRID (fills 55-60% of canvas — NO EMPTY SPACE)**:
+   - Render ALL 4 sections in a balanced 2x2 grid:
+     \`\`\`css
+     .content-grid {
+       display: grid;
+       grid-template-columns: repeat(2, 1fr);
+       gap: 16px;
+       flex: 1;
+       margin: 14px 0;
+     }
+     \`\`\`
+   - Each section card:
+     \`\`\`css
+     .section-card {
+       background: rgba(18, 26, 43, 0.75);
+       border: 1px solid rgba(255, 255, 255, 0.12);
+       border-radius: 18px;
+       padding: 20px 22px;
+       backdrop-filter: blur(12px);
+       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+       display: flex;
+       flex-direction: column;
+       justify-content: space-between;
+     }
+     \`\`\`
+   - Card Top: Inline SVG icon in a styled \`42px\` square box (\`background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px;\`) + Section Title (\`font-size: clamp(18px, 2vw, 22px); font-weight: 700; color: #f8fafc;\`).
+   - Card Body: Description overview (\`font-size: clamp(13px, 1.3vw, 15px); color: #cbd5e1; line-height: 1.5;\`).
+   - Card Bullets: Actionable bullet points rendered as styled pill chips or list items with bullet SVGs.
+
+5. **ZONE 4: BOTTOM TAKEAWAY FOOTER (6-8% of canvas)**:
+   - Full-width takeaway pill:
+     \`\`\`html
+     <div class="footer-takeaway" style="padding: 12px 22px; border-radius: 999px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; color: #e2e8f0;">
+       <span>✦ <strong>KEY TAKEAWAY:</strong> \${content.keyTakeaway || "Automates workflows and delivers measurable scale."}</span>
+       <span style="color: #60a5fa; font-size: 12px; text-transform: uppercase;">Infographic Studio • 2026</span>
+     </div>
+     \`\`\`
+
+6. **TECHNICAL CODING REQUIREMENTS**:
+   - Start with <!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&display=swap"><style>...</style></head><body>...</body></html>.
+   - Use crisp inline SVGs with stroke="currentColor" and stroke-width="2". NO emoji, NO external <img> links.
+   - Pure HTML & CSS only — NO <script> tags.
 
 ### OUTPUT FORMAT
-Output ONLY the raw self-contained HTML code starting with <!DOCTYPE html>. Do NOT add markdown fences, do NOT add explanations.`;
-}
-
-// Combined shortcut for fast single-round-trip calls when needed
-export function buildContentBlueprintPrompt(request: AIGenerationRequest, memoryContext?: string): string {
-  return buildContentAnalysisPrompt(request, memoryContext);
+Output ONLY the raw self-contained HTML code starting with <!DOCTYPE html>. Do NOT add markdown code fences, do NOT add explanations.`;
 }
