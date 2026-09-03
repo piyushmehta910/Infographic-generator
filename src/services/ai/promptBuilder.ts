@@ -397,7 +397,24 @@ ${chatBlock}${memoryBlock}
    - Visual meters: Add visual progress tracks under stats (\`<div style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden;"><div style="height: 100%; width: 85%; background: linear-gradient(90deg, #6366f1, #ec4899); border-radius: 999px;"></div></div>\`).
 3. **ICONS**: Use inline <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">...</svg>. NO emoji, NO external <img> links.
 4. **RESPONSIVE FIT**: Use CSS \`clamp()\` fonts and flex/grid with \`gap\` so everything fits inside ${height}px without overflow.
-5. Pure HTML & CSS only — NO <script> tags.
+5. **DOCUMENT STRUCTURE (MANDATORY)**:
+   You MUST return a complete, valid document formatted exactly like this:
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+     <meta charset="UTF-8">
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+     <style>
+       * { margin: 0; padding: 0; box-sizing: border-box; }
+       html, body { width: ${width}px; height: ${height}px; overflow: hidden; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+       /* All your CSS classes, custom properties, and styling rules here */
+     </style>
+   </head>
+   <body>
+     <!-- ALL HTML content, containers, headers, cards, and SVGs go inside body -->
+   </body>
+   </html>
+6. Pure HTML & CSS only — NO <script> tags.
 
 ### OUTPUT FORMAT
 Output ONLY the raw self-contained HTML code starting with <!DOCTYPE html>. Do NOT add markdown code fences, do NOT add explanations.`;

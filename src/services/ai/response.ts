@@ -56,26 +56,80 @@ export function extractHTML(text: string): string {
   let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
   // Extract from markdown code fences if present
-  const codeBlockMatch = cleaned.match(/```(?:html)?\s*([\s\S]*?)(?:```|$)/i);
+  const codeBlockMatch = cleaned.match(/```(?:html|css|xml)?\s*([\s\S]*?)(?:```|$)/i);
   if (codeBlockMatch && codeBlockMatch[1].trim().length > 0) {
     cleaned = codeBlockMatch[1].trim();
   }
 
-  // Find where actual HTML starts
-  const htmlStart = cleaned.search(/<!DOCTYPE|<html|<div|<article|<section/i);
-  if (htmlStart !== -1) {
-    cleaned = cleaned.slice(htmlStart);
+  // If it already is a complete HTML document, ensure proper DOCTYPE and return
+  if (/<html[\s>]/i.test(cleaned) || /<!DOCTYPE\s+html/i.test(cleaned)) {
+    let html = cleaned;
+    const docStart = html.search(/<!DOCTYPE|<html/i);
+    if (docStart !== -1) html = html.slice(docStart);
+    if (!html.startsWith("<!DOCTYPE") && !html.startsWith("<!doctype")) {
+      html = `<!DOCTYPE html>\n${html}`;
+    }
+    // Auto-close missing tags if stream was truncated
+    if (!/<\/body>/i.test(html)) html += "\n</body>";
+    if (!/<\/html>/i.test(html)) html += "\n</html>";
+    return html;
   }
 
-  // Ensure DOCTYPE and essential wrappers exist
-  let html = cleaned.trim();
-  if (!html.startsWith("<!") && !html.startsWith("<html")) {
-    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;overflow:hidden}</style></head><body>${html}</body></html>`;
+  // The model returned a partial snippet or raw CSS + HTML markup.
+  // Extract any <style> blocks or raw CSS rules (:root { ... }, * { ... }, etc.)
+  let css = "";
+  let bodyMarkup = cleaned;
+
+  // 1. Extract explicit <style> blocks
+  const styleMatch = bodyMarkup.match(/<style[\s\S]*?<\/style>/gi);
+  if (styleMatch) {
+    for (const s of styleMatch) {
+      css += "\n" + s.replace(/<\/?style[^>]*>/gi, "");
+      bodyMarkup = bodyMarkup.replace(s, "");
+    }
   }
-  if (!html.startsWith("<!DOCTYPE") && !html.startsWith("<!doctype")) {
-    html = `<!DOCTYPE html>\n${html}`;
+
+  // 2. Extract leading raw CSS rules if model output started with `:root { ... }` or `@import`
+  const rawCssMatch = bodyMarkup.match(/^\s*(@import[^;]+;|:root\s*\{[\s\S]*?\}(?:\s*[a-zA-Z0-9_#.-]+\s*\{[\s\S]*?\})*)/i);
+  if (rawCssMatch) {
+    css += "\n" + rawCssMatch[0];
+    bodyMarkup = bodyMarkup.slice(rawCssMatch[0].length);
   }
-  return html;
+
+  // 3. Extract any external <link rel="stylesheet"> fonts
+  let links = "";
+  const linkMatches = bodyMarkup.match(/<link[^>]+rel=["']stylesheet["'][^>]*>/gi);
+  if (linkMatches) {
+    for (const l of linkMatches) {
+      links += "\n" + l;
+      bodyMarkup = bodyMarkup.replace(l, "");
+    }
+  }
+
+  // Clean remaining body markup
+  bodyMarkup = bodyMarkup.trim();
+  if (!bodyMarkup) {
+    bodyMarkup = `<div class="infographic-container" style="width: 100%; height: 100%; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;"><h1>Generated Infographic</h1></div>`;
+  }
+
+  // Default baseline CSS if model omitted baseline resets
+  const baselineCss = `* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Plus Jakarta Sans', Inter, -apple-system, sans-serif; overflow: hidden; width: 100%; height: 100%; }`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${links}
+  <style>
+    ${baselineCss}
+    ${css}
+  </style>
+</head>
+<body>
+  ${bodyMarkup}
+</body>
+</html>`;
 }
 
 // Strip ```html ... ``` or ``` ... ``` wrappers (client-side cleanup).
