@@ -16,7 +16,7 @@ interface AIStore {
   getActiveConfig: () => AIProviderConfig | undefined;
 }
 
-const SUPPORTED_PROVIDER_IDS = ["openrouter", "groq", "nim", "mistral", "custom"] as const;
+const SUPPORTED_PROVIDER_IDS = ["openrouter", "gemini", "groq", "nim", "mistral", "custom"] as const;
 
 const defaultProviders: AIProviderConfig[] = [
   {
@@ -27,6 +27,15 @@ const defaultProviders: AIProviderConfig[] = [
     temperature: 0.5,
     maxTokens: 1024,
     enabled: true,
+  },
+  {
+    id: "gemini",
+    name: "Google Gemini",
+    apiKey: "",
+    model: "gemini-2.0-flash",
+    temperature: 0.5,
+    maxTokens: 1024,
+    enabled: false,
   },
   {
     id: "groq",
@@ -101,9 +110,12 @@ export const useAIStore = create<AIStore>()(
             merged.providers = (merged.providers || [])
               .filter((p: AIProviderConfig) => supported.has(p.id))
               .map((p: AIProviderConfig) => {
-                // If OpenRouter was left on paid auto, migrate to free router
-                if (p.id === "openrouter" && (!p.model || p.model === "openrouter/auto")) {
+                // If OpenRouter was left on paid auto or deprecated models, migrate to free router
+                if (p.id === "openrouter" && (!p.model || p.model === "openrouter/auto" || p.model.includes("meta-llama/llama-3.3-70b-instruct"))) {
                   return { ...p, model: "openrouter/free" };
+                }
+                if (p.id === "gemini" && !p.model) {
+                  return { ...p, model: "gemini-2.0-flash" };
                 }
                 return p;
               });

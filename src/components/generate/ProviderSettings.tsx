@@ -14,11 +14,29 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
   const { providers, activeProvider, setProvider, setActiveProvider } = useAIStore();
   const [testing, setTesting] = useState(false);
   const [freeOnly, setFreeOnly] = useState(true);
+  const [dynamicModels, setDynamicModels] = useState<Record<string, any[]>>({});
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     message: string;
   } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Fetch live free models from /api/models for active provider
+  useEffect(() => {
+    if (!open) return;
+    const fetchLiveModels = async () => {
+      try {
+        const res = await fetch(`/api/models?provider=${activeProvider}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.models) && data.models.length > 0) {
+          setDynamicModels((prev) => ({ ...prev, [activeProvider]: data.models }));
+        }
+      } catch {
+        // Fall back to static constants silently
+      }
+    };
+    fetchLiveModels();
+  }, [open, activeProvider]);
 
   // Escape closes the dialog; focus moves into it while open.
   useEffect(() => {
@@ -314,7 +332,7 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                           className="w-full appearance-none px-4 py-3 pr-10 bg-navy-950 border border-white/10 rounded-xl text-sm text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
                           style={{ colorScheme: "dark" }}
                         >
-                          {(AI_PROVIDERS.find((p) => p.id === provider.id)?.models || [])
+                          {(dynamicModels[provider.id] || AI_PROVIDERS.find((p) => p.id === provider.id)?.models || [])
                             .filter((m) => !freeOnly || m.isFree !== false)
                             .map((model) => (
                               <option key={model.id} value={model.id}>
@@ -325,9 +343,8 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                         <ChevronDown className="w-4 h-4 text-surface-400 pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                       </div>
                       {(() => {
-                        const currentModelInfo = (
-                          AI_PROVIDERS.find((p) => p.id === provider.id)?.models || []
-                        ).find((m) => m.id === provider.model);
+                        const modelsList = dynamicModels[provider.id] || AI_PROVIDERS.find((p) => p.id === provider.id)?.models || [];
+                        const currentModelInfo = modelsList.find((m) => m.id === provider.model);
                         return (
                           currentModelInfo?.description && (
                             <p className="text-xs text-surface-400 mt-1.5 leading-relaxed bg-surface-950/60 p-2.5 rounded-lg border border-white/5">

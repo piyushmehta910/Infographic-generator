@@ -11,24 +11,38 @@ export interface StoredProvider {
 const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   openrouter: [
     "openrouter/free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "minimax/minimax-m3:free",
+    "cohere/north-mini-code:free",
+    "z-ai/glm-5.2:free",
+    "minimax/minimax-m2.7:free",
+    "liquid/lfm-2.5-2.6b:free",
+    "dots-studio/dots-3-note-preview:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-2.0-flash-exp:free",
     "qwen/qwen-2.5-coder-32b-instruct:free",
     "deepseek/deepseek-chat:free",
     "deepseek/deepseek-r1:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
+  ],
+  gemini: [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite-preview-02-05",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
   ],
   groq: [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
     "deepseek-r1-distill-llama-70b",
-    "mixtral-8x7b-32768",
     "gemma2-9b-it",
+    "qwen-2.5-32b",
   ],
   nim: [
     "meta/llama-3.3-70b-instruct",
-    "meta/llama-3.1-70b-instruct",
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "deepseek-ai/deepseek-r1",
     "qwen/qwen2.5-72b-instruct",
@@ -160,7 +174,7 @@ export async function tryAllProviders(
   limits?: CallLimits,
   onSkipProvider?: (pid: AIProviderId, reason: "exhausted") => void,
 ): Promise<{ text: string; provider: AIProviderId; model: string } | null> {
-  const providerPriority: AIProviderId[] = ["openrouter", "nim", "groq", "mistral", "custom"];
+  const providerPriority: AIProviderId[] = ["openrouter", "gemini", "groq", "nim", "mistral", "custom"];
   let fanout = 0;
   for (const pid of providerPriority) {
     if (pid === userProviderId) continue;

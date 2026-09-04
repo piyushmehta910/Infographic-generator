@@ -72,7 +72,7 @@ export type FontId =
 
 // --- AI Provider Types ---
 
-export type AIProviderId = "openrouter" | "groq" | "nim" | "mistral" | "custom";
+export type AIProviderId = "openrouter" | "gemini" | "groq" | "nim" | "mistral" | "custom";
 
 export interface AIProviderConfig {
   id: AIProviderId;

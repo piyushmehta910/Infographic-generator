@@ -281,6 +281,46 @@ class MistralProviderImpl implements AIProvider {
   }
 }
 
+class GeminiProviderImpl implements AIProvider {
+  id: AIProviderId = "gemini";
+  async generate(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+    baseUrl?: string,
+    signal?: AbortSignal,
+    deadlineMs?: number,
+  ): Promise<string> {
+    const chosenModel = model || "gemini-2.0-flash";
+    const response = await fetchWithTimeout(
+      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: chosenModel,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: prompt },
+          ],
+          temperature,
+          max_tokens: maxTokens,
+        }),
+      },
+      REQUEST_TIMEOUT_MS,
+      signal,
+      deadlineMs,
+    );
+    if (!response.ok) throw new ProviderHttpError(response.status, `Google Gemini (${chosenModel}): ${(await errorBody(response)).slice(0, 280)}`, parseRetryAfter(response));
+    return messageText(await response.json(), `Google Gemini (${chosenModel})`);
+  }
+}
+
 class CustomProviderImpl implements AIProvider {
   id: AIProviderId = "custom";
   async generate(
@@ -324,6 +364,7 @@ class CustomProviderImpl implements AIProvider {
 
 export const providerMap: Record<AIProviderId, AIProvider> = {
   openrouter: new OpenRouterProviderImpl(),
+  gemini: new GeminiProviderImpl(),
   groq: new GroqProviderImpl(),
   nim: new NIMProviderImpl(),
   mistral: new MistralProviderImpl(),
