@@ -10,18 +10,16 @@ export interface StoredProvider {
 
 const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   openrouter: [
-    "openrouter/free",
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
     "minimax/minimax-m3:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "cohere/north-mini-code:free",
     "z-ai/glm-5.2:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
     "minimax/minimax-m2.7:free",
     "liquid/lfm-2.5-2.6b:free",
-    "dots-studio/dots-3-note-preview:free",
+    "openrouter/free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-2.0-flash-exp:free",
     "qwen/qwen-2.5-coder-32b-instruct:free",

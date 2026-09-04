@@ -68,20 +68,12 @@ export const AI_PROVIDERS: AIProviderOption[] = [
     docsUrl: "https://openrouter.ai/keys",
     models: [
       {
-        id: "openrouter/free",
-        name: "OpenRouter Auto Free (Recommended)",
-        contextWindow: 200000,
-        maxOutput: 8192,
-        isFree: true,
-        description: "Intelligently routes to the highest-capacity active free model on OpenRouter.",
-      },
-      {
         id: "google/gemma-4-31b-it:free",
-        name: "Google Gemma 4 31B (Free)",
+        name: "Google Gemma 4 31B (Free — Recommended)",
         contextWindow: 262144,
         maxOutput: 8192,
         isFree: true,
-        description: "Google's powerful 31B instruction model with 262k context window.",
+        description: "Google's powerful 31B instruction model with 262k context window and great CSS styling.",
       },
       {
         id: "google/gemma-4-26b-a4b-it:free",

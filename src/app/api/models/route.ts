@@ -69,13 +69,29 @@ export async function GET(request: NextRequest) {
       pricing?: { prompt?: string; completion?: string };
     }> = data?.data || [];
 
-    // Filter for free models + openrouter/free router
-    const freeRaw = rawModels.filter(
-      (m) =>
+    // Filter for generative free models (exclude safety classifiers, guardrails, embeddings, audio)
+    const freeRaw = rawModels.filter((m) => {
+      const isFree =
         m.id.includes(":free") ||
-        m.id === "openrouter/free" ||
-        (m.pricing?.prompt === "0" && m.pricing?.completion === "0"),
-    );
+        (m.pricing?.prompt === "0" && m.pricing?.completion === "0");
+      if (!isFree) return false;
+      const lower = m.id.toLowerCase();
+      // Exclude non-generative / classification / filter models
+      if (
+        lower.includes("safety") ||
+        lower.includes("guard") ||
+        lower.includes("moderation") ||
+        lower.includes("classifier") ||
+        lower.includes("embed") ||
+        lower.includes("rerank") ||
+        lower.includes("clip") ||
+        lower.includes("whisper") ||
+        lower.includes("audio")
+      ) {
+        return false;
+      }
+      return true;
+    });
 
     if (freeRaw.length === 0) {
       return NextResponse.json({

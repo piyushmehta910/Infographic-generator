@@ -23,7 +23,7 @@ const defaultProviders: AIProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     apiKey: "",
-    model: "openrouter/free",
+    model: "google/gemma-4-31b-it:free",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: true,
@@ -110,9 +110,16 @@ export const useAIStore = create<AIStore>()(
             merged.providers = (merged.providers || [])
               .filter((p: AIProviderConfig) => supported.has(p.id))
               .map((p: AIProviderConfig) => {
-                // If OpenRouter was left on paid auto or deprecated models, migrate to free router
-                if (p.id === "openrouter" && (!p.model || p.model === "openrouter/auto" || p.model.includes("meta-llama/llama-3.3-70b-instruct"))) {
-                  return { ...p, model: "openrouter/free" };
+                // If OpenRouter was left on paid auto, safety classifiers, or deprecated models, migrate to reliable free generative model
+                if (
+                  p.id === "openrouter" &&
+                  (!p.model ||
+                    p.model === "openrouter/auto" ||
+                    p.model === "openrouter/free" ||
+                    p.model.includes("content-safety") ||
+                    p.model.includes("meta-llama/llama-3.3-70b-instruct"))
+                ) {
+                  return { ...p, model: "google/gemma-4-31b-it:free" };
                 }
                 if (p.id === "gemini" && !p.model) {
                   return { ...p, model: "gemini-2.0-flash" };

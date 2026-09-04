@@ -61,6 +61,15 @@ export function extractHTML(text: string): string {
     cleaned = codeBlockMatch[1].trim();
   }
 
+  // Reject safety responses, moderation output, and one-word answers
+  if (
+    /^\s*user safety:\s*safe\s*$/i.test(cleaned) ||
+    /^\s*(safe|unsafe|refused|ok)\s*$/i.test(cleaned) ||
+    /^\s*i cannot (fulfill|generate|assist)\b/i.test(cleaned)
+  ) {
+    return "";
+  }
+
   // If it already is a complete HTML document, ensure proper DOCTYPE and return
   if (/<html[\s>]/i.test(cleaned) || /<!DOCTYPE\s+html/i.test(cleaned)) {
     let html = cleaned;
@@ -72,7 +81,17 @@ export function extractHTML(text: string): string {
     // Auto-close missing tags if stream was truncated
     if (!/<\/body>/i.test(html)) html += "\n</body>";
     if (!/<\/html>/i.test(html)) html += "\n</html>";
-    return html;
+
+    // Verify it contains actual structure (not just empty html tags)
+    const hasSubstance = /<(div|section|main|article|h[1-6]|p|svg|header|card)\b/i.test(html);
+    return hasSubstance ? html : "";
+  }
+
+  // If text does not contain any HTML elements or CSS rules, it is plain text, not an infographic!
+  const hasHtmlTags = /<(div|section|main|article|h[1-6]|p|span|svg|style|header|ul|li)\b/i.test(cleaned);
+  const hasCssRules = /(:root|\.infographic|\.card|@import|[a-zA-Z0-9_-]+\s*\{)/i.test(cleaned);
+  if (!hasHtmlTags && !hasCssRules) {
+    return "";
   }
 
   // The model returned a partial snippet or raw CSS + HTML markup.
@@ -108,8 +127,8 @@ export function extractHTML(text: string): string {
 
   // Clean remaining body markup
   bodyMarkup = bodyMarkup.trim();
-  if (!bodyMarkup) {
-    bodyMarkup = `<div class="infographic-container" style="width: 100%; height: 100%; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;"><h1>Generated Infographic</h1></div>`;
+  if (!bodyMarkup || !/<[a-z][\s\S]*>/i.test(bodyMarkup)) {
+    return "";
   }
 
   // Default baseline CSS if model omitted baseline resets

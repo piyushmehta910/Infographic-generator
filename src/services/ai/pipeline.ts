@@ -663,13 +663,17 @@ async function runPipeline(
 
     const finalHtml = sanitizeHTML(extractHTML(htmlResponse));
 
-    if (!finalHtml || finalHtml.length < 50) {
+    if (
+      !finalHtml ||
+      finalHtml.length < 100 ||
+      !/<(div|section|main|article|header|card)\b/i.test(finalHtml)
+    ) {
       steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
       emit({ type: "phase_end", phase: "html", status: "failed" });
       return failedResult(
         providerId,
         model,
-        "AI returned an empty design. Please try again or switch to a faster model.",
+        "AI returned an empty or unstyled design. Please try again or switch to a different model.",
         steps,
         startTime,
         undefined,
