@@ -406,12 +406,18 @@ ${chatBlock}${memoryBlock}
      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
      <style>
        * { margin: 0; padding: 0; box-sizing: border-box; }
-       html, body { width: ${width}px; height: ${height}px; overflow: hidden; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
-       /* All your CSS classes, custom properties, and styling rules here */
+       html, body { width: ${width}px; height: ${height}px; overflow: hidden; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; background: #0b0f19; color: #f8fafc; }
+       .infographic-root { width: 100%; height: 100%; padding: 36px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; box-sizing: border-box; }
+       /* All your CSS styling rules for header, stat cards, content cards, and footer */
      </style>
    </head>
    <body>
-     <!-- ALL HTML content, containers, headers, cards, and SVGs go inside body -->
+     <div class="infographic-root">
+       <!-- Header Section with Kicker Tag, Title, Subtitle -->
+       <!-- Metrics / Stat Band with glowing numbers and visual progress meters -->
+       <!-- Content Cards Grid with styled cards, section titles, and actionable bullet points -->
+       <!-- Footer Takeaway Banner -->
+     </div>
    </body>
    </html>
 6. Pure HTML & CSS only — NO <script> tags.

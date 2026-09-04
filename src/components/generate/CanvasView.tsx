@@ -86,8 +86,8 @@ export default function CanvasView(p: CanvasViewProps) {
   return (
     <main id="generate-app" className="flex-1 overflow-auto flex flex-col bg-navy-950">
       {/* Toolbar */}
-      <div className="flex-shrink-0 border-b border-white/5 px-4 py-3 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex-shrink-0 border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm overflow-x-auto">
+        <div className="flex items-center gap-3 flex-shrink-0">
           {/* Revisions history pills */}
           {revisions.length > 1 && (
             <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5 border border-white/5">
@@ -117,7 +117,7 @@ export default function CanvasView(p: CanvasViewProps) {
 
           {/* Zoom controls */}
           {html && (
-            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg px-2 py-0.5">
+            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg px-2 py-0.5 border border-white/5">
               <button onClick={() => p.setZoom(Math.max(ZOOM_MIN, zoom - 10))} className="p-1.5 text-surface-400 hover:text-white touch-target" title="Zoom out">
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
@@ -135,7 +135,7 @@ export default function CanvasView(p: CanvasViewProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
           <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={!hasContent || isGenerating} title="Regenerate">
             <RefreshCw className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline ml-1">Regenerate</span>
