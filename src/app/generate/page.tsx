@@ -464,21 +464,6 @@ export default function GeneratePage() {
     executeGeneration();
   }, [executeGeneration]);
 
-  const handleSendChatMessage = useCallback(
-    async (msgText: string) => {
-      if (!msgText.trim() || isGenerating) return;
-      const userMsg: ChatMessage = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        role: "user",
-        content: msgText,
-        timestamp: Date.now(),
-      };
-      addMessage(userMsg);
-      await executeGeneration(msgText);
-    },
-    [isGenerating, addMessage, executeGeneration],
-  );
-
   const handleSelectRevision = useCallback(
     (rev: GenerationRevision) => {
       setHtml(rev.html);
@@ -565,8 +550,6 @@ export default function GeneratePage() {
             input={input}
             setInput={setInput}
             onGenerateClick={handleGenerate}
-            onSendChatMessage={handleSendChatMessage}
-            messages={messages}
             isGenerating={isGenerating}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
@@ -603,11 +586,6 @@ export default function GeneratePage() {
                     setMobileInputOpen(false);
                     handleGenerate();
                   }}
-                  onSendChatMessage={(msg) => {
-                    setMobileInputOpen(false);
-                    handleSendChatMessage(msg);
-                  }}
-                  messages={messages}
                   isGenerating={isGenerating}
                   aspectRatio={aspectRatio}
                   setAspectRatio={setAspectRatio}
