@@ -180,6 +180,7 @@ class OpenRouterProviderImpl implements AIProvider {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
           "HTTP-Referer": APP_URL,
+          "X-Title": "Infographic Generator",
         },
         body: JSON.stringify({
           model: model || "openrouter/free",

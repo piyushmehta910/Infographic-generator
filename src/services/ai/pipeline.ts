@@ -21,10 +21,7 @@ import {
 import { extractJSON, extractHTML, sanitizeHTML } from "./response";
 import { normalizeContent, heuristicOutlineFromInput } from "./normalize";
 import {
-  validateInfographicHTML,
   scoreInfographicHTML,
-  buildRetrySuffix,
-  buildQualitySuffix,
 } from "./quality";
 import { getCanvasDimensions } from "@/lib/canvas";
 import {
@@ -88,7 +85,6 @@ function tokensForPhase(
 }
 
 const HTML_TOKEN_CAP = 8192;
-const MAX_HTML_ATTEMPTS = 3;
 const MIN_QUALITY_SCORE = 50;
 
 /** Detect if a model is a small/free tier model that may produce simpler output.
@@ -406,8 +402,7 @@ REQUIREMENTS:
 
   for (const candidate of candidates) {
     const html = sanitizeHTML(extractHTML(candidate.text));
-    const val = validateInfographicHTML(html, dimensions.width, dimensions.height);
-    if (!val.pass && (!html || html.length < 50)) continue;
+    if (!html || html.length < 50) continue;
     return {
       success: true,
       generatedHtml: html,
@@ -666,122 +661,29 @@ async function runPipeline(
       }
     }
 
-    const canvasPx = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
-    let bestHtml = "";
-    let bestScore = -1;
-    // Store validation checks from the previous attempt for retry prompts.
-    let lastChecks: Record<string, boolean> | null = null;
+    const finalHtml = sanitizeHTML(extractHTML(htmlResponse));
 
-    // Run up to MAX_HTML_ATTEMPTS generations, score each, keep the best.
-    for (let attempt = 0; attempt < MAX_HTML_ATTEMPTS; attempt++) {
-      let candidateResponse: string;
-      if (attempt === 0) {
-        // First attempt already obtained as `htmlResponse` – no extra API call.
-        candidateResponse = htmlResponse;
-      } else {
-        const retryPrompt =
-          htmlPrompt +
-          (bestScore >= 0
-            ? buildQualitySuffix(scoreInfographicHTML(bestHtml).metrics, attempt, bestScore)
-            : buildRetrySuffix(lastChecks ?? {}, canvasPx.width, canvasPx.height));
-        emit({ type: "attempt", phase: "html", attempt, message: `Refining design (attempt ${attempt + 1})…` });
-        try {
-          const retryCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
-          candidateResponse = await generateWithFallback(
-            providerMap[usedProvider],
-            retryPrompt,
-            retryCreds.key,
-            retryCreds.model,
-            Math.min(temperature, 0.3 + attempt * 0.05),
-            tokensForPhase(maxTokens, HTML_TOKEN_CAP, 2560, usedProvider, retryCreds.model),
-            usedProvider,
-            getBaseUrl(usedProvider, storedProviders),
-            limits,
-          );
-        } catch (error) {
-          if (error instanceof GenerationStoppedError) throw error;
-          if (bestScore >= 0 && bestHtml) {
-            // We already have a valid candidate from an earlier attempt — use it
-            break;
-          }
-          if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-          const retryError = error instanceof Error ? error.message : String(error);
-          const retryStatus = statusOf(error);
-          steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-          emit({ type: "phase_end", phase: "html", status: "failed" });
-          return failedResult(
-            providerId,
-            model,
-            "AI generation failed — the provider may be offline, out of credits, or rate-limited. Try again or switch providers.",
-            steps,
-            startTime,
-            retryStatus,
-            { content: infographicContent, blueprint },
-            { message: retryError, provider: usedProvider, model: usedModel },
-          );
-        }
-      }
-
-      const candidate = extractHTML(candidateResponse);
-      const val = validateInfographicHTML(candidate, canvasPx.width, canvasPx.height);
-      if (!val.pass) {
-        const failed = Object.entries(val.checks)
-          .filter(([, ok]) => !ok)
-          .map(([key]) => key);
-        memory.add(
-          "correction",
-          `HTML attempt ${attempt + 1} rejected`,
-          failed.length > 0 ? failed.join(", ") : "did not pass validation",
-        );
-        // Store the failing checks for the next retry prompt.
-        lastChecks = val.checks;
-        if (attempt < MAX_HTML_ATTEMPTS - 1) continue;
-
-        // If we have a candidate from this attempt with substance, auto-repair instead of crashing
-        if (!bestHtml && candidate && candidate.length > 50) {
-          bestHtml = candidate;
-          warnings.push("The generated design was automatically repaired for canvas rendering.");
-        } else if (!bestHtml) {
-          steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
-          emit({ type: "phase_end", phase: "html", status: "failed" });
-          return failedResult(
-            providerId,
-            model,
-            "AI produced an invalid design and could not be refined after retries. Please try again.",
-            steps,
-            startTime,
-            undefined,
-            { content: infographicContent, blueprint },
-          );
-        }
-      }
-
-      const scored = scoreInfographicHTML(candidate);
-      if (scored.score > bestScore || !bestHtml) {
-        bestHtml = candidate;
-        bestScore = scored.score;
-        // Reset lastChecks because we have a successful candidate.
-        lastChecks = null;
-      }
+    if (!finalHtml || finalHtml.length < 50) {
+      steps.push({ name: "HTML/CSS rendering", status: "failed", durationMs: Date.now() - htmlStart });
+      emit({ type: "phase_end", phase: "html", status: "failed" });
+      return failedResult(
+        providerId,
+        model,
+        "AI returned an empty design. Please try again or switch to a faster model.",
+        steps,
+        startTime,
+        undefined,
+        { content: infographicContent, blueprint },
+      );
     }
 
-    // Quality gate: below-threshold output ships as an honest "degraded"
-    // result (best attempt + warning) instead of being thrown away — the
-    // user decides whether to regenerate.
-    let degraded = blueprintUsedFallback || contentParseFailed;
+    const scored = scoreInfographicHTML(finalHtml);
     const qualityThreshold = getQualityThreshold(usedModel);
-    if (bestScore < qualityThreshold) {
-      degraded = true;
-      const qualityMessage = `Design scored ${bestScore}/100 (target ${qualityThreshold}${isSmallModel(usedModel) ? " for small model" : ""}) — showing the best attempt.`;
-      warnings.push(qualityMessage);
-      steps.push({ name: "Quality gate", status: "fallback", durationMs: 0 });
-      emit({ type: "warning", phase: "html", message: qualityMessage });
-    }
-    steps.push({ name: "HTML/CSS rendering", status: "completed", durationMs: Date.now() - htmlStart });
+    const degraded = scored.score < qualityThreshold || blueprintUsedFallback || contentParseFailed;
+
+    steps.push({ name: "Phase 3: HTML/CSS Code Generation", status: "completed", durationMs: Date.now() - htmlStart });
     emit({ type: "phase_end", phase: "html", status: degraded ? "fallback" : "completed" });
 
-    // Sanitize the final HTML (strip scripts, event handlers, javascript: URLs).
-    const html = sanitizeHTML(bestHtml);
     const exportStart = Date.now();
     steps.push({ name: "Export & delivery", status: "completed", durationMs: Date.now() - exportStart });
     emit({ type: "phase_end", phase: "finalize", status: "completed" });
@@ -789,7 +691,7 @@ async function runPipeline(
     return {
       success: true,
       content: infographicContent,
-      generatedHtml: html,
+      generatedHtml: finalHtml,
       blueprint,
       steps,
       provider: usedProvider,
