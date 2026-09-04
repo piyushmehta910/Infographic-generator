@@ -192,11 +192,28 @@ export async function POST(request: NextRequest) {
       // Periodic comment frames keep proxies/CDNs from treating the
       // connection as idle and dropping it during long quiet phases.
       const heartbeat = setInterval(() => send("ping", {}), 15_000);
+      // Sanitize model choice so stale client localStorage never sends "openrouter/free" or safety classifiers
+      let effectiveModel = options.model;
+      if (
+        options.providerId === "openrouter" &&
+        (!effectiveModel ||
+          effectiveModel === "openrouter/free" ||
+          effectiveModel === "openrouter/auto" ||
+          effectiveModel.includes("safety") ||
+          effectiveModel.includes("meta-llama/llama-3.3-70b-instruct"))
+      ) {
+        effectiveModel = "google/gemma-4-31b-it:free";
+      } else if (options.providerId === "gemini" && !effectiveModel) {
+        effectiveModel = "gemini-2.0-flash";
+      } else if (options.providerId === "groq" && (!effectiveModel || effectiveModel.includes("mixtral"))) {
+        effectiveModel = "llama-3.3-70b-versatile";
+      }
+
       try {
         const result = await generateContent(req as never, {
           apiKey: options.apiKey,
           providerId: options.providerId as AIProviderId,
-          model: options.model,
+          model: effectiveModel,
           temperature: options.temperature ?? 0.5,
           maxTokens: options.maxTokens ?? 2048,
           storedProviders: storedProviders.map((p) => ({

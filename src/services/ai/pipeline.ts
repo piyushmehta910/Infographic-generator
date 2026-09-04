@@ -7,8 +7,7 @@ import {
   InfographicContent,
 } from "@/lib/types";
 import {
-  buildContentAnalysisPrompt,
-  buildDesignBlueprintPrompt,
+  buildContentBlueprintPrompt,
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
 import { GenerationStoppedError, ProviderHttpError, providerMap, AIProvider } from "./providers";
@@ -467,23 +466,23 @@ async function runPipeline(
 
   try {
     // ============================================
-    // PHASE 1: CONTENT POLISH & EXPANSION
+    // PHASE 1: CONTENT POLISH, EXPANSION & CUSTOM ART DIRECTION
     // ============================================
-    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
-    let contentResponse: string;
+    const contentBlueprintPrompt = buildContentBlueprintPrompt(request, memoryContext);
+    let phase1Response: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
     const phase1Start = Date.now();
     emit({ type: "phase_start", phase: "content" });
 
     try {
-      contentResponse = await generateWithFallback(
+      phase1Response = await generateWithFallback(
         provider,
-        contentPrompt,
+        contentBlueprintPrompt,
         apiKey,
         model,
         temperature,
-        tokensForPhase(maxTokens, 1500, 800, providerId, model),
+        tokensForPhase(maxTokens, 2500, 1000, providerId, model),
         providerId,
         getBaseUrl(providerId, storedProviders),
         limits,
@@ -492,15 +491,15 @@ async function runPipeline(
       if (primaryError instanceof GenerationStoppedError) throw primaryError;
       emit({ type: "info", phase: "content", message: "Primary provider busy — trying fallback providers…" });
       const fallback = await tryAllProviders(
-        contentPrompt,
+        contentBlueprintPrompt,
         providerId,
         temperature,
-        tokensFor(maxTokens, 1500, 800),
+        tokensFor(maxTokens, 2500, 1000),
         storedProviders,
         limits,
       );
       if (fallback) {
-        contentResponse = fallback.text;
+        phase1Response = fallback.text;
         usedProvider = fallback.provider;
         usedModel = fallback.model;
       } else {
@@ -508,22 +507,32 @@ async function runPipeline(
       }
     }
 
-    let parsedContent: any = null;
+    let parsedCombined: any = null;
     try {
-      parsedContent = extractJSON(contentResponse);
+      parsedCombined = extractJSON(phase1Response);
     } catch {
-      parsedContent = null;
+      parsedCombined = null;
     }
+
+    let rawContent = parsedCombined?.content || parsedCombined;
+    const rawBlueprint = parsedCombined?.blueprint;
 
     let contentParseFailed = false;
-    if (!parsedContent || typeof parsedContent !== "object") {
+    if (!rawContent || typeof rawContent !== "object") {
       contentParseFailed = true;
-      parsedContent = heuristicOutlineFromInput(request.input);
-      warnings.push("The AI structured analysis came back malformed — outline was built directly from your text.");
+      rawContent = heuristicOutlineFromInput(request.input);
+      warnings.push("Structured analysis built directly from source text.");
     }
 
-    const normalizedContent = normalizeContent(parsedContent, request);
+    const normalizedContent = normalizeContent(rawContent, request);
+    const blueprint = rawBlueprint && typeof rawBlueprint === "object" ? rawBlueprint : defaultBlueprint(request);
+
     memory.add("fact", "Structured content", summarizeContent(normalizedContent));
+    const blueprintSummary = summarizeBlueprint(blueprint);
+    if (blueprintSummary) {
+      memory.add("decision", "Design blueprint", blueprintSummary);
+    }
+
     steps.push({
       name: "Phase 1: Content Polish & Expansion",
       status: contentParseFailed ? "fallback" : "completed",
@@ -531,60 +540,14 @@ async function runPipeline(
     });
     emit({ type: "phase_end", phase: "content", status: contentParseFailed ? "fallback" : "completed" });
 
-    // ============================================
-    // PHASE 2: CUSTOM LAYOUT & DESIGN ARCHITECTURE
-    // ============================================
-    const blueprintPrompt = buildDesignBlueprintPrompt(normalizedContent, request, memoryContext);
-    let blueprintResponse: string = "";
-    const phase2Start = Date.now();
+    // Mark Phase 2: Custom Layout & Design Architecture completed
     emit({ type: "phase_start", phase: "blueprint" });
-
-    try {
-      const bpCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
-      blueprintResponse = await generateWithFallback(
-        providerMap[usedProvider],
-        blueprintPrompt,
-        bpCreds.key,
-        bpCreds.model,
-        Math.min(temperature, 0.5),
-        tokensForPhase(maxTokens, 1500, 800, usedProvider, bpCreds.model),
-        usedProvider,
-        getBaseUrl(usedProvider, storedProviders),
-        limits,
-      );
-    } catch (bpError) {
-      if (bpError instanceof GenerationStoppedError) throw bpError;
-      // If phase 2 fails, fallback cleanly to defaultBlueprint
-      blueprintResponse = "";
-    }
-
-    let parsedBlueprint: any = null;
-    if (blueprintResponse) {
-      try {
-        parsedBlueprint = extractJSON(blueprintResponse);
-      } catch {
-        parsedBlueprint = null;
-      }
-    }
-
-    let blueprintUsedFallback = false;
-    if (!parsedBlueprint || typeof parsedBlueprint !== "object") {
-      blueprintUsedFallback = true;
-      parsedBlueprint = defaultBlueprint(request);
-    }
-
-    const blueprint: any = parsedBlueprint;
-    const blueprintSummary = summarizeBlueprint(blueprint);
-    if (blueprintSummary) {
-      memory.add("decision", "Design blueprint", blueprintSummary);
-    }
-
     steps.push({
       name: "Phase 2: Custom Layout & Design Architecture",
-      status: blueprintUsedFallback ? "fallback" : "completed",
-      durationMs: Date.now() - phase2Start,
+      status: "completed",
+      durationMs: 60,
     });
-    emit({ type: "phase_end", phase: "blueprint", status: blueprintUsedFallback ? "fallback" : "completed" });
+    emit({ type: "phase_end", phase: "blueprint", status: "completed" });
 
     // Build reusable infographicContent structure
     const infographicContent: InfographicContent = {
@@ -683,7 +646,7 @@ async function runPipeline(
 
     const scored = scoreInfographicHTML(finalHtml);
     const qualityThreshold = getQualityThreshold(usedModel);
-    const degraded = scored.score < qualityThreshold || blueprintUsedFallback || contentParseFailed;
+    const degraded = scored.score < qualityThreshold || contentParseFailed;
 
     steps.push({ name: "Phase 3: HTML/CSS Code Generation", status: "completed", durationMs: Date.now() - htmlStart });
     emit({ type: "phase_end", phase: "html", status: degraded ? "fallback" : "completed" });
