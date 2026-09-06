@@ -227,11 +227,16 @@ export async function POST(request: NextRequest) {
           onProgress: (event) => send("progress", event),
         });
         send("result", result);
-      } catch {
+      } catch (error) {
+        // Log the real cause so failures are diagnosable — never silently swallow.
+        console.error("[/api/generate] Generation crashed:", error);
         send("result", {
           success: false,
           errorType: "upstream_error",
-          error: "Internal server error.",
+          error:
+            error instanceof Error && error.message
+              ? `Internal server error: ${error.message}`
+              : "Internal server error.",
         });
       } finally {
         clearInterval(heartbeat);
