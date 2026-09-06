@@ -16,6 +16,10 @@ export function extractJSON(text: string): any {
   let inStr = false;
   let esc = false;
   let end = -1;
+  // Positions (within `cleaned`) of the last structural comma/colon seen
+  // OUTSIDE string literals — used by the truncation repair below.
+  let lastComma = -1;
+  let lastColon = -1;
   for (let i = start; i < cleaned.length; i++) {
     const ch = cleaned[i];
     if (inStr) {
@@ -25,16 +29,62 @@ export function extractJSON(text: string): any {
       continue;
     }
     if (ch === '"') inStr = true;
-    else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
-    else if (ch === "}" || ch === "]") {
+    else if (ch === "{") { stack.push("}"); lastColon = -1; }
+    else if (ch === "[") { stack.push("]"); lastComma = -1; lastColon = -1; }
+    else if (ch === ",") { lastComma = i; lastColon = -1; }
+    else if (ch === ":") { lastColon = i; lastComma = -1; }
+    else if (ch === "}") {
       stack.pop();
+      lastComma = -1; lastColon = -1;
+      if (stack.length === 0) {
+        end = i;
+        break;
+      }
+    } else if (ch === "]") {
+      stack.pop();
+      lastComma = -1; lastColon = -1;
       if (stack.length === 0) {
         end = i;
         break;
       }
     }
   }
-  let jsonStr = end !== -1 ? cleaned.slice(start, end + 1) : cleaned.slice(start) + stack.reverse().join("");
+  /** Repair candidates for a truncated object, tried in order. */
+  const closers = stack.slice().reverse().join("");
+  const base = cleaned.slice(start);
+  const repairCandidates: string[] = [];
+  if (inStr) {
+    // Cut inside a string literal: close the quote (dropping a dangling escape).
+    const quoteClosed = (esc ? base.replace(/\\$/, "") : base) + '"';
+    repairCandidates.push(quoteClosed + closers); // cut inside a VALUE string
+    repairCandidates.push(quoteClosed + ":null" + closers); // cut inside a KEY
+  } else {
+    repairCandidates.push(base + closers);
+  }
+  if (lastColon !== -1) {
+    // Cut right after "key": — supply the missing value.
+    repairCandidates.push(base.slice(0, lastColon + 1) + "null" + closers);
+  }
+  if (lastComma !== -1) {
+    // Cut mid-way after a comma — drop the dangling fragment and close up.
+    repairCandidates.push(base.slice(0, lastComma) + closers);
+  }
+  let jsonStr = end !== -1 ? cleaned.slice(start, end + 1) : "";
+  if (end === -1) {
+    const fixedClosers = repairCandidates.map(
+      (s) => s.replace(/,\s*([}\]])/g, "$1").replace(/,\s*$/, ""),
+    );
+    for (const candidate of fixedClosers) {
+      try {
+        jsonStr = candidate;
+        const parsed = JSON.parse(candidate);
+        return parsed;
+      } catch {
+        /* try the next repair strategy */
+      }
+    }
+    if (!jsonStr) jsonStr = base + closers;
+  }
   // Trailing commas are the most common LLM JSON mistake.
   jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1").replace(/,\s*$/, "");
   try {

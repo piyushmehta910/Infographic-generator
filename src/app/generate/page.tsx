@@ -406,7 +406,14 @@ export default function GeneratePage() {
             result.steps?.find((s) => s.status === "failed")?.name ||
             (result.steps?.length ? "setup" : "provider call");
           const friendly = friendlyErrorMessage(result.error || "Please try again.", result.errorType);
-          const detail = result.provider ? `${result.provider}/${result.model ?? "?"} — ${failedStep}` : "";
+          // Surface the REAL provider/model failure detail so failures are
+          // diagnosable instead of hiding behind the generic friendly line.
+          const rawDetail = result.originalError || result.error || "";
+          const detail = [
+            result.provider ? `${result.provider}/${result.model ?? "?"}` : "",
+            failedStep,
+            rawDetail && rawDetail !== result.error ? `raw: ${rawDetail.slice(0, 180)}` : rawDetail.slice(0, 180),
+          ].filter(Boolean).join(" — ");
           console.error("Generation failed", { provider: result.provider, model: result.model, error: result.error, steps: result.steps });
           setGenError(friendly);
           showToast({

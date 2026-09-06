@@ -163,9 +163,14 @@ export async function POST(request: NextRequest) {
 
   // Defense-in-depth: drop custom-provider base URLs pointing at
   // private/reserved addresses before they reach the providers.
+  // In local development (npm run dev) private hosts are allowed so the
+  // bundled mock provider (scripts/dev/mock-provider.mjs) can be tested
+  // end-to-end through this route. Production keeps the SSRF guard.
+  const isDev = process.env.NODE_ENV !== "production";
   const storedProviders = options.storedProviders.filter((p) => {
     if (p.id !== "custom" && !p.baseUrl) return Boolean(p.apiKey);
     if (!p.baseUrl) return Boolean(p.apiKey);
+    if (isDev) return true;
     try {
       return !isPrivateHost(new URL(p.baseUrl).hostname);
     } catch {
