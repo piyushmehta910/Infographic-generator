@@ -140,80 +140,35 @@ export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerati
   return `You are a visionary Art Director and Master Infographic Designer.
 This is STAGE 2 (Custom Layout & Visual Design Strategy).
 
-Your job: Look at the refined content below, determine the best visual layout for this specific subject, and output a complete creative design specification.
+Your job: study the refined content below and INVENT the complete visual design yourself. You have full creative freedom — structure, palette, typography, composition, decoration, motion-feel — everything is yours to decide. Do not follow any fixed template, archetype list, or house style: the design must grow out of what the content is about.
 
-DO NOT force a generic card template. Choose the ideal visual layout archetype based on what the content is about:
-- If comparison: Design a split/versus two-column layout with contrasting color accents.
-- If process/steps: Design a sequential roadmap or step-by-step numbered cards with visual flow.
-- If data/metrics: Design a dynamic Bento Grid or metrics dashboard with visual progress meters and stat chips.
-- If list/tips: Design an editorial layout with numbered micro-badges and icon containers.
-- If timeline: Design a milestone spine connecting key events.
-
-## CREATIVE DIRECTION SEED (inspiration — interpret creatively, never copy verbatim)
+## CREATIVE DIRECTION SEED (a single spark of inspiration — interpret freely, twist it, or ignore it if the content suggests something better)
 ${direction}
-Take this seed as a starting point and adapt it to the topic's semantics. Repeated generations must produce visibly DIFFERENT designs — commit fully to the seed's palette mood, font character, and card treatment.
+Repeated generations must produce visibly DIFFERENT designs. Commit fully to one coherent creative idea.
 
 ## TARGET CANVAS
 - Dimensions: ${dimensions} (${aspectRatio || "1:1"})
 - Canvas Aspect: ${isPortrait ? "Portrait (tall)" : isWide ? "Landscape (wide)" : "Square"}
-- Aesthetic Intent: "${userIntent || "modern, high-impact, award-winning"}"
+- Aesthetic Intent: "${userIntent || "your choice — decide what serves this topic best"}"
 ${chatBlock}${memoryBlock}
 ## REFINED CONTENT TO DESIGN
 ${JSON.stringify(content, null, 2)}
 
-## DESIGN BLUEPRINT INSTRUCTIONS
-1. **Layout Strategy**: Explain the exact layout structure chosen for this topic and how sections should be positioned inside ${dimensions}.
-2. **Color Harmony (60-30-10 Rule)**:
-   - 60% Background & ambient depth (e.g. dark mesh gradient, radial glow, or clean light editorial)
-   - 30% Structural cards, panels, or column containers
-   - 10% Vibrant highlight accents for stats, badges, and key callouts
-   - High contrast WCAG AA compliant.
-3. **Typography**: Google Font pairing that matches the topic mood (e.g. "Plus Jakarta Sans" + "Inter", "Space Grotesk" + "Inter", "Outfit" + "Poppins").
-4. **Visual Components**: Specify what visual components to build (e.g. progress bar meters, category chips, glowing borders, icon containers, numbered step pills).
-5. **CSS Architecture**: Outline custom CSS properties (:root) and responsive layout rules.
+## WHAT TO DECIDE (non-exhaustive — add anything else the design needs)
+- A creative concept and the layout/composition that expresses it
+- A semantic color palette that fits the subject's mood (ensure WCAG AA contrast)
+- A Google Fonts pairing with character matching the topic
+- Shapes, textures, borders, shadows, icon treatment, visual metaphors, decorative systems
+- How statistics, sections, and the takeaway are given visual hierarchy
 
 ## OUTPUT FORMAT
-Return ONLY valid JSON (no code fences, no markdown):
+Return ONLY one valid JSON object (no code fences, no markdown) describing your complete design system. The three required keys below are the minimum contract with the coder stage — beyond them, YOU choose the structure and add as many of your own keys as the design needs:
+
 {
-  "layoutArchetype": "bento_grid | split_comparison | process_roadmap | metrics_dashboard | editorial_list | timeline_spine",
-  "concept": "Creative visual concept summary",
-  "layoutStructure": {
-    "headerStyle": "Large title with category kicker tag and text gradient",
-    "mainFlow": "Description of layout arrangement (e.g. 2-column bento, 3-step vertical path)",
-    "statPlacement": "Placement of stats (e.g. top banner, hero card with progress bar, sidebar)",
-    "sectionCardTreatment": "Description of card styles, borders, and shadows"
-  },
-  "colorPalette": {
-    "primary": "#3b82f6",
-    "secondary": "#8b5cf6",
-    "accent": "#ec4899",
-    "background": "#0b0f19",
-    "surface": "rgba(18, 26, 43, 0.75)",
-    "text": "#f8fafc",
-    "textMuted": "#94a3b8",
-    "border": "rgba(255, 255, 255, 0.1)",
-    "glow": "rgba(59, 130, 246, 0.2)"
-  },
-  "typography": {
-    "headingFont": "Plus Jakarta Sans",
-    "bodyFont": "Inter",
-    "heroSize": "clamp(36px, 4.5vw, 56px)",
-    "h2Size": "clamp(20px, 2.2vw, 28px)",
-    "bodySize": "clamp(13px, 1.2vw, 15px)"
-  },
-  "visualComponents": [
-    "Gradient mesh background with radial glow spheres",
-    "Glassmorphic cards with subtle 1px border and soft shadow",
-    "Visual progress meter for hero statistics",
-    "Category badge chips and numbered step indicators",
-    "Styled icon wrapper containers"
-  ],
-  "cssDirectives": [
-    "Set outer container to exactly ${dimensions} with overflow: hidden",
-    "Use CSS custom properties for all colors, fonts, and spacing",
-    "Use inline SVG icons with stroke-width 2 — NO external images or emoji",
-    "Ensure zero scrollbars and perfect vertical/horizontal fit"
-  ]
+  "colorPalette": { "primary": "#hex", "accent": "#hex", "background": "#hex", "text": "#hex", "...": "any other color roles you want" },
+  "typography": { "headingFont": "Google Font name", "bodyFont": "Google Font name", "...": "sizes, weights, scales — your call" },
+  "layout": { "...": "describe the composition however you like" },
+  "...": "any additional design dimensions you decide on"
 }`;
 }
 
@@ -386,84 +341,20 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
     chatBlock += `Apply specific user edit: "${request.refinementPrompt}"\n`;
   }
 
-  const palette = (blueprint && typeof blueprint === "object" ? blueprint.colorPalette : null) || {};
-  const typography = (blueprint && typeof blueprint === "object" ? blueprint.typography : null) || {};
-  const headingFont = String(typography.headingFont || "Plus Jakarta Sans");
-  const bodyFont = String(typography.bodyFont || "Inter");
-  const fontQuery = `${headingFont.replace(/ /g, "+")}:wght@400;600;700;800&family=${bodyFont.replace(/ /g, "+")}:wght@400;500;600;700`;
-  const colors = {
-    primary: palette.primary || "#6366f1",
-    secondary: palette.secondary || "#8b5cf6",
-    accent: palette.accent || "#ec4899",
-    background: palette.background || "#0b0f19",
-    surface: palette.surface || "rgba(18, 26, 43, 0.75)",
-    text: palette.text || "#f8fafc",
-    textMuted: palette.textMuted || "#94a3b8",
-    border: palette.border || "rgba(255, 255, 255, 0.1)",
-  };
-
   return `## STAGE 3: HTML/CSS CODE GENERATION
-You are an expert senior frontend engineer and award-winning visual designer.
-Code the COMPLETE, single-file HTML/CSS document faithfully executing the ART DIRECTOR'S design strategy below. The blueprint is the SOURCE OF TRUTH for colors, fonts, layout archetype, and visual components — do NOT substitute a generic template.
+You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. The design system JSON below is the SOURCE OF TRUTH — implement it faithfully and creatively. The markup structure, CSS architecture, class naming, composition, and all visual decisions are entirely YOURS; do NOT fall back to any fixed template or house style.
 
-### EXACT CANVAS DIMENSIONS (STRICT)
-- Width: ${width}px
-- Height: ${height}px
-- The design MUST fill the canvas (${width}x${height}px) harmoniously from top to bottom with ZERO scrollbars and ZERO clipping.
-- Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+### HARD TECHNICAL CONSTRAINTS (non-negotiable)
+1. **EXACT canvas**: ${width}x${height}px. Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; } and fill the canvas with ZERO scrollbars and ZERO clipped content.
+2. **One self-contained file**: a complete document starting with <!DOCTYPE html> — <head> containing the Google Fonts <link> for the design system's chosen fonts plus a single <style> block, then <body>. No JavaScript, no external images, no iframes.
+3. **Icons**: inline <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">...</svg>. NO emoji.
+4. **All content, real content**: render EVERY section and statistic below with clear visual hierarchy — nothing dropped, no placeholders, no "lorem ipsum".
+5. **Readable & fitted**: honor the palette's WCAG AA contrast; use clamp()-based font sizing and fluid layout so the design fits ${height}px perfectly.
+6. **Output**: ONLY the raw HTML starting with <!DOCTYPE html> — no markdown code fences, no explanations.
 
-### ART DIRECTOR DESIGN STRATEGY (SOURCE OF TRUTH)
+### ART DIRECTOR'S DESIGN SYSTEM (your creative brief)
 ${JSON.stringify(blueprint, null, 2)}
 
-### REFINED CONTENT TO RENDER (ALL SECTIONS & STATS)
-${JSON.stringify(content, null, 2)}
-${chatBlock}${memoryBlock}
-### MANDATORY DESIGN EXECUTION RULES
-1. **CSS VARIABLES (from the blueprint)**: define :root with:
-   --primary: ${colors.primary}; --secondary: ${colors.secondary}; --accent: ${colors.accent};
-   --background: ${colors.background}; --surface: ${colors.surface}; --text: ${colors.text};
-   --text-muted: ${colors.textMuted}; --border: ${colors.border};
-   --font-heading: '${headingFont}', sans-serif; --font-body: '${bodyFont}', sans-serif;
-   Every later rule must reference these variables — never hardcode a different palette.
-2. **FONTS**: load the blueprint's exact pairing:
-   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${fontQuery}&display=swap">
-   Headings use var(--font-heading), body text uses var(--font-body).
-3. **LAYOUT ARCHETYPE**: follow blueprint.layoutArchetype and layoutStructure exactly:
-   - bento_grid / metrics_dashboard → CSS grid with mixed row/column span cards and a stats band.
-   - split_comparison → two contrasting halves (primary vs secondary tint) with a versus divider.
-   - process_roadmap → numbered sequential cards with visual connectors/arrows.
-   - editorial_list → single editorial column with numbered micro-badges.
-   - timeline_spine → vertical/horizontal milestone spine with nodes.
-   Distribute content across the FULL canvas: header ~15-20% height, stat band ~15%, main content ~55-60%, takeaway footer ~5-8%. ZERO large empty voids.
-4. **BACKDROP & CARDS**: implement the background mood implied by the blueprint palette (dark background → layered mesh gradient with radial glow spheres; light background → clean editorial surface with soft tint washes). Cards use var(--surface), 1px var(--border), border-radius and soft shadows per blueprint.sectionCardTreatment.
-5. **HIERARCHY & METERS**: kicker chip, big title with gradient text (primary→accent), glowing hero stat, and visual progress tracks under statistics (rounded 6px bars filled with a primary→accent gradient).
-6. **ICONS**: inline <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">...</svg>. NO emoji, NO external <img> links.
-7. **RESPONSIVE FIT**: use CSS clamp() fonts and flex/grid with gap so everything fits inside ${height}px without overflow.
-8. **DOCUMENT STRUCTURE (MANDATORY)**:
-   <!DOCTYPE html>
-   <html lang="en">
-   <head>
-     <meta charset="UTF-8">
-     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${fontQuery}&display=swap">
-     <style>
-       :root { /* variables from rule 1 */ }
-       * { margin: 0; padding: 0; box-sizing: border-box; }
-       html, body { width: ${width}px; height: ${height}px; overflow: hidden; font-family: var(--font-body); background: var(--background); color: var(--text); }
-       .infographic-root { width: 100%; height: 100%; padding: 32px; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; }
-       /* Header, stat band, content grid, footer — styled per the blueprint */
-     </style>
-   </head>
-   <body>
-     <div class="infographic-root">
-       <!-- Header: kicker chip, gradient title, subtitle -->
-       <!-- Stat band: hero stat + stats with meters -->
-       <!-- Content area: layout archetype from the blueprint -->
-       <!-- Footer: key takeaway banner -->
-     </div>
-   </body>
-   </html>
-9. Pure HTML & CSS only — NO <script> tags.
-
-### OUTPUT FORMAT
-Output ONLY the raw self-contained HTML code starting with <!DOCTYPE html>. Do NOT add markdown code fences, do NOT add explanations.`;
+### CONTENT TO RENDER (all sections & stats)
+${JSON.stringify(content, null, 2)}${chatBlock}${memoryBlock}`;
 }

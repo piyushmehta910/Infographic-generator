@@ -562,12 +562,15 @@ async function runPipeline(
       if (
         parsedBlueprint &&
         typeof parsedBlueprint === "object" &&
-        (parsedBlueprint.colorPalette || parsedBlueprint.designSystem)
+        !Array.isArray(parsedBlueprint) &&
+        Object.keys(parsedBlueprint).length > 0
       ) {
+        // The art director defines its own design-system structure — accept
+        // any object; Stage 3 treats the whole JSON as the creative brief.
         blueprint = parsedBlueprint;
         blueprintStatus = "completed";
       } else {
-        throw new Error("Art direction response missing colorPalette");
+        throw new Error("Art direction response was not a usable design object");
       }
     } catch (bpError) {
       if (bpError instanceof GenerationStoppedError) throw bpError;
