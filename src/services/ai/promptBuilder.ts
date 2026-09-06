@@ -89,15 +89,9 @@ Return ONLY valid JSON (no code fences, no markdown):
   ],
   "timeline": [],
   "keyTakeaway": "One sentence key takeaway or conclusion.",
-  "suggestedIcons": ["chart", "shield", "rocket", "bolt"],
-  "suggestedColors": {
-    "primary": "#3b82f6",
-    "secondary": "#8b5cf6",
-    "accent": "#ec4899",
-    "background": "#0f172a",
-    "text": "#f8fafc"
-  }
-}`;
+  "suggestedIcons": ["chart", "shield", "rocket", "bolt"]
+}
+NOTE: Do NOT suggest colors or styling — that is the Art Director stage's job. Content only.`;
 }
 
 // ============================================================

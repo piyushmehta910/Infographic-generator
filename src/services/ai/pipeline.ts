@@ -195,7 +195,10 @@ const THEME_FALLBACK: Record<
  * prompt expects (colorPalette, typography, cardStyle, cssDirectives…).
  */
 function defaultBlueprint(request: AIGenerationRequest): Record<string, unknown> {
-  const palette = THEME_FALLBACK.modern;
+  // Random theme so even the built-in fallback varies between runs.
+  const themes = Object.keys(THEME_FALLBACK);
+  const palette =
+    THEME_FALLBACK[themes[Math.floor(Math.random() * themes.length)]];
   const dimensions = getCanvasDimensions(
     request.aspectRatio,
     request.aspectRatioWidth,
@@ -338,19 +341,16 @@ async function singleShotAttempt(
     ? buildHTMLGenerationPrompt(preset.content, preset.blueprint, request, memoryContext)
     : `Design a complete, self-contained HTML infographic that visualizes the content below.
 
-CANVAS: exactly ${dimensions.width}px wide and ${dimensions.height}px high. The outer container must be exactly those dimensions with overflow:hidden. Do not use viewport units.
-THEME: modern color palette.
-STYLE INTENT: ${request.userIntent || "premium, clean, data-driven"}.
-
 CONTENT TO VISUALIZE:
 ${source || "Create a generic data-visualization infographic about growth and progress."}
 
+CANVAS: exactly ${dimensions.width}px wide and ${dimensions.height}px high. The outer container must be exactly those dimensions with overflow:hidden. Do not use viewport units.
+THEME & STYLE: you decide everything — invent a palette, font pairing, composition and visual language that best expresses this specific content. Commit to one coherent creative idea; never default to a generic template.
 ${memoryContext}
 
 REQUIREMENTS:
 - Return a complete document starting with <!DOCTYPE html> and containing <head><style> and <body>.
-- Rich <style> block: grid/flex layout, gradient background, cards with border-radius and box-shadow, large accent numbers for statistics.
-- Structure with <div>/<section> containers, headings, paragraphs, and styled stat cards.
+- You choose the entire visual approach: background treatment, card/section styling, icon style, hierarchy — make it fit the subject's character.
 - Use ONLY real content from the source above. No placeholders, no "lorem ipsum", no "your content here".
 - No scripts, no external images, no emoji.
 - Output ONLY the raw HTML — no markdown fences, no explanations.`;
@@ -552,7 +552,9 @@ async function runPipeline(
         buildDesignBlueprintPrompt(normalizedContent, request, memoryContext),
         bpCreds.key,
         bpCreds.model,
-        temperature,
+        // Hotter temperature for the art director: pushes the model away from
+        // its training-default palette/template toward the creative seed.
+        Math.min(temperature + 0.25, 1.1),
         tokensForPhase(maxTokens, 2000, 800, usedProvider, bpCreds.model),
         usedProvider,
         getBaseUrl(usedProvider, storedProviders),
