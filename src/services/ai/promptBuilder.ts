@@ -124,6 +124,14 @@ export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerati
     chatBlock += `User requested design edit: "${refinementPrompt}"\n`;
   }
 
+  // Anti-repetition + density plan, computed from the actual content shape.
+  const sectionCount = Array.isArray((content as any)?.sections) ? (content as any).sections.length : 0;
+  const statCount = Array.isArray((content as any)?.statistics) ? (content as any).statistics.length : 0;
+  const hasPriorDesign = Boolean(memoryContext && /blueprint/i.test(memoryContext));
+  const memoryDiffers = hasPriorDesign
+    ? `\n## DIFFERENTIATION RULE\nThe MEMORY CONTEXT below summarizes a design used earlier in this session. Your new design MUST be a clearly DIFFERENT direction — different palette family, different fonts, different composition — unless the user explicitly asked to keep the style.\n`
+    : "";
+
   return `You are a visionary Art Director and Master Infographic Designer.
 This is STAGE 2 (Custom Layout & Visual Design Strategy).
 
@@ -148,6 +156,19 @@ ${JSON.stringify(content, null, 2)}
 - Shapes, textures, borders, shadows, icon treatment, visual metaphors, decorative systems
 - How statistics, sections, and the takeaway are given visual hierarchy
 
+## QUALITY BAR (what separates an award-winning infographic from a generic one)
+- **Exact values, never adjectives**: every color as #hex, every font size in px or clamp(),
+  every weight as a number. "Modern and clean" is not a specification.
+- **3+ levels of visual hierarchy** (hero → section → detail) that differ clearly in scale,
+  weight, AND color — a reader must parse the order of importance within 2 seconds.
+- **ONE memorable visual anchor**: a giant hero number, a bold graphic motif, or an unusual
+  composition — the thing people will remember.
+- **Density plan**: this design must fit ${sectionCount} sections + ${statCount} statistics
+  inside ${dimensions} with deliberate whitespace rhythm — state what share of the canvas
+  each zone gets (percentages) so nothing crowds and nothing floats in emptiness.
+- **A repeating decorative system**: one corner-radius family, one stroke width, one icon
+  style used everywhere — coherence beats more decoration.
+${memoryDiffers}
 ## OUTPUT FORMAT
 Return ONLY one valid JSON object (no code fences, no markdown) describing your complete design system. The three required keys below are the minimum contract with the coder stage — beyond them, YOU choose the structure and add as many of your own keys as the design needs:
 
@@ -320,6 +341,10 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
 
   const memoryBlock = memoryContext ? `\n## WORKING MEMORY\n${memoryContext}\n` : "";
 
+  // Density facts so the coder can plan the composition instead of guessing.
+  const sectionCount = Array.isArray(content?.sections) ? content.sections.length : 0;
+  const statCount = Array.isArray(content?.statistics) ? content.statistics.length : 0;
+
   let chatBlock = "";
   if (request.chatHistory && request.chatHistory.length > 0) {
     chatBlock = `\n## RECENT USER EDITS\n${request.chatHistory.slice(-2).map((m) => `${m.role}: ${m.content}`).join("\n")}\n`;
@@ -343,5 +368,13 @@ You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. T
 ${JSON.stringify(blueprint, null, 2)}
 
 ### CONTENT TO RENDER (all sections & stats)
-${JSON.stringify(content, null, 2)}${chatBlock}${memoryBlock}`;
+Density to plan for: ${sectionCount} sections, ${statCount} statistics, 1 key takeaway — inside exactly ${width}x${height}px.
+${JSON.stringify(content, null, 2)}${chatBlock}${memoryBlock}
+### BEFORE YOU OUTPUT — SELF-CHECK (verify silently; fix anything that fails before answering)
+- Every section and statistic from the content appears, nothing dropped or replaced.
+- Total composition fits exactly ${width}x${height}px — no overflow, no scrollbars, no clipped text.
+- All colors trace to the design system; text/background contrast meets WCAG AA everywhere.
+- Typography follows the brief's pairing and scale; nothing below 11px.
+- The composition is distinctive and executes the brief's signature idea — not a generic card grid.
+- Spacing is balanced: no giant empty voids, no cramped clusters.`;
 }

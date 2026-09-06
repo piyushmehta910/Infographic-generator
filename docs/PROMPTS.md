@@ -1,6 +1,6 @@
 # Pipeline Prompts (as actually sent to the AI)
 
-_Generated 2026-09-06T23:10:42.317Z — sample request: "The rise of electric vehicles: adoption stats, battery tech, charging networks, future outlook."_
+_Generated 2026-09-06T23:23:06.495Z — sample request: "The rise of electric vehicles: adoption stats, battery tech, charging networks, future outlook."_
 
 ## PHASE 1 — Content Polish & Expansion (`buildContentAnalysisPrompt`)
 
@@ -75,7 +75,7 @@ This is STAGE 2 (Custom Layout & Visual Design Strategy).
 Your job: study the refined content below and INVENT the complete visual design yourself. You have full creative freedom — structure, palette, typography, composition, decoration, motion-feel — everything is yours to decide. Do not follow any fixed template, archetype list, or house style: the design must grow out of what the content is about.
 
 ## CREATIVE DIRECTION SEED (a single spark of inspiration — interpret freely, twist it, or ignore it if the content suggests something better)
-midnight minimal — deep slate canvas, ONE single accent hue, hairline dividers, no card fills
+soft pastel dashboard — pale tinted background, pastel stat chips, rounded friendly typography
 Repeated generations must produce visibly DIFFERENT designs. Commit fully to one coherent creative idea.
 
 ## TARGET CANVAS
@@ -147,6 +147,19 @@ Repeated generations must produce visibly DIFFERENT designs. Commit fully to one
 - Shapes, textures, borders, shadows, icon treatment, visual metaphors, decorative systems
 - How statistics, sections, and the takeaway are given visual hierarchy
 
+## QUALITY BAR (what separates an award-winning infographic from a generic one)
+- **Exact values, never adjectives**: every color as #hex, every font size in px or clamp(),
+  every weight as a number. "Modern and clean" is not a specification.
+- **3+ levels of visual hierarchy** (hero → section → detail) that differ clearly in scale,
+  weight, AND color — a reader must parse the order of importance within 2 seconds.
+- **ONE memorable visual anchor**: a giant hero number, a bold graphic motif, or an unusual
+  composition — the thing people will remember.
+- **Density plan**: this design must fit 2 sections + 3 statistics
+  inside 1000x1000px with deliberate whitespace rhythm — state what share of the canvas
+  each zone gets (percentages) so nothing crowds and nothing floats in emptiness.
+- **A repeating decorative system**: one corner-radius family, one stroke width, one icon
+  style used everywhere — coherence beats more decoration.
+
 ## OUTPUT FORMAT
 Return ONLY one valid JSON object (no code fences, no markdown) describing your complete design system. The three required keys below are the minimum contract with the coder stage — beyond them, YOU choose the structure and add as many of your own keys as the design needs:
 
@@ -188,6 +201,7 @@ You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. T
 }
 
 ### CONTENT TO RENDER (all sections & stats)
+Density to plan for: 2 sections, 3 statistics, 1 key takeaway — inside exactly 1000x1000px.
 {
   "title": "The Electric Revolution",
   "subtitle": "How EVs are rewiring global transport",
@@ -243,6 +257,13 @@ You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. T
   "timeline": [],
   "keyTakeaway": "EVs are past the tipping point — the 2030s belong to electric."
 }
+### BEFORE YOU OUTPUT — SELF-CHECK (verify silently; fix anything that fails before answering)
+- Every section and statistic from the content appears, nothing dropped or replaced.
+- Total composition fits exactly 1000x1000px — no overflow, no scrollbars, no clipped text.
+- All colors trace to the design system; text/background contrast meets WCAG AA everywhere.
+- Typography follows the brief's pairing and scale; nothing below 11px.
+- The composition is distinctive and executes the brief's signature idea — not a generic card grid.
+- Spacing is balanced: no giant empty voids, no cramped clusters.
 ```
 
 ## FALLBACK — Single-shot (only if the 3-phase pipeline fails)
