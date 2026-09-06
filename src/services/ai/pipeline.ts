@@ -7,7 +7,8 @@ import {
   InfographicContent,
 } from "@/lib/types";
 import {
-  buildContentBlueprintPrompt,
+  buildContentAnalysisPrompt,
+  buildDesignBlueprintPrompt,
   buildHTMLGenerationPrompt,
 } from "./promptBuilder";
 import { GenerationStoppedError, ProviderHttpError, providerMap, AIProvider } from "./providers";
@@ -468,7 +469,7 @@ async function runPipeline(
     // ============================================
     // PHASE 1: CONTENT POLISH, EXPANSION & CUSTOM ART DIRECTION
     // ============================================
-    const contentBlueprintPrompt = buildContentBlueprintPrompt(request, memoryContext);
+    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
     let phase1Response: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
@@ -478,7 +479,7 @@ async function runPipeline(
     try {
       phase1Response = await generateWithFallback(
         provider,
-        contentBlueprintPrompt,
+        contentPrompt,
         apiKey,
         model,
         temperature,
@@ -491,7 +492,7 @@ async function runPipeline(
       if (primaryError instanceof GenerationStoppedError) throw primaryError;
       emit({ type: "info", phase: "content", message: "Primary provider busy — trying fallback providers…" });
       const fallback = await tryAllProviders(
-        contentBlueprintPrompt,
+        contentPrompt,
         providerId,
         temperature,
         tokensFor(maxTokens, 2500, 1000),
@@ -525,13 +526,8 @@ async function runPipeline(
     }
 
     const normalizedContent = normalizeContent(rawContent, request);
-    const blueprint = rawBlueprint && typeof rawBlueprint === "object" ? rawBlueprint : defaultBlueprint(request);
 
     memory.add("fact", "Structured content", summarizeContent(normalizedContent));
-    const blueprintSummary = summarizeBlueprint(blueprint);
-    if (blueprintSummary) {
-      memory.add("decision", "Design blueprint", blueprintSummary);
-    }
 
     steps.push({
       name: "Phase 1: Content Polish & Expansion",
@@ -540,14 +536,58 @@ async function runPipeline(
     });
     emit({ type: "phase_end", phase: "content", status: contentParseFailed ? "fallback" : "completed" });
 
-    // Mark Phase 2: Custom Layout & Design Architecture completed
+    // ============================================
+    // PHASE 2: CUSTOM LAYOUT & ART DIRECTION (real AI call)
+    // The Art Director decides palette, font pairing and layout
+    // archetype for THIS topic, seeded for variety between runs.
+    // ============================================
     emit({ type: "phase_start", phase: "blueprint" });
+    const phase2Start = Date.now();
+    let blueprint: any;
+    let blueprintStatus: "completed" | "fallback" = "fallback";
+    try {
+      const bpCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
+      const bpResponse = await generateWithFallback(
+        providerMap[usedProvider],
+        buildDesignBlueprintPrompt(normalizedContent, request, memoryContext),
+        bpCreds.key,
+        bpCreds.model,
+        temperature,
+        tokensForPhase(maxTokens, 2000, 800, usedProvider, bpCreds.model),
+        usedProvider,
+        getBaseUrl(usedProvider, storedProviders),
+        limits,
+      );
+      const parsedBlueprint = extractJSON(bpResponse);
+      if (
+        parsedBlueprint &&
+        typeof parsedBlueprint === "object" &&
+        (parsedBlueprint.colorPalette || parsedBlueprint.designSystem)
+      ) {
+        blueprint = parsedBlueprint;
+        blueprintStatus = "completed";
+      } else {
+        throw new Error("Art direction response missing colorPalette");
+      }
+    } catch (bpError) {
+      if (bpError instanceof GenerationStoppedError) throw bpError;
+      // Fall back to the phase-1 embedded blueprint (if any), else defaults.
+      blueprint =
+        rawBlueprint && typeof rawBlueprint === "object" ? rawBlueprint : defaultBlueprint(request);
+      warnings.push("Art direction call failed — using the built-in design system.");
+    }
+
+    const blueprintSummary = summarizeBlueprint(blueprint);
+    if (blueprintSummary) {
+      memory.add("decision", "Design blueprint", blueprintSummary);
+    }
+
     steps.push({
-      name: "Phase 2: Custom Layout & Design Architecture",
-      status: "completed",
-      durationMs: 60,
+      name: "Phase 2: Custom Layout & Art Direction",
+      status: blueprintStatus,
+      durationMs: Date.now() - phase2Start,
     });
-    emit({ type: "phase_end", phase: "blueprint", status: "completed" });
+    emit({ type: "phase_end", phase: "blueprint", status: blueprintStatus });
 
     // Build reusable infographicContent structure
     const infographicContent: InfographicContent = {

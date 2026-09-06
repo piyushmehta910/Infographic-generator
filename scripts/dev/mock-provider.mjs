@@ -101,14 +101,18 @@ h2 { font-size:20px; font-weight:600; margin-bottom:8px; color:#10B981; }
 
 function pickContent(prompt) {
   // Check for HTML prompt FIRST — it contains the full blueprint JSON (with
-  // "designSystem") embedded as context. The combined content+blueprint prompt
-  // is identified by its OUTPUT FORMAT containing the literal `"blueprint":`
-  // key (which the embedded blueprint JSON never contains).
+  // "designSystem") embedded as context.
   if (prompt.includes("<!DOCTYPE")) return generateHTML();
+  // Stage 2 art-director prompt asks ONLY for the blueprint.
+  if (prompt.includes("Art Director") || prompt.includes("DESIGN BLUEPRINT")) {
+    return JSON.stringify(BLUEPRINT_RESPONSE);
+  }
+  // Legacy combined content+blueprint prompt.
   if (prompt.includes('"blueprint"')) {
     return JSON.stringify({ content: CONTENT_RESPONSE.correctedContent, blueprint: BLUEPRINT_RESPONSE });
   }
   if (prompt.includes("designSystem")) return JSON.stringify(BLUEPRINT_RESPONSE);
+  // Stage 1 content-analysis prompt asks ONLY for the content JSON.
   return JSON.stringify(CONTENT_RESPONSE);
 }
 
