@@ -3,7 +3,7 @@
  * realistic LLM outputs — the stage where "empty design" failures originate.
  * Run: npx tsx scripts/dev/test-content.ts
  */
-import { extractJSON, extractHTML, sanitizeHTML } from "../../src/services/ai/response";
+import { extractJSON, extractHTML, sanitizeHTML, enforceCanvas } from "../../src/services/ai/response";
 
 let pass = 0;
 let fail = 0;
@@ -86,6 +86,24 @@ check("sanitizer strips script + onclick", !xss.includes("<script") && !xss.incl
 // Realistic modern free-model output: prose + explanation AROUND the fence
 const noisy = "Sure! Here is your infographic:\n\n" + fencedDoc + "\n\nLet me know if you want changes.";
 check("prose around fenced block", sanitizeHTML(extractHTML(noisy)).includes("<h1>Title</h1>"));
+
+// ---- enforceCanvas (deterministic size + visibility enforcement) ----
+console.log("enforceCanvas:");
+const sloppy = `<!DOCTYPE html><html><head><style>
+  body { width: 100vw; height: 100vh; margin:0; overflow:auto; }
+  .tiny { font-size: 9px; } .fine { font-size: 14px; }
+  .note { font-size: 10.5px; }
+</style></head><body><div class="header"><h1>Fit</h1><p class="tiny">micro text</p><p class="note">small note</p><p class="fine">ok text</p></div></body></html>`;
+const enforced = enforceCanvas(sloppy, 800, 1000, { background: "#0f172a", text: "#334155" });
+check("vh/vw converted to px", enforced.includes("height: 1000.0px") || enforced.includes("height: 1000px"));
+check("canvas lock injected", enforced.includes("data-canvas-lock") && enforced.includes("width: 800px !important"));
+check("tiny fonts floored to 11px", enforced.includes("font-size: 11px") && !enforced.includes("font-size: 9px"));
+check("10.5px also floored", !enforced.includes("10.5px"));
+check("adequate font untouched", enforced.includes("font-size: 14px"));
+console.log("        contrast fix snippet present:", enforced.includes("color: #f8fafc !important"));
+check("low-contrast text fixed", /color: #f8fafc !important/.test(enforced), "dark text on dark bg should be swapped");
+const okContrast = enforceCanvas(sloppy, 800, 1000, { background: "#0f172a", text: "#f8fafc" });
+check("good contrast untouched", !okContrast.includes("body { color:"));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

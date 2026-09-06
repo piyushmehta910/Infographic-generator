@@ -18,7 +18,7 @@ import {
   StoredProvider,
   CallLimits,
 } from "./fallback";
-import { extractJSON, extractHTML, sanitizeHTML } from "./response";
+import { extractJSON, extractHTML, sanitizeHTML, enforceCanvas } from "./response";
 import { normalizeContent, heuristicOutlineFromInput } from "./normalize";
 import {
   scoreInfographicHTML,
@@ -669,7 +669,16 @@ async function runPipeline(
       }
     }
 
-    const finalHtml = sanitizeHTML(extractHTML(htmlResponse));
+    // Deterministic canvas + visibility enforcement: the model is asked to
+    // respect the exact size, but this GUARANTEES it (viewport-unit
+    // conversion, canvas lock, 11px font floor, base contrast fix).
+    const canvas = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
+    const finalHtml = enforceCanvas(
+      sanitizeHTML(extractHTML(htmlResponse)),
+      canvas.width,
+      canvas.height,
+      (blueprint as any)?.colorPalette ?? null,
+    );
 
     if (
       !finalHtml ||

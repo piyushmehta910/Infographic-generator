@@ -357,7 +357,7 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
 You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. The design system JSON below is the SOURCE OF TRUTH — implement it faithfully and creatively. The markup structure, CSS architecture, class naming, composition, and all visual decisions are entirely YOURS; do NOT fall back to any fixed template or house style.
 
 ### HARD TECHNICAL CONSTRAINTS (non-negotiable)
-1. **EXACT canvas**: ${width}x${height}px. Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; } and fill the canvas with ZERO scrollbars and ZERO clipped content.
+1. **EXACT canvas**: ${width}x${height}px. Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; } and fill the canvas with ZERO scrollbars and ZERO clipped content. NEVER use viewport units (vw/vh/vmin/vmax) — the frame is a fixed ${width}x${height}px box, use px only. All content must fit INSIDE the canvas — nothing may rely on being clipped.
 2. **One self-contained file**: a complete document starting with <!DOCTYPE html> — <head> containing the Google Fonts <link> for the design system's chosen fonts plus a single <style> block, then <body>. No JavaScript, no external images, no iframes.
 3. **Icons**: inline <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">...</svg>. NO emoji.
 4. **All content, real content**: render EVERY section and statistic below with clear visual hierarchy — nothing dropped, no placeholders, no "lorem ipsum".

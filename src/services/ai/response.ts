@@ -218,3 +218,90 @@ export function sanitizeHTML(html: string): string {
     .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/\s*javascript\s*:\s*/gi, "");
 }
+
+// ---- Deterministic canvas & visibility enforcement ----
+// Models frequently ignore the exact canvas size (viewport units, missing
+// overflow lock, tiny fonts, low-contrast palettes). These are enforceable
+// without a browser, so they are corrected here — server-side, every time.
+
+function normalizeHex(color: string): string | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return null;
+  let hex = m[1];
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  return hex.toLowerCase();
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function contrastRatio(fgHex: string, bgHex: string): number {
+  const fg = normalizeHex(fgHex);
+  const bg = normalizeHex(bgHex);
+  if (!fg || !bg) return 21; // non-hex colors: assume fine, don't touch
+  const l1 = luminance(fg);
+  const l2 = luminance(bg);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+/**
+ * Forces the generated HTML onto the exact canvas and improves visibility:
+ * 1. Converts viewport units (vw/vh/vmin/vmax) to exact px for this canvas.
+ * 2. Bumps sub-11px font sizes to an 11px readability floor.
+ * 3. Fixes the base text/background pairing when contrast fails WCAG AA.
+ * 4. Hard-locks html/body to the canvas with overflow hidden.
+ */
+export function enforceCanvas(
+  html: string,
+  width: number,
+  height: number,
+  palette?: { background?: string; text?: string } | null,
+): string {
+  if (!html || !html.trim()) return html;
+  let out = html;
+
+  // 1. Viewport units → px (the render frame is a fixed W×H box).
+  out = out.replace(/(-?\d+(?:\.\d+)?)vmin\b/gi, (_, n: string) => `${((Number(n) / 100) * Math.min(width, height)).toFixed(1)}px`);
+  out = out.replace(/(-?\d+(?:\.\d+)?)vmax\b/gi, (_, n: string) => `${((Number(n) / 100) * Math.max(width, height)).toFixed(1)}px`);
+  out = out.replace(/(-?\d+(?:\.\d+)?)vh\b/gi, (_, n: string) => `${((Number(n) / 100) * height).toFixed(1)}px`);
+  out = out.replace(/(-?\d+(?:\.\d+)?)vw\b/gi, (_, n: string) => `${((Number(n) / 100) * width).toFixed(1)}px`);
+
+  // 2. Readability floor for px font sizes.
+  out = out.replace(/font-size:\s*(\d+(?:\.\d+)?)px/gi, (m, n: string) =>
+    Number(n) >= 11 ? m : "font-size: 11px",
+  );
+
+  // 3. Contrast guard on the design system's base pairing.
+  let contrastFix = "";
+  if (palette?.background && palette?.text) {
+    const rawBg = palette.background.trim();
+    const bg = normalizeHex(rawBg);
+    // NOTE: contrastRatio() itself re-normalizes (it expects '#'-prefixed
+    // colors), so pass the RAW palette values here — not the stripped hex.
+    if (bg && contrastRatio(palette.text, rawBg) < 4.5) {
+      // Pick whichever of the two extreme anchors reads best on the background.
+      const fixed = contrastRatio("#111111", rawBg) >= contrastRatio("#f8fafc", rawBg) ? "#111111" : "#f8fafc";
+      contrastFix = `\n  html { background: #${bg}; }\n  body { color: ${fixed} !important; }`;
+    }
+  }
+
+  // 4. Hard canvas lock — wins over whatever the model wrote.
+  const lock = `<style data-canvas-lock>
+  html, body { width: ${width}px !important; height: ${height}px !important; max-width: ${width}px !important; max-height: ${height}px !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; box-sizing: border-box !important; }
+  img, svg, video, canvas { max-width: 100% !important; }${contrastFix}
+</style>`;
+
+  if (/<\/head>/i.test(out)) {
+    out = out.replace(/<\/head>/i, `${lock}\n</head>`);
+  } else if (/<body[^>]*>/i.test(out)) {
+    out = out.replace(/<body[^>]*>/i, (m) => `${m}\n${lock}`);
+  } else {
+    out = `${lock}\n${out}`;
+  }
+  return out;
+}
