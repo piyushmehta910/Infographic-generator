@@ -7,11 +7,9 @@ import { getCanvasDimensions } from "@/lib/canvas";
 // and structures high-impact infographic copy.
 // ============================================================
 export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
-  const { input, inputType, aspectRatio, font, language, audience, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
+  const { input, inputType, aspectRatio, language, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
-  const fontStr = font || "Inter";
   const languageStr = language || "English";
-  const audienceStr = audience || "General";
   const userIntentStr = userIntent || "Clean and modern";
 
   const { width, height } = getCanvasDimensions(aspectRatio, aspectRatioWidth, aspectRatioHeight);
@@ -35,7 +33,7 @@ This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
 
 ## INSTRUCTIONS
 1. **SPELL CHECK & POLISH**: Check spelling, fix grammar mistakes, typos, and clumsy phrasing in the user's input.
-2. **COMPLETE & EXPAND**: If the input is brief or a raw topic/draft, expand it with accurate, realistic facts, statistics, percentages, and actionable insights.
+2. **COMPLETE & EXPAND**: If the input is brief or a raw topic/draft, complete and expand it with relevant, factual information. Never invent numbers or statistics.
 3. **TOPIC TYPE**: Detect the semantic topic archetype:
    - "comparison" (e.g. A vs B)
    - "process_steps" (e.g. 5 steps to master X)
@@ -48,16 +46,13 @@ This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
    - Subtitle (max 14 words, clear value proposition)
    - Kicker Tag (2-3 words uppercase category, e.g. "2026 INSIGHTS", "EXECUTIVE GUIDE")
    - 3 to 5 distinct Sections with concise description and 2-3 clear bullet points
-   - 3 to 4 concrete Statistics with realistic values (e.g. "87%", "$4.2B", "3.5x") and labels
-   - ONE Hero Stat representing the primary takeaway
+   - Statistics and ONE Hero Stat ONLY if the source content contains real numeric data — otherwise use empty arrays/omit
    - Key Takeaway / Conclusion summary (1 sentence)
    - Suggested icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.
 
 ## CONTEXT
 - Canvas: ${dimensionsStr} (${aspectRatioStr})
 - Input Mode: ${inputType || "text"}
-- Preferred Font: ${fontStr}
-- Target Audience: ${audienceStr}
 - Tone / Intent: ${userIntentStr}
 - Language: ${languageStr}
 ${conversationBlock}${refinementBlock}${memoryBlock}
@@ -71,11 +66,9 @@ Return ONLY valid JSON (no code fences, no markdown):
   "kicker": "CATEGORY TAG (2-3 words)",
   "title": "Polished Engaging Title",
   "subtitle": "Clear supporting subtitle",
-  "heroStat": { "value": "95%", "label": "Primary key metric" },
+  "heroStat": { "value": "real value from the source, or omit", "label": "Primary key metric" },
   "statistics": [
-    { "id": "stat-1", "value": "95%", "label": "Metric description", "icon": "chart" },
-    { "id": "stat-2", "value": "3.5x", "label": "Growth factor", "icon": "rocket" },
-    { "id": "stat-3", "value": "80M+", "label": "User reach", "icon": "users" }
+    { "id": "stat-1", "value": "real value from the source", "label": "Metric description", "icon": "chart" }
   ],
   "sections": [
     {
