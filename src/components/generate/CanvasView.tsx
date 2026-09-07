@@ -121,11 +121,11 @@ export default function CanvasView(p: CanvasViewProps) {
   return (
     <main id="generate-app" className="flex-1 overflow-auto flex flex-col bg-navy-950">
       {/* Toolbar */}
-      <div className="flex-shrink-0 border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm overflow-x-auto">
-        <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="flex-shrink-0 border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm">
+        <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
           {/* Revisions history pills */}
           {revisions.length > 1 && (
-            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5 border border-white/5">
+            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg p-0.5 border border-white/5 flex-shrink-0">
               <span className="text-[10px] font-semibold text-surface-400 px-1.5 flex items-center gap-1">
                 <History className="w-3 h-3 text-brand-400" /> Rev
               </span>
@@ -152,7 +152,7 @@ export default function CanvasView(p: CanvasViewProps) {
 
           {/* Zoom controls */}
           {html && (
-            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg px-2 py-0.5 border border-white/5">
+            <div className="flex items-center gap-1 bg-surface-800/60 rounded-lg px-2 py-0.5 border border-white/5 flex-shrink-0">
               <button onClick={() => p.setZoom(Math.max(ZOOM_MIN, zoom - 10))} className="p-1.5 text-surface-400 hover:text-white touch-target" title="Zoom out">
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
@@ -173,13 +173,13 @@ export default function CanvasView(p: CanvasViewProps) {
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
           <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={!hasContent || isGenerating} title="Regenerate">
             <RefreshCw className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline ml-1">Regenerate</span>
+            <span className="ml-1">Regenerate</span>
           </Button>
           {html && (
               <div className="relative flex-shrink-0">
                 <Button
                   ref={exportBtnRef}
-                  variant="ghost"
+                  variant="primary"
                   size="sm"
                   onClick={() => setExportOpen((o) => !o)}
                   disabled={Boolean(exporting)}
@@ -192,16 +192,16 @@ export default function CanvasView(p: CanvasViewProps) {
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  <span className="hidden sm:inline ml-1">
+                  <span className="ml-1">
                     {exporting ? "Exporting…" : "Export"}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 hidden sm:inline opacity-70" />
+                  <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
                 </Button>
 
                 {exportOpen && (
                   <div
                     role="menu"
-                    className="absolute top-full right-0 mt-2 z-30 w-52 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-top-right animate-in"
+                    className="absolute top-full right-0 mt-2 z-30 w-56 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-top-right animate-in"
                   >
                     <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
                       Export as
@@ -360,27 +360,62 @@ export default function CanvasView(p: CanvasViewProps) {
 
       {/* Mobile export bar */}
       {html && (
-        <div className="sm:hidden flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center gap-2">
-          {EXPORT_FORMATS.map((f) => {
-            const Icon = f.icon;
-            const busy = exporting === f.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => onExport(f.id)}
-                disabled={Boolean(exporting)}
-                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  busy
-                    ? "bg-brand-500/20 text-brand-300"
-                    : "bg-surface-800/60 text-surface-300 hover:text-white disabled:opacity-40"
-                }`}
-                aria-busy={busy}
-              >
-                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
-                {f.label}
-              </button>
-            );
-          })}
+        <div className="sm:hidden flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center relative">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setExportOpen((o) => !o)}
+            disabled={Boolean(exporting)}
+            className="w-full max-w-xs"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span className="ml-1">{exporting ? "Exporting…" : "Export"}</span>
+            <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
+          </Button>
+          {exportOpen && (
+            <div
+              role="menu"
+              className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 w-56 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-bottom-right animate-in"
+            >
+              <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
+                Export as
+              </p>
+              {EXPORT_FORMATS.map((f) => {
+                const Icon = f.icon;
+                const isBusy = exporting === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    role="menuitem"
+                    disabled={Boolean(exporting)}
+                    onClick={() => handlePickExport(f.id)}
+                    className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all ${
+                      isBusy
+                        ? "text-brand-300"
+                        : "text-surface-200 hover:bg-white/5 hover:text-white disabled:opacity-40"
+                    }`}
+                  >
+                    <span className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                      {isBusy ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+                      ) : (
+                        <Icon className="w-4 h-4 text-surface-300" />
+                      )}
+                    </span>
+                    <span className="flex-1 text-left min-w-0">
+                      <span className="block text-sm font-medium">{f.label}</span>
+                      <span className="block text-[11px] text-surface-500 truncate">{f.hint}</span>
+                    </span>
+                    {isBusy && <Check className="w-3.5 h-3.5 text-brand-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </main>
