@@ -49,13 +49,15 @@ export default function Toast() {
               <p className="text-xs opacity-80">{toast.message}</p>
             )}
           </div>
-          <button
-            onClick={dismissToast}
-            aria-label="Dismiss notification"
-            className="ml-4 p-1 hover:opacity-70"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {toast.dismissible !== false && (
+            <button
+              onClick={dismissToast}
+              aria-label="Dismiss notification"
+              className="ml-4 p-1 hover:opacity-70"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

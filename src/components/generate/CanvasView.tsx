@@ -1,13 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, FileImage, FileJson, FileType,
-  Loader2, AlertTriangle, Scaling, Square, History,
+  Loader2, AlertTriangle, Scaling, Square, History, ChevronDown, Download,
+  FileText, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AIDesignRenderer } from "@/components/templates/AIDesignRenderer";
 import { AspectRatio, GenerationRevision } from "@/lib/types";
+
+export type ExportFormat = "png" | "jpg" | "pdf" | "svg" | "json";
+
+const EXPORT_FORMATS: { id: ExportFormat; label: string; hint: string; icon: typeof FileImage }[] = [
+  { id: "png", label: "PNG", hint: "High-res image", icon: FileImage },
+  { id: "jpg", label: "JPG", hint: "Compressed image", icon: FileImage },
+  { id: "pdf", label: "PDF", hint: "Print / document", icon: FileText },
+  { id: "svg", label: "SVG", hint: "Vector (editable)", icon: FileType },
+  { id: "json", label: "JSON", hint: "Raw HTML markup", icon: FileJson },
+];
 
 interface CanvasViewProps {
   html: string | null;
@@ -15,7 +26,7 @@ interface CanvasViewProps {
   setAspectRatio?: (ar: AspectRatio) => void;
   zoom: number;
   setZoom: (z: number) => void;
-  onExport: (format: "png" | "jpg" | "pdf" | "svg" | "json") => void;
+  onExport: (format: ExportFormat) => void;
   onRegenerate: () => void;
   isGenerating: boolean;
   hasContent: boolean;
@@ -26,6 +37,10 @@ interface CanvasViewProps {
   revisions?: GenerationRevision[];
   currentRevisionId?: string | null;
   onSelectRevision?: (rev: GenerationRevision) => void;
+  /** Currently-exporting format (drives spinner + disabled state). */
+  exporting?: ExportFormat | null;
+  /** Ref to the renderer iframe, used to capture the live render. */
+  frameRef?: React.MutableRefObject<HTMLIFrameElement | null>;
 }
 
 const ZOOM_MIN = 25;
@@ -36,17 +51,37 @@ export default function CanvasView(p: CanvasViewProps) {
     html, aspectRatio, zoom, setZoom, onExport, onRegenerate,
     isGenerating, hasContent, progress, onCancel, error, onRetry,
     revisions = [], currentRevisionId, onSelectRevision,
+    exporting = null, frameRef,
   } = p;
 
   const areaRef = useRef<HTMLDivElement>(null);
+  const exportBtnRef = useRef<HTMLButtonElement>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
-  const exportOptions = [
-    { id: "png" as const, label: "PNG", icon: <FileImage className="w-3.5 h-3.5" /> },
-    { id: "jpg" as const, label: "JPG", icon: <FileImage className="w-3.5 h-3.5" /> },
-    { id: "svg" as const, label: "SVG", icon: <FileType className="w-3.5 h-3.5" /> },
-    { id: "pdf" as const, label: "PDF", icon: <FileImage className="w-3.5 h-3.5" /> },
-    { id: "json" as const, label: "JSON", icon: <FileJson className="w-3.5 h-3.5" /> },
-  ];
+  // Close the export menu on outside click / Escape.
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onDoc = (ev: MouseEvent) => {
+      if (!exportBtnRef.current?.contains(ev.target as Node)) setExportOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setExportOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [exportOpen]);
+
+  const handlePickExport = useCallback(
+    (format: ExportFormat) => {
+      setExportOpen(false);
+      onExport(format);
+    },
+    [onExport],
+  );
 
   /** Scale the canvas to fill the visible area (clamped). */
   const fitToView = useCallback(() => {
@@ -141,15 +176,69 @@ export default function CanvasView(p: CanvasViewProps) {
             <span className="hidden sm:inline ml-1">Regenerate</span>
           </Button>
           {html && (
-            <div className="flex items-center gap-1">
-              <div className="h-6 w-px bg-white/5" />
-              {exportOptions.map((opt) => (
-                <Button key={opt.id} variant="ghost" size="sm" onClick={() => onExport(opt.id)} title={`Export as ${opt.label}`}>
-                  {opt.icon}
-                  <span className="hidden sm:inline ml-1">{opt.label}</span>
+              <div className="relative flex-shrink-0">
+                <Button
+                  ref={exportBtnRef}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExportOpen((o) => !o)}
+                  disabled={Boolean(exporting)}
+                  title="Export this infographic"
+                  aria-haspopup="menu"
+                  aria-expanded={exportOpen}
+                >
+                  {exporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline ml-1">
+                    {exporting ? "Exporting…" : "Export"}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 hidden sm:inline opacity-70" />
                 </Button>
-              ))}
-            </div>
+
+                {exportOpen && (
+                  <div
+                    role="menu"
+                    className="absolute top-full right-0 mt-2 z-30 w-52 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-top-right animate-in"
+                  >
+                    <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
+                      Export as
+                    </p>
+                    {EXPORT_FORMATS.map((f) => {
+                      const Icon = f.icon;
+                      const isBusy = exporting === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          role="menuitem"
+                          disabled={Boolean(exporting)}
+                          onClick={() => handlePickExport(f.id)}
+                          className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all ${
+                            isBusy
+                              ? "text-brand-300"
+                              : "text-surface-200 hover:bg-white/5 hover:text-white disabled:opacity-40"
+                          }`}
+                        >
+                          <span className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                            {isBusy ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+                            ) : (
+                              <Icon className="w-4 h-4 text-surface-300" />
+                            )}
+                          </span>
+                          <span className="flex-1 text-left min-w-0">
+                            <span className="block text-sm font-medium">{f.label}</span>
+                            <span className="block text-[11px] text-surface-500 truncate">{f.hint}</span>
+                          </span>
+                          {isBusy && <Check className="w-3.5 h-3.5 text-brand-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
           )}
         </div>
       </div>
@@ -216,7 +305,7 @@ export default function CanvasView(p: CanvasViewProps) {
                 }}
                 className="shadow-2xl rounded-xl overflow-hidden ring-1 ring-white/10 absolute top-0 left-0"
               >
-                <AIDesignRenderer html={html} aspectRatio={aspectRatio} />
+                <AIDesignRenderer html={html} aspectRatio={aspectRatio} frameRef={frameRef} />
               </div>
             </div>
           </>
@@ -272,15 +361,26 @@ export default function CanvasView(p: CanvasViewProps) {
       {/* Mobile export bar */}
       {html && (
         <div className="sm:hidden flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center gap-2">
-          {exportOptions.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onExport(opt.id)}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium bg-surface-800/60 text-surface-300 hover:text-white transition-all"
-            >
-              {opt.icon} {opt.label}
-            </button>
-          ))}
+          {EXPORT_FORMATS.map((f) => {
+            const Icon = f.icon;
+            const busy = exporting === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => onExport(f.id)}
+                disabled={Boolean(exporting)}
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  busy
+                    ? "bg-brand-500/20 text-brand-300"
+                    : "bg-surface-800/60 text-surface-300 hover:text-white disabled:opacity-40"
+                }`}
+                aria-busy={busy}
+              >
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
+                {f.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </main>

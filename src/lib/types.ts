@@ -207,6 +207,7 @@ export interface ToastMessage {
   title: string;
   message?: string;
   duration?: number;
+  dismissible?: boolean;
 }
 
 export interface Toast extends ToastMessage {

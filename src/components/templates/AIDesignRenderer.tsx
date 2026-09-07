@@ -6,6 +6,8 @@ import { AspectRatio } from "@/lib/types";
 interface AIDesignRendererProps {
   html: string;
   aspectRatio: AspectRatio;
+  /** Optional ref to the inner iframe so the parent can capture the live render for export. */
+  frameRef?: React.MutableRefObject<HTMLIFrameElement | null>;
 }
 
 /**
@@ -20,12 +22,14 @@ interface AIDesignRendererProps {
 export const AIDesignRenderer: React.FC<AIDesignRendererProps> = ({
   html,
   aspectRatio,
+  frameRef,
 }) => {
-  const frameRef = useRef<HTMLIFrameElement>(null);
+  const ownFrameRef = useRef<HTMLIFrameElement>(null);
+  const activeRef = frameRef ?? ownFrameRef;
 
   const fitToFrame = useCallback(() => {
     try {
-      const doc = frameRef.current?.contentDocument;
+      const doc = activeRef.current?.contentDocument;
       if (!doc || !doc.body) return;
 
       const root = doc.documentElement;
@@ -125,7 +129,7 @@ export const AIDesignRenderer: React.FC<AIDesignRendererProps> = ({
       className="template-canvas-container"
     >
       <iframe
-        ref={frameRef}
+        ref={activeRef}
         srcDoc={html}
         onLoad={fitToFrame}
         style={{

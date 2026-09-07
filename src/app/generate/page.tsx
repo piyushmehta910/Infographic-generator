@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, Settings, Sparkles, LayoutDashboard, X, PenLine, Square } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import InputPanel from "@/components/generate/InputPanel";
-import CanvasView from "@/components/generate/CanvasView";
+import CanvasView, { ExportFormat } from "@/components/generate/CanvasView";
 import ProviderSettings from "@/components/generate/ProviderSettings";
 import Toast from "@/components/ui/Toast";
 import { useEditorStore } from "@/stores/editorStore";
@@ -146,6 +146,10 @@ export default function GeneratePage() {
   const abortRef = useRef<AbortController | null>(null);
   // Working-memory carried across generations in this session
   const memoryRef = useRef<MemoryEntry[]>([]);
+  // Ref to the live preview iframe, used to capture the exact on-screen
+  // render for image/PDF exports.
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
   // Check if any provider has an API key configured
   const hasApiKey = providers.some((p) => p.apiKey && p.apiKey.trim().length > 0);
@@ -491,6 +495,14 @@ export default function GeneratePage() {
     async (format: "png" | "jpg" | "pdf" | "svg" | "json") => {
       if (!html) return;
       let el: HTMLElement | null = null;
+      setExporting(format);
+      showToast({
+        type: "info",
+        title: `Exporting as ${format.toUpperCase()}…`,
+        message: "This may take a moment",
+        duration: 10000,
+        dismissible: false,
+      });
       try {
         if (format === "json") {
           const blob = new Blob([JSON.stringify({ html }, null, 2)], { type: "application/json" });
@@ -498,7 +510,7 @@ export default function GeneratePage() {
           a.href = URL.createObjectURL(blob);
           a.download = "infographic.json";
           a.click();
-          showToast({ type: "success", title: "Exported as JSON" });
+          showToast({ type: "success", title: "Exported as JSON", duration: 4000 });
           return;
         }
         // The live preview lives inside an iframe, which html-to-image cannot
@@ -527,7 +539,7 @@ export default function GeneratePage() {
           a.download = `infographic.${format}`;
           a.click();
         }
-        showToast({ type: "success", title: `Exported as ${format.toUpperCase()}` });
+        showToast({ type: "success", title: `Exported as ${format.toUpperCase()}`, duration: 4000 });
       } catch (e) {
         showToast({
           type: "error",
@@ -537,10 +549,44 @@ export default function GeneratePage() {
         });
       } finally {
         el?.remove();
+        setExporting(null);
       }
     },
-    [html, aspectRatio, showToast],
+    [html, aspectRatio, showToast, setExporting],
   );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isInputFocused = document.activeElement instanceof HTMLTextAreaElement || document.activeElement instanceof HTMLInputElement;
+      // Allow shortcuts when typing in textarea: Ctrl/Cmd+Enter to generate, Escape to blur
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && isInputFocused) {
+        e.preventDefault();
+        handleGenerate();
+      }
+      // Escape closes settings / export dropdown
+      if (e.key === "Escape") {
+        if (showSettings) setShowSettings(false);
+      }
+      // Ctrl/Cmd+S to export PNG
+      if (e.key === "s" && (e.ctrlKey || e.metaKey) && html && !exporting) {
+        e.preventDefault();
+        handleExport("png");
+      }
+      // Ctrl/Cmd+Shift+S to export PDF
+      if (e.key === "s" && (e.ctrlKey || e.metaKey) && e.shiftKey && html && !exporting) {
+        e.preventDefault();
+        handleExport("pdf");
+      }
+      // Ctrl/Cmd+R to regenerate (same as Generate)
+      if (e.key === "r" && (e.ctrlKey || e.metaKey) && !isInputFocused && hasContent && !isGenerating) {
+        e.preventDefault();
+        handleGenerate();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleGenerate, handleExport, showSettings, html, exporting, hasContent, isGenerating]);
 
   return (
     <>
@@ -687,6 +733,8 @@ export default function GeneratePage() {
             revisions={revisions}
             currentRevisionId={currentRevisionId}
             onSelectRevision={handleSelectRevision}
+            exporting={exporting}
+            frameRef={frameRef}
           />
         </div>
         </div>
