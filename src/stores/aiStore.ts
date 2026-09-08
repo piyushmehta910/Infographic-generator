@@ -4,16 +4,20 @@ import {
   AIProviderId,
   AIProviderConfig,
 } from "@/lib/types";
+import { CustomPrompts } from "@/services/ai/promptBuilder";
 
 interface AIStore {
   // State
   providers: AIProviderConfig[];
   activeProvider: AIProviderId;
+  /** Per-phase system-prompt overrides (Settings → System Prompts). */
+  customPrompts: CustomPrompts;
 
   // Actions
   setProvider: (provider: AIProviderConfig) => void;
   setActiveProvider: (provider: AIProviderId) => void;
   getActiveConfig: () => AIProviderConfig | undefined;
+  setCustomPrompts: (prompts: CustomPrompts) => void;
 }
 
 const SUPPORTED_PROVIDER_IDS = ["openrouter", "gemini", "groq", "nim", "mistral", "custom"] as const;
@@ -82,6 +86,7 @@ export const useAIStore = create<AIStore>()(
       (set, get) => ({
         providers: defaultProviders,
         activeProvider: "openrouter",
+        customPrompts: {},
 
         setProvider: (provider) =>
           set((state) => ({
@@ -91,6 +96,8 @@ export const useAIStore = create<AIStore>()(
           })),
 
         setActiveProvider: (provider) => set({ activeProvider: provider }),
+
+        setCustomPrompts: (prompts) => set({ customPrompts: prompts }),
 
         getActiveConfig: () => {
           const { providers, activeProvider } = get();
@@ -102,6 +109,7 @@ export const useAIStore = create<AIStore>()(
         partialize: (state) => ({
           providers: state.providers,
           activeProvider: state.activeProvider,
+          customPrompts: state.customPrompts,
         }),
         merge: (persisted, current) => {
           const merged = { ...current, ...(persisted as Partial<AIStore>) };

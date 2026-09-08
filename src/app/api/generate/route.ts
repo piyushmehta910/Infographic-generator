@@ -79,6 +79,15 @@ const bodySchema = z.object({
     storedProviders: z.array(storedProviderSchema).max(8).default([]),
     // Entries are strictly re-validated by SessionMemory downstream.
     memory: z.array(z.record(z.unknown())).max(40).default([]),
+    // Per-phase system-prompt overrides edited in Settings → System Prompts.
+    customPrompts: z
+      .object({
+        content: z.string().max(12000).optional(),
+        design: z.string().max(12000).optional(),
+        html: z.string().max(12000).optional(),
+        singleShot: z.string().max(12000).optional(),
+      })
+      .optional(),
   }),
 });
 
@@ -228,6 +237,7 @@ export async function POST(request: NextRequest) {
             baseUrl: p.baseUrl,
           })),
           memory: options.memory as unknown as GenerateContentOptions["memory"],
+          customPrompts: options.customPrompts,
           signal: upstreamAbort.signal,
           onProgress: (event) => send("progress", event),
         });

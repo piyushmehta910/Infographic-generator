@@ -140,6 +140,7 @@ export default function GeneratePage() {
   } = useEditorStore();
   const { showToast } = useUIStore();
   const providers = useAIStore((s) => s.providers);
+  const customPrompts = useAIStore((s) => s.customPrompts);
   const activeConfig = useAIStore((s) => s.getActiveConfig());
   const generatingRef = useRef(false);
   const startTimeRef = useRef(0);
@@ -314,6 +315,7 @@ export default function GeneratePage() {
                 baseUrl: p.baseUrl,
               })),
               memory: memoryRef.current,
+              customPrompts: Object.keys(customPrompts).length ? customPrompts : undefined,
             },
           }),
           signal: controller.signal,
@@ -515,15 +517,41 @@ export default function GeneratePage() {
         }
         // The live preview lives inside an iframe, which html-to-image cannot
         // rasterize — re-render the same HTML inline offscreen for the capture.
-        const { renderOffscreenForCapture } = await import("@/lib/export/capture");
-        el = await renderOffscreenForCapture(html, aspectRatio.width, aspectRatio.height);
         const mod = await import("html-to-image");
         const fn = format === "jpg" ? mod.toJpeg : format === "svg" ? mod.toSvg : mod.toPng;
-        const dataUrl = await fn(el, {
-          quality: 1,
-          pixelRatio: 2,
-          ...(format === "jpg" ? { backgroundColor: "#ffffff" } : {}),
-        });
+        let dataUrl: string;
+        try {
+          // PRIMARY: offscreen re-render at the natural canvas size (full quality).
+          const { renderOffscreenForCapture } = await import("@/lib/export/capture");
+          el = await renderOffscreenForCapture(html, aspectRatio.width, aspectRatio.height);
+          dataUrl = await fn(el, {
+            quality: 1,
+            pixelRatio: 2,
+            ...(format === "jpg" ? { backgroundColor: "#ffffff" } : {}),
+          });
+        } catch {
+          // FALLBACK: rasterize the live preview iframe directly (same-origin
+          // srcDoc). Temporarily release the fit-to-frame scale so the capture
+          // is at natural size, then restore it.
+          const doc = frameRef.current?.contentDocument;
+          if (!doc || !doc.body) throw new Error("Preview is not ready for export");
+          const prevTransform = doc.body.style.transform;
+          const prevOrigin = doc.body.style.transformOrigin;
+          doc.body.style.setProperty("transform", "none", "important");
+          doc.body.style.setProperty("transform-origin", "0 0", "important");
+          try {
+            dataUrl = await fn(doc.documentElement, {
+              quality: 1,
+              pixelRatio: 2,
+              width: aspectRatio.width,
+              height: aspectRatio.height,
+              ...(format === "jpg" ? { backgroundColor: "#ffffff" } : {}),
+            });
+          } finally {
+            doc.body.style.setProperty("transform", prevTransform, "important");
+            doc.body.style.setProperty("transform-origin", prevOrigin, "important");
+          }
+        }
         if (format === "pdf") {
           const { jsPDF } = await import("jspdf");
           const pdf = new jsPDF({
@@ -552,7 +580,7 @@ export default function GeneratePage() {
         setExporting(null);
       }
     },
-    [html, aspectRatio, showToast, setExporting],
+    [html, aspectRatio, showToast, setExporting, frameRef],
   );
 
   // Keyboard shortcuts

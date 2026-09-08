@@ -57,7 +57,10 @@ export async function renderOffscreenForCapture(
     }
   }
 
-  // Clone and scope stylesheet rules so body/html rules target inner instead of leaking
+  // Clone and scope stylesheet rules so body/html rules target inner instead of leaking.
+  // <link rel="stylesheet"> (Google Fonts) is FETCHED and inlined as <style> first:
+  // html-to-image's own link-inlining is flaky (CORS/timing), and inlining here
+  // guarantees @font-face rules exist before the rasterizer runs.
   const headNodes = doc.querySelectorAll("style, link[rel='stylesheet']");
   for (const node of Array.from(headNodes)) {
     if (node.tagName.toLowerCase() === "style") {
@@ -68,7 +71,27 @@ export async function renderOffscreenForCapture(
       styleEl.textContent = css;
       inner.appendChild(styleEl);
     } else {
-      inner.appendChild(node.cloneNode(true));
+      const href = node.getAttribute("href");
+      let inlined = false;
+      if (href) {
+        try {
+          const res = await fetch(href, { cache: "force-cache" });
+          if (res.ok) {
+            const cssText = await res.text();
+            const styleEl = document.createElement("style");
+            styleEl.setAttribute("data-export-inlined", href);
+            // Inlined font CSS keeps absolute URLs (fonts.gstatic.com is CORS-enabled)
+            styleEl.textContent = cssText;
+            inner.appendChild(styleEl);
+            inlined = true;
+          }
+        } catch {
+          /* fall through to cloning the original link */
+        }
+      }
+      if (!inlined) {
+        inner.appendChild(node.cloneNode(true));
+      }
     }
   }
 
@@ -89,14 +112,28 @@ export async function renderOffscreenForCapture(
   holder.appendChild(inner);
   document.body.appendChild(holder);
 
-  // Wait for webfonts (Google Fonts inside generated HTML) to be ready
-  // so text renders with the intended families in the capture.
+  // Wait for layout + webfonts before capture. NOTE: `fonts.ready` alone is
+  // racy — it can resolve BEFORE the inlined @font-face rules start loading
+  // any font files. So: double-rAF (style/layout flush) → force reflow →
+  // fonts.ready → poll until the FontFaceSet reports no pending loads.
+  const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  void holder.offsetHeight; // force synchronous layout with the inlined CSS
   try {
-    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
     if (fonts?.ready) await fonts.ready;
+    // Poll: give any late-declared @font-face loads a chance to register,
+    // then confirm the set settles at "loaded" twice in a row.
+    let stable = 0;
+    for (let i = 0; i < 20 && stable < 2; i++) {
+      if (fonts && fonts.status === "loaded") stable++;
+      else stable = 0;
+      await new Promise((r) => setTimeout(r, 100));
+    }
   } catch {
     /* font API unavailable — proceed */
   }
+  // Final settle so any webfont-driven reflow paints before rasterizing.
+  await new Promise((r) => setTimeout(r, 120));
 
   return holder;
 }

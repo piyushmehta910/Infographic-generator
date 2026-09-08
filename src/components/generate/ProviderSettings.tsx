@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Settings, X, AlertCircle, Plug, Loader2, CheckCircle2, ChevronDown } from "lucide-react";
+import { Settings, X, AlertCircle, Plug, Loader2, CheckCircle2, ChevronDown, FileText, Palette, Code2, Zap, RotateCcw, Save } from "lucide-react";
 import { useAIStore } from "@/stores/aiStore";
 import { AI_PROVIDERS } from "@/lib/constants";
+import { DEFAULT_PROMPTS, type CustomPrompts } from "@/services/ai/promptBuilder";
 
 interface ProviderSettingsProps {
   open: boolean;
@@ -11,8 +12,11 @@ interface ProviderSettingsProps {
 }
 
 export default function ProviderSettings({ open, onClose }: ProviderSettingsProps) {
-  const { providers, activeProvider, setProvider, setActiveProvider } = useAIStore();
+  const { providers, activeProvider, setProvider, setActiveProvider, customPrompts, setCustomPrompts } = useAIStore();
   const [testing, setTesting] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
+  const [drafts, setDrafts] = useState<CustomPrompts>({});
+  const [promptsSaved, setPromptsSaved] = useState(false);
   const [freeOnly, setFreeOnly] = useState(true);
   const [dynamicModels, setDynamicModels] = useState<Record<string, any[]>>({});
   const [testResult, setTestResult] = useState<{
@@ -55,6 +59,14 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
     setTesting(false);
   }, [activeProvider]);
 
+  // Sync prompt drafts from the store each time the dialog opens.
+  useEffect(() => {
+    if (open) {
+      setDrafts({ ...customPrompts });
+      setPromptsSaved(false);
+    }
+  }, [open, customPrompts]);
+
   if (!open) return null;
 
   const active = providers.find((p) => p.id === activeProvider);
@@ -93,6 +105,45 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
   const updateCustom = (field: string, value: string | number) => {
     setProvider({ ...(active as any), [field]: value });
   };
+
+  // --- System prompt editing ---
+  const PROMPT_FIELDS: { id: keyof CustomPrompts; label: string; icon: React.ComponentType<{ className?: string }>; hint: string }[] = [
+    { id: "content", label: "Phase 1 · Content", icon: FileText, hint: "Polishes & structures your input" },
+    { id: "design", label: "Phase 2 · Art Direction", icon: Palette, hint: "Invents palette, fonts & layout" },
+    { id: "html", label: "Phase 3 · HTML/CSS", icon: Code2, hint: "Codes the final infographic" },
+    { id: "singleShot", label: "Fallback · Single-Shot", icon: Zap, hint: "Used if the 3-phase pipeline fails" },
+  ];
+
+  const getDraft = (id: keyof CustomPrompts) => drafts[id] ?? DEFAULT_PROMPTS[id];
+  const isModified = (id: keyof CustomPrompts) =>
+    drafts[id] !== undefined && drafts[id] !== DEFAULT_PROMPTS[id];
+
+  const editDraft = (id: keyof CustomPrompts, value: string) => {
+    setDrafts((d) => ({ ...d, [id]: value }));
+    setPromptsSaved(false);
+  };
+
+  const resetDraft = (id: keyof CustomPrompts) => {
+    setDrafts((d) => {
+      const next = { ...d };
+      delete next[id];
+      return next;
+    });
+    setPromptsSaved(false);
+  };
+
+  const savePrompts = () => {
+    // Only persist values that differ from the defaults, so future default
+    // improvements still flow through to untouched phases.
+    const overrides: CustomPrompts = {};
+    for (const { id } of PROMPT_FIELDS) {
+      const v = drafts[id];
+      if (v !== undefined && v !== DEFAULT_PROMPTS[id]) overrides[id] = v;
+    }
+    setCustomPrompts(overrides);
+    setPromptsSaved(true);
+  };
+
 
   return (
     <div
@@ -402,6 +453,97 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                   </React.Fragment>
                 ))
             ))}
+        </div>
+        {/* --- System Prompts (editable) --- */}
+        <div className="mt-6 rounded-xl border border-white/10 bg-surface-900/50 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setPromptsOpen((o) => !o)}
+            aria-expanded={promptsOpen}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors"
+          >
+            <span className="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-400/20 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-4 h-4 text-brand-300" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-white">System Prompts</span>
+              <span className="block text-[11px] text-surface-400">
+                View & edit the AI instructions for each pipeline phase
+              </span>
+            </span>
+            {Object.keys(customPrompts).length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-400/30 flex-shrink-0">
+                {Object.keys(customPrompts).length} customized
+              </span>
+            )}
+            <ChevronDown className={`w-4 h-4 text-surface-400 transition-transform flex-shrink-0 ${promptsOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {promptsOpen && (
+            <div className="px-4 pb-4 space-y-4 border-t border-white/5">
+              <p className="text-[11px] text-surface-400 pt-3 leading-relaxed">
+                These are the exact system prompts sent to the AI for each phase. Edit any of them to
+                steer the output — your changes are saved locally and used on the next generation.
+                <span className="text-surface-500"> Defaults are shown as the starting text.</span>
+              </p>
+              {PROMPT_FIELDS.map(({ id, label, icon: Icon, hint }) => {
+                const modified = isModified(id);
+                return (
+                  <div key={id} className="rounded-lg border border-white/5 bg-surface-950/60">
+                    <div className="flex items-center gap-2 px-3 pt-2.5">
+                      <Icon className="w-3.5 h-3.5 text-brand-300 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-surface-100">{label}</span>
+                      {modified && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-300 border border-amber-400/30">
+                          edited
+                        </span>
+                      )}
+                      <span className="ml-auto text-[10px] text-surface-500 hidden sm:block truncate">{hint}</span>
+                      <button
+                        type="button"
+                        onClick={() => resetDraft(id)}
+                        disabled={!modified}
+                        title="Reset this phase to the default prompt"
+                        className="ml-auto sm:ml-2 p-1.5 rounded-md text-surface-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex-shrink-0"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <textarea
+                      value={getDraft(id)}
+                      onChange={(e) => editDraft(id, e.target.value)}
+                      rows={6}
+                      spellCheck={false}
+                      className="w-full mx-0 mt-2 px-3 py-2.5 bg-transparent border-t border-white/5 text-[11px] leading-relaxed text-surface-200 font-mono resize-y focus:outline-none focus:bg-white/[0.02] placeholder:text-surface-600"
+                      placeholder={DEFAULT_PROMPTS[id]}
+                      aria-label={`${label} system prompt`}
+                    />
+                  </div>
+                );
+              })}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={savePrompts}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-brand-500/20 border border-brand-400/40 text-brand-200 hover:bg-brand-500/30 transition-all"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save Prompts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrafts({})}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-surface-300 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset All
+                </button>
+                {promptsSaved && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-300 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Saved — used on next generation
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <button
           onClick={onClose}

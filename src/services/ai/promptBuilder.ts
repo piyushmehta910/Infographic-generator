@@ -6,7 +6,55 @@ import { getCanvasDimensions } from "@/lib/canvas";
 // Evaluates input, corrects typos and grammar, completes missing details,
 // and structures high-impact infographic copy.
 // ============================================================
-export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string): string {
+// ============================================================
+// Editable system prompts (defaults).
+//
+// These are the exact instruction blocks sent to the AI for each phase.
+// Users can override them in Settings → System Prompts; a custom prompt
+// REPLACES the default instruction block for that phase, while the dynamic
+// context (canvas, source content, output contract) is always appended so
+// results stay structurally valid.
+// Placeholders: {width} {height} {sections} {stats} {dimensions}
+// ============================================================
+export const DEFAULT_PROMPTS = {
+  content: `You are a senior content strategist and editor preparing publication-ready material for an INFOGRAPHIC.
+This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
+
+## INSTRUCTIONS
+1. **SPELL CHECK & POLISH**: Check spelling, fix grammar mistakes, typos, and clumsy phrasing in the user's input.
+2. **COMPLETE & EXPAND**: If the input is brief or a raw topic/draft, complete and expand it with relevant, factual information. Never invent numbers or statistics.
+3. **TOPIC TYPE**: Detect the semantic topic archetype:
+   - "comparison" (e.g. A vs B)
+   - "process_steps" (e.g. 5 steps to master X)
+   - "metrics_data" (e.g. Market report, statistics)
+   - "list_features" (e.g. 7 habits, key tips)
+   - "timeline" (e.g. Historical evolution, roadmap)
+   - "general" (general informative topic)
+4. **STRUCTURE**:
+   - Engaging Title (max 8 words, punchy and polished)
+   - Subtitle (max 14 words, clear value proposition)
+   - Kicker Tag (2-3 words uppercase category, e.g. "2026 INSIGHTS", "EXECUTIVE GUIDE")
+   - 3 to 5 distinct Sections with concise description and 2-3 clear bullet points
+   - Statistics and ONE Hero Stat ONLY if the source content contains real numeric data — otherwise use empty arrays/omit
+   - Key Takeaway / Conclusion summary (1 sentence)
+   - Suggested icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.`,
+  design: `You are a visionary Art Director and Master Infographic Designer.
+This is STAGE 2 (Custom Layout & Visual Design Strategy).
+
+Your job: study the refined content below and INVENT the complete visual design yourself. You have full creative freedom — structure, palette, typography, composition, decoration, motion-feel — everything is yours to decide. Do not follow any fixed template, archetype list, or house style: the design must grow out of what the content is about.`,
+  html: `## STAGE 3: HTML/CSS CODE GENERATION
+You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. The design system JSON below is the SOURCE OF TRUTH — implement it faithfully and creatively. The markup structure, CSS architecture, class naming, composition, and all visual decisions are entirely YOURS; do NOT fall back to any fixed template or house style.`,
+  singleShot: `Design a complete, self-contained HTML infographic that visualizes the content below.`,
+} as const;
+
+export type CustomPrompts = {
+  content?: string;
+  design?: string;
+  html?: string;
+  singleShot?: string;
+};
+
+export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryContext?: string, customInstructions?: string): string {
   const { input, inputType, aspectRatio, language, aspectRatioWidth, aspectRatioHeight, userIntent, chatHistory, refinementPrompt, previousContent } = request;
   const aspectRatioStr = aspectRatio || "1:1";
   const languageStr = language || "English";
@@ -28,7 +76,9 @@ export function buildContentAnalysisPrompt(request: AIGenerationRequest, memoryC
     refinementBlock = `\n## REFINEMENT INSTRUCTION\nUser requested change: "${refinementPrompt || "Update content"}"\nPrevious content: ${JSON.stringify(previousContent || {})}\nApply the user's edit while keeping established facts.\n`;
   }
 
-  return `You are a senior content strategist and editor preparing publication-ready material for an INFOGRAPHIC.
+  // A user-provided system prompt replaces the default instruction block;
+  // dynamic context, source data, and the output contract always remain.
+  const head = customInstructions?.trim() || `You are a senior content strategist and editor preparing publication-ready material for an INFOGRAPHIC.
 This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
 
 ## INSTRUCTIONS
@@ -48,7 +98,9 @@ This is STAGE 1 (Content Polish, Spelling Correction & Expansion).
    - 3 to 5 distinct Sections with concise description and 2-3 clear bullet points
    - Statistics and ONE Hero Stat ONLY if the source content contains real numeric data — otherwise use empty arrays/omit
    - Key Takeaway / Conclusion summary (1 sentence)
-   - Suggested icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.
+   - Suggested icon keywords (e.g. "chart", "shield", "rocket", "users", "globe", "bolt") — NEVER emoji.`;
+
+  return `${head}
 
 ## CONTEXT
 - Canvas: ${dimensionsStr} (${aspectRatioStr})
@@ -92,7 +144,7 @@ NOTE: Do NOT suggest colors or styling — that is the Art Director stage's job.
 // The AI analyzes the specific topic and content semantics, and freely
 // invents the custom visual layout and design blueprint that fits best.
 // ============================================================
-export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest, memoryContext?: string): string {
+export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerationRequest, memoryContext?: string, customInstructions?: string): string {
   const { aspectRatio, userIntent, chatHistory, refinementPrompt } = request;
   const isPortrait = aspectRatio === "9:16" || aspectRatio === "4:5" || aspectRatio === "A4-P";
   const isWide = aspectRatio === "16:9" || aspectRatio === "A4-L";
@@ -132,24 +184,20 @@ export function buildDesignBlueprintPrompt(content: unknown, request: AIGenerati
     ? `\n## DIFFERENTIATION RULE\nThe MEMORY CONTEXT below summarizes a design used earlier in this session. Your new design MUST be a clearly DIFFERENT direction — different palette family, different fonts, different composition — unless the user explicitly asked to keep the style.\n`
     : "";
 
-  return `You are a visionary Art Director and Master Infographic Designer.
+  // A user-provided system prompt replaces the default mission + creative
+  // rules; the dynamic seed, canvas, content, and output contract remain.
+  const custom = customInstructions?.trim();
+  const head = custom || `You are a visionary Art Director and Master Infographic Designer.
 This is STAGE 2 (Custom Layout & Visual Design Strategy).
 
-Your job: study the refined content below and INVENT the complete visual design yourself. You have full creative freedom — structure, palette, typography, composition, decoration, motion-feel — everything is yours to decide. Do not follow any fixed template, archetype list, or house style: the design must grow out of what the content is about.
+Your job: study the refined content below and INVENT the complete visual design yourself. You have full creative freedom — structure, palette, typography, composition, decoration, motion-feel — everything is yours to decide. Do not follow any fixed template, archetype list, or house style: the design must grow out of what the content is about.`;
 
-## CREATIVE DIRECTION SEED (a single spark of inspiration — interpret freely, twist it, or ignore it if the content suggests something better)
-${direction}
-Repeated generations must produce visibly DIFFERENT designs. Commit fully to one coherent creative idea.
-
-## TARGET CANVAS
-- Dimensions: ${dimensions} (${aspectRatio || "1:1"})
-- Canvas Aspect: ${isPortrait ? "Portrait (tall)" : isWide ? "Landscape (wide)" : "Square"}
-- Aesthetic Intent: "${userIntent || "your choice — decide what serves this topic best"}"
-${chatBlock}${memoryBlock}
-## REFINED CONTENT TO DESIGN
-${JSON.stringify(content, null, 2)}
-
-## WHAT TO DECIDE (non-exhaustive — add anything else the design needs)
+  const whatToDecide = custom
+    ? custom
+        .replace(/\{sections\}/g, String(sectionCount))
+        .replace(/\{stats\}/g, String(statCount))
+        .replace(/\{dimensions\}/g, dimensions)
+    : `## WHAT TO DECIDE (non-exhaustive — add anything else the design needs)
 - A creative concept and the layout/composition that expresses it
 - A semantic color palette that fits the subject's mood (ensure WCAG AA contrast)
 - A Google Fonts pairing with character matching the topic
@@ -167,7 +215,23 @@ ${JSON.stringify(content, null, 2)}
   inside ${dimensions} with deliberate whitespace rhythm — state what share of the canvas
   each zone gets (percentages) so nothing crowds and nothing floats in emptiness.
 - **A repeating decorative system**: one corner-radius family, one stroke width, one icon
-  style used everywhere — coherence beats more decoration.
+  style used everywhere — coherence beats more decoration.`;
+
+  return `${head}
+
+## CREATIVE DIRECTION SEED (a single spark of inspiration — interpret freely, twist it, or ignore it if the content suggests something better)
+${direction}
+Repeated generations must produce visibly DIFFERENT designs. Commit fully to one coherent creative idea.
+
+## TARGET CANVAS
+- Dimensions: ${dimensions} (${aspectRatio || "1:1"})
+- Canvas Aspect: ${isPortrait ? "Portrait (tall)" : isWide ? "Landscape (wide)" : "Square"}
+- Aesthetic Intent: "${userIntent || "your choice — decide what serves this topic best"}"
+${chatBlock}${memoryBlock}
+## REFINED CONTENT TO DESIGN
+${JSON.stringify(content, null, 2)}
+
+${whatToDecide}
 ${memoryDiffers}
 ## OUTPUT FORMAT
 Return ONLY one valid JSON object (no code fences, no markdown) describing your complete design system. The three required keys below are the minimum contract with the coder stage — beyond them, YOU choose the structure and add as many of your own keys as the design needs:
@@ -336,7 +400,7 @@ Return ONLY ONE valid JSON object (no markdown, no code fences):
 // The Coder AI receives the rich content AND the Art Director's
 // custom design strategy, and writes single-file HTML/CSS.
 // ============================================================
-export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest, memoryContext?: string): string {
+export function buildHTMLGenerationPrompt(content: any, blueprint: any, request: AIGenerationRequest, memoryContext?: string, customInstructions?: string): string {
   const { width, height } = getCanvasDimensions(request.aspectRatio, request.aspectRatioWidth, request.aspectRatioHeight);
 
   const memoryBlock = memoryContext ? `\n## WORKING MEMORY\n${memoryContext}\n` : "";
@@ -353,8 +417,13 @@ export function buildHTMLGenerationPrompt(content: any, blueprint: any, request:
     chatBlock += `Apply specific user edit: "${request.refinementPrompt}"\n`;
   }
 
-  return `## STAGE 3: HTML/CSS CODE GENERATION
-You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. The design system JSON below is the SOURCE OF TRUTH — implement it faithfully and creatively. The markup structure, CSS architecture, class naming, composition, and all visual decisions are entirely YOURS; do NOT fall back to any fixed template or house style.
+  // A user-provided system prompt replaces the default engineer role intro;
+  // the hard technical constraints, data, and self-check always remain so the
+  // output stays renderable inside the fixed canvas.
+  const head = customInstructions?.trim() || `## STAGE 3: HTML/CSS CODE GENERATION
+You are a senior frontend engineer bringing the ART DIRECTOR'S design to life. The design system JSON below is the SOURCE OF TRUTH — implement it faithfully and creatively. The markup structure, CSS architecture, class naming, composition, and all visual decisions are entirely YOURS; do NOT fall back to any fixed template or house style.`;
+
+  return `${head}
 
 ### HARD TECHNICAL CONSTRAINTS (non-negotiable)
 1. **EXACT canvas**: ${width}x${height}px. Set html, body { width: ${width}px; height: ${height}px; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; } and fill the canvas with ZERO scrollbars and ZERO clipped content. NEVER use viewport units (vw/vh/vmin/vmax) — the frame is a fixed ${width}x${height}px box, use px only. All content must fit INSIDE the canvas — nothing may rely on being clipped.

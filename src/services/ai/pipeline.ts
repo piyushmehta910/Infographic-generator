@@ -10,6 +10,7 @@ import {
   buildContentAnalysisPrompt,
   buildDesignBlueprintPrompt,
   buildHTMLGenerationPrompt,
+  CustomPrompts,
 } from "./promptBuilder";
 import { GenerationStoppedError, ProviderHttpError, providerMap, AIProvider } from "./providers";
 import {
@@ -41,6 +42,8 @@ export interface GenerateContentOptions {
   temperature?: number;
   maxTokens?: number;
   storedProviders?: StoredProvider[];
+  /** Per-phase system-prompt overrides edited in Settings → System Prompts. */
+  customPrompts?: CustomPrompts;
   /** Seed the working memory with context from a previous generation. */
   memory?: MemoryEntry[];
   /** Aborts all upstream fetches (client cancellation). */
@@ -338,8 +341,8 @@ async function singleShotAttempt(
   // When the failed pipeline left usable content + blueprint, reuse them: the
   // fallback becomes the HTML phase itself (one call, no pumped-up prompts).
   const prompt = preset?.content && preset.blueprint
-    ? buildHTMLGenerationPrompt(preset.content, preset.blueprint, request, memoryContext)
-    : `Design a complete, self-contained HTML infographic that visualizes the content below.
+    ? buildHTMLGenerationPrompt(preset.content, preset.blueprint, request, memoryContext, options.customPrompts?.html)
+    : `${options.customPrompts?.singleShot?.trim() || "Design a complete, self-contained HTML infographic that visualizes the content below."}
 
 CONTENT TO VISUALIZE:
 ${source || "Create a generic data-visualization infographic about growth and progress."}
@@ -469,7 +472,7 @@ async function runPipeline(
     // ============================================
     // PHASE 1: CONTENT POLISH, EXPANSION & CUSTOM ART DIRECTION
     // ============================================
-    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext);
+    const contentPrompt = buildContentAnalysisPrompt(request, memoryContext, options.customPrompts?.content);
     let phase1Response: string;
     let usedProvider: AIProviderId = providerId;
     let usedModel: string = model;
@@ -549,7 +552,7 @@ async function runPipeline(
       const bpCreds = getCreds(usedProvider, providerId, apiKey, model, storedProviders);
       const bpResponse = await generateWithFallback(
         providerMap[usedProvider],
-        buildDesignBlueprintPrompt(normalizedContent, request, memoryContext),
+        buildDesignBlueprintPrompt(normalizedContent, request, memoryContext, options.customPrompts?.design),
         bpCreds.key,
         bpCreds.model,
         // Hotter temperature for the art director: pushes the model away from
@@ -616,7 +619,7 @@ async function runPipeline(
     // ============================================
     // PHASE 3: COMBINED HTML/CSS CODE GENERATION
     // ============================================
-    const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request, memoryContext);
+    const htmlPrompt = buildHTMLGenerationPrompt(normalizedContent, blueprint, request, memoryContext, options.customPrompts?.html);
     let htmlResponse: string;
     const htmlStart = Date.now();
     emit({ type: "phase_start", phase: "html" });
