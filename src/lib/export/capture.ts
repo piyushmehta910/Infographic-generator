@@ -45,6 +45,10 @@ export async function renderOffscreenForCapture(
     position: "relative",
     overflow: "hidden",
     boxSizing: "border-box",
+    // White canvas base. (Previously on the holder, but the holder is NOT the
+    // capture root anymore — see the return note at the bottom — so the base
+    // must live on the node that is actually rasterized.)
+    background: "#ffffff",
   });
 
   // If the generated body has inline style or class attributes, transfer them to inner
@@ -135,5 +139,26 @@ export async function renderOffscreenForCapture(
   // Final settle so any webfont-driven reflow paints before rasterizing.
   await new Promise((r) => setTimeout(r, 120));
 
-  return holder;
+  // IMPORTANT — capture-root choice (blank-export fix):
+  // html-to-image clones the capture root WITH its full computed style into
+  // the SVG <foreignObject> (clone-node.js: cloneCSSStyle copies cssText).
+  // The holder is `position: fixed; left: -300vw; z-index: -1` — inside the
+  // foreignObject that resolves against the SVG viewport, so the entire
+  // design was placed ~3 canvas-widths OUTSIDE the visible capture area,
+  // producing BLANK PNG/JPG/SVG (and blank PDFs, which embed the PNG).
+  // `inner` sits at (0,0) inside the holder with safe styles (relative, no
+  // offsets), so IT is the correct capture root.
+  //
+  // The caller removes the returned node when done (`el.remove()`); the
+  // observer below then detaches the holder too, so the generated <style>
+  // rules scoped into it never linger in the document.
+  const cleanup = new MutationObserver(() => {
+    if (!inner.isConnected) {
+      holder.remove();
+      cleanup.disconnect();
+    }
+  });
+  cleanup.observe(document.documentElement, { childList: true, subtree: true });
+
+  return inner;
 }
