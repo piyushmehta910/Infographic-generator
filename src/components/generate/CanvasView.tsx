@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Maximize, ZoomIn, ZoomOut, RefreshCw, Eye, FileImage, FileJson, FileType,
   Loader2, AlertTriangle, Scaling, Square, History, ChevronDown, Download,
@@ -55,23 +56,70 @@ export default function CanvasView(p: CanvasViewProps) {
   } = p;
 
   const areaRef = useRef<HTMLDivElement>(null);
-  const exportBtnRef = useRef<HTMLButtonElement>(null);
+  const toolbarExportBtnRef = useRef<HTMLButtonElement>(null);
+  const mobileExportBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
 
-  // Close the export menu on outside click / Escape.
+  const MENU_WIDTH = 224; // w-56
+  const MENU_HEIGHT_EST = 360;
+
+  /**
+   * The export menu is rendered in a PORTAL attached to document.body with a
+   * very high z-index. The preview iframe/canvas creates its own stacking
+   * layers, which previously painted OVER the in-flow dropdown and hid the
+   * export options. A portal is above everything, always.
+   */
+  const openExportMenu = useCallback((anchor: "toolbar" | "mobile") => {
+    const btn = anchor === "toolbar" ? toolbarExportBtnRef.current : mobileExportBtnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const left = Math.min(Math.max(8, r.right - MENU_WIDTH), Math.max(8, window.innerWidth - MENU_WIDTH - 8));
+    const placeBelow = r.bottom + MENU_HEIGHT_EST + 16 < window.innerHeight;
+    setMenuPos(
+      placeBelow
+        ? { top: r.bottom + 8, left }
+        : { bottom: window.innerHeight - r.top + 8, left },
+    );
+    setExportOpen(true);
+  }, []);
+
+  const toggleExportMenu = useCallback(
+    (anchor: "toolbar" | "mobile") => {
+      if (exportOpen) setExportOpen(false);
+      else openExportMenu(anchor);
+    },
+    [exportOpen, openExportMenu],
+  );
+
+  // Close the portal menu on outside click / Escape / scroll / resize.
   useEffect(() => {
     if (!exportOpen) return;
     const onDoc = (ev: MouseEvent) => {
-      if (!exportBtnRef.current?.contains(ev.target as Node)) setExportOpen(false);
+      const target = ev.target as Node | null;
+      // Presses on either Export button toggle via the button's own onClick.
+      if (toolbarExportBtnRef.current?.contains(target)) return;
+      if (mobileExportBtnRef.current?.contains(target)) return;
+      // IMPORTANT: ignore presses inside the open menu — closing on mousedown
+      // would unmount the menu BEFORE the item's click event fires, so exports
+      // would silently never trigger.
+      if (menuRef.current?.contains(target)) return;
+      setExportOpen(false);
     };
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setExportOpen(false);
     };
+    const onMove = () => setExportOpen(false);
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
     };
   }, [exportOpen]);
 
@@ -120,8 +168,8 @@ export default function CanvasView(p: CanvasViewProps) {
 
   return (
     <main id="generate-app" className="flex-1 overflow-auto flex flex-col bg-navy-950">
-      {/* Toolbar */}
-      <div className="flex-shrink-0 border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm">
+      {/* Toolbar — z-30 so the export dropdown paints ABOVE the canvas (backdrop-blur creates a stacking context) */}
+      <div className="relative z-30 flex-shrink-0 border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 bg-navy-950/80 backdrop-blur-sm">
         <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
           {/* Revisions history pills */}
           {revisions.length > 1 && (
@@ -178,10 +226,10 @@ export default function CanvasView(p: CanvasViewProps) {
           {html && (
               <div className="relative flex-shrink-0">
                 <Button
-                  ref={exportBtnRef}
+                  ref={toolbarExportBtnRef}
                   variant="primary"
                   size="sm"
-                  onClick={() => setExportOpen((o) => !o)}
+                  onClick={() => toggleExportMenu("toolbar")}
                   disabled={Boolean(exporting)}
                   title="Export this infographic"
                   aria-haspopup="menu"
@@ -197,47 +245,6 @@ export default function CanvasView(p: CanvasViewProps) {
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
                 </Button>
-
-                {exportOpen && (
-                  <div
-                    role="menu"
-                    className="absolute top-full right-0 mt-2 z-30 w-56 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-top-right animate-in"
-                  >
-                    <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
-                      Export as
-                    </p>
-                    {EXPORT_FORMATS.map((f) => {
-                      const Icon = f.icon;
-                      const isBusy = exporting === f.id;
-                      return (
-                        <button
-                          key={f.id}
-                          role="menuitem"
-                          disabled={Boolean(exporting)}
-                          onClick={() => handlePickExport(f.id)}
-                          className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all ${
-                            isBusy
-                              ? "text-brand-300"
-                              : "text-surface-200 hover:bg-white/5 hover:text-white disabled:opacity-40"
-                          }`}
-                        >
-                          <span className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                            {isBusy ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-                            ) : (
-                              <Icon className="w-4 h-4 text-surface-300" />
-                            )}
-                          </span>
-                          <span className="flex-1 text-left min-w-0">
-                            <span className="block text-sm font-medium">{f.label}</span>
-                            <span className="block text-[11px] text-surface-500 truncate">{f.hint}</span>
-                          </span>
-                          {isBusy && <Check className="w-3.5 h-3.5 text-brand-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
           )}
         </div>
@@ -360,11 +367,12 @@ export default function CanvasView(p: CanvasViewProps) {
 
       {/* Mobile export bar */}
       {html && (
-        <div className="sm:hidden flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center relative">
+        <div className="sm:hidden relative z-30 flex-shrink-0 border-t border-white/5 px-4 py-3 flex items-center justify-center">
           <Button
+            ref={mobileExportBtnRef}
             variant="primary"
             size="sm"
-            onClick={() => setExportOpen((o) => !o)}
+            onClick={() => toggleExportMenu("mobile")}
             disabled={Boolean(exporting)}
             className="w-full max-w-xs"
           >
@@ -376,47 +384,61 @@ export default function CanvasView(p: CanvasViewProps) {
             <span className="ml-1">{exporting ? "Exporting…" : "Export"}</span>
             <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
           </Button>
-          {exportOpen && (
-            <div
-              role="menu"
-              className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 w-56 rounded-xl border border-white/10 bg-surface-900/95 backdrop-blur-xl shadow-2xl p-1.5 origin-bottom-right animate-in"
-            >
-              <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
-                Export as
-              </p>
-              {EXPORT_FORMATS.map((f) => {
-                const Icon = f.icon;
-                const isBusy = exporting === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    role="menuitem"
-                    disabled={Boolean(exporting)}
-                    onClick={() => handlePickExport(f.id)}
-                    className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all ${
-                      isBusy
-                        ? "text-brand-300"
-                        : "text-surface-200 hover:bg-white/5 hover:text-white disabled:opacity-40"
-                    }`}
-                  >
-                    <span className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                      {isBusy ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-                      ) : (
-                        <Icon className="w-4 h-4 text-surface-300" />
-                      )}
-                    </span>
-                    <span className="flex-1 text-left min-w-0">
-                      <span className="block text-sm font-medium">{f.label}</span>
-                      <span className="block text-[11px] text-surface-500 truncate">{f.hint}</span>
-                    </span>
-                    {isBusy && <Check className="w-3.5 h-3.5 text-brand-400" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
+      )}
+
+      {/* Export menu — rendered in a portal at document.body level with a very
+          high z-index so the preview canvas can NEVER paint over it. */}
+      {exportOpen && menuPos && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{
+            position: "fixed",
+            top: menuPos.top,
+            bottom: menuPos.bottom,
+            left: menuPos.left,
+            width: MENU_WIDTH,
+            zIndex: 2147483000,
+            background: "rgba(15, 23, 42, 0.98)",
+          }}
+          className="rounded-xl border border-white/10 backdrop-blur-xl shadow-2xl p-1.5"
+        >
+          <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
+            Export as
+          </p>
+          {EXPORT_FORMATS.map((f) => {
+            const Icon = f.icon;
+            const isBusy = exporting === f.id;
+            return (
+              <button
+                key={f.id}
+                role="menuitem"
+                disabled={Boolean(exporting)}
+                onClick={() => handlePickExport(f.id)}
+                className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-all ${
+                  isBusy
+                    ? "text-brand-300"
+                    : "text-surface-200 hover:bg-white/5 hover:text-white disabled:opacity-40"
+                }`}
+              >
+                <span className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                  {isBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+                  ) : (
+                    <Icon className="w-4 h-4 text-surface-300" />
+                  )}
+                </span>
+                <span className="flex-1 text-left min-w-0">
+                  <span className="block text-sm font-medium">{f.label}</span>
+                  <span className="block text-[11px] text-surface-500 truncate">{f.hint}</span>
+                </span>
+                {isBusy && <Check className="w-3.5 h-3.5 text-brand-400" />}
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
       )}
     </main>
   );

@@ -68,7 +68,7 @@ export function Hero() {
             >
               <Link
                 href="/generate"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-brand-gradient text-white font-semibold text-sm hover:brightness-110 hover:scale-[1.03] transition-all shadow-lg shadow-brand-500/30"
+                className="btn-sheen inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-brand-gradient text-white font-semibold text-sm hover:brightness-110 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-lg shadow-brand-500/30"
               >
                 Start Creating Free <ArrowRight className="w-4 h-4" />
               </Link>
@@ -105,6 +105,7 @@ export function Hero() {
           >
             <div className="relative mx-auto max-w-xl">
               <div className="absolute -inset-6 rounded-[2rem] bg-brand-500/20 blur-3xl" />
+              <div className="aurora-ring absolute -inset-10 rounded-[3rem] opacity-70 animate-pulse-slow" />
               <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-navy-900/90 shadow-2xl backdrop-blur-sm">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.03]">
                   <div className="flex gap-1.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, Github, Menu, X } from "lucide-react";
@@ -14,9 +14,23 @@ const NAV_LINKS = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-navy-950/70 backdrop-blur-xl">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${
+        scrolled
+          ? "border-white/[0.08] bg-navy-950/85 shadow-lg shadow-navy-950/50 backdrop-blur-xl"
+          : "border-white/[0.06] bg-navy-950/70 backdrop-blur-xl"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-lg shadow-brand-900/40 transition-transform group-hover:scale-105">
@@ -32,7 +46,7 @@ export function Header() {
             <Link
               key={l.href}
               href={l.href}
-              className="px-3.5 py-2 rounded-lg text-sm text-surface-300 hover:text-white hover:bg-white/5 transition-all"
+              className="nav-underline px-3.5 py-2 rounded-lg text-sm text-surface-300 hover:text-white hover:bg-white/5 transition-all"
             >
               {l.label}
             </Link>
@@ -50,7 +64,7 @@ export function Header() {
           </a>
           <Link
             href="/generate"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-gradient text-white text-sm font-semibold hover:brightness-110 hover:scale-[1.03] transition-all shadow-lg shadow-brand-500/25"
+            className="btn-sheen inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-gradient text-white text-sm font-semibold hover:brightness-110 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-lg shadow-brand-500/25"
           >
             <Sparkles className="w-4 h-4" /> Create Free
           </Link>

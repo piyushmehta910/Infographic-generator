@@ -32,10 +32,13 @@ export function Providers() {
             {PROVIDERS.map((p) => (
               <div
                 key={p.name}
-                className="card-glow rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center"
+                className="group gradient-border card-glow rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center"
               >
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                  <span
+                    className="w-2.5 h-2.5 rounded-full transition-transform duration-300 group-hover:scale-125"
+                    style={{ backgroundColor: p.color, boxShadow: `0 0 12px ${p.color}80` }}
+                  />
                 </div>
                 <div className="font-semibold text-white text-sm leading-tight">{p.name}</div>
                 <div className="text-[11px] text-surface-500 mt-1 font-mono">{p.tag}</div>

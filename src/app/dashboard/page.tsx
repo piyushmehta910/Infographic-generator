@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Plus, Trash2, Sparkles, FolderOpen, ImageOff, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { listProjects, deleteProject, Project } from "@/lib/editor/persistence";
 import { APP_NAME } from "@/lib/site";
@@ -76,7 +77,7 @@ export default function DashboardPage() {
         </Link>
         <Link
           href="/generate"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-brand-gradient text-white hover:brightness-110 transition-all"
+          className="btn-sheen flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-brand-gradient text-white hover:brightness-110 active:scale-[0.97] transition-all"
         >
           <Plus className="w-4 h-4" /> New infographic
         </Link>
@@ -127,22 +128,32 @@ export default function DashboardPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {projects.map((project) => (
-                <div
+              {projects.map((project, i) => (
+                <motion.div
                   key={project.id}
-                  className="group rounded-2xl border border-white/10 bg-surface-900/50 overflow-hidden hover:border-brand-400/40 transition-all"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(i * 0.06, 0.5), ease: "easeOut" }}
+                  className="group rounded-2xl border border-white/10 bg-surface-900/50 overflow-hidden hover:border-brand-400/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-950/40 transition-all duration-300"
                 >
                   <button
                     onClick={() => router.push(`/generate?id=${project.id}`)}
-                    className="w-full aspect-[4/3] bg-surface-800/60 flex items-center justify-center relative overflow-hidden"
+                    className="w-full aspect-[4/3] bg-gradient-to-br from-surface-800/60 via-surface-900 to-brand-950/40 flex items-center justify-center relative overflow-hidden"
                     title="Open project"
                   >
                     {project.thumbnail ? (
                       // Legacy projects may still carry a saved thumbnail.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={project.thumbnail} alt={project.title} className="w-full h-full object-cover" />
+                      <img src={project.thumbnail} alt={project.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                     ) : (
-                      <Sparkles className="w-8 h-8 text-surface-600 group-hover:text-brand-400 transition-colors" />
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center transition-all duration-300 group-hover:border-brand-400/30 group-hover:bg-brand-500/10">
+                          <Sparkles className="w-6 h-6 text-surface-500 group-hover:text-brand-300 transition-colors" />
+                        </div>
+                        <span className="text-[10px] uppercase tracking-widest text-surface-600">
+                          Preview
+                        </span>
+                      </div>
                     )}
                     <span className="absolute inset-0 bg-navy-950/0 group-hover:bg-navy-950/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
                       <span className="flex items-center gap-1.5 text-xs font-semibold bg-white/10 backdrop-blur px-3 py-2 rounded-lg text-white">
@@ -170,7 +181,7 @@ export default function DashboardPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
             {projects.length === 12 && (

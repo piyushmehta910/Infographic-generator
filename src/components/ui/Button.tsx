@@ -12,11 +12,11 @@ type ButtonVariant =
 type ButtonSize = "sm" | "md" | "lg" | "xl";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-950 disabled:pointer-events-none disabled:opacity-50 touch-target";
+  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-950 disabled:pointer-events-none disabled:opacity-50 touch-target";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-gradient text-white shadow-lg shadow-brand-900/40 hover:brightness-110 hover:scale-[1.02]",
+    "btn-sheen bg-brand-gradient text-white shadow-lg shadow-brand-900/40 hover:brightness-110 hover:scale-[1.02] active:shadow-brand-700/40",
   secondary:
     "glass-panel text-surface-100 border border-surface-400/20 hover:bg-white/10",
   outline:

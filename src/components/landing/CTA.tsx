@@ -28,7 +28,7 @@ export function CTA() {
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/generate"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-brand-gradient text-white font-semibold text-sm hover:brightness-110 hover:scale-[1.03] transition-all shadow-lg shadow-brand-500/30"
+                  className="btn-sheen inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-brand-gradient text-white font-semibold text-sm hover:brightness-110 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-lg shadow-brand-500/30"
                 >
                   Start Creating Free <ArrowRight className="w-4 h-4" />
                 </Link>

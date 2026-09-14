@@ -508,10 +508,14 @@ export default function GeneratePage() {
       try {
         if (format === "json") {
           const blob = new Blob([JSON.stringify({ html }, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
+          a.href = url;
           a.download = "infographic.json";
+          document.body.appendChild(a);
           a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
           showToast({ type: "success", title: "Exported as JSON", duration: 4000 });
           return;
         }
@@ -562,10 +566,18 @@ export default function GeneratePage() {
           pdf.addImage(dataUrl, "PNG", 0, 0, aspectRatio.width, aspectRatio.height);
           pdf.save("infographic.pdf");
         } else {
+          // Convert the data URL to a Blob — multi-megabyte data URLs assigned
+          // directly to an anchor are unreliable in some browsers, while Blob
+          // object URLs always download correctly.
+          const blob = await (await fetch(dataUrl)).blob();
+          const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
-          a.href = dataUrl;
+          a.href = url;
           a.download = `infographic.${format}`;
+          document.body.appendChild(a);
           a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
         }
         showToast({ type: "success", title: `Exported as ${format.toUpperCase()}`, duration: 4000 });
       } catch (e) {
@@ -744,6 +756,13 @@ export default function GeneratePage() {
               </button>
             </div>
           </header>
+          {/* Indeterminate shimmer progress bar — pure CSS feedback while generating */}
+          <div
+            aria-hidden
+            className={`h-0.5 flex-shrink-0 progress-bar transition-opacity duration-300 ${
+              isGenerating ? "opacity-100" : "opacity-0"
+            }`}
+          />
           <CanvasView
             html={html}
             aspectRatio={aspectRatio}

@@ -49,8 +49,8 @@ export function UseCases() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {USE_CASES.map((u, i) => (
             <Reveal key={u.title} delay={i * 0.08}>
-              <div className="card-glow h-full rounded-2xl border border-white/[0.06] bg-navy-950/60 p-6">
-                <div className={`w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-4 ${u.color}`}>
+              <div className="group gradient-border card-glow h-full rounded-2xl border border-white/[0.06] bg-navy-950/60 p-6">
+                <div className={`w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:border-white/20 group-hover:bg-white/[0.07] group-hover:scale-105 ${u.color}`}>
                   {u.icon}
                 </div>
                 <h3 className="font-semibold text-white mb-1.5">{u.title}</h3>
