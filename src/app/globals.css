@@ -267,7 +267,63 @@ input, textarea, select {
   animation: shimmer-slide 1.4s ease-in-out infinite;
 }
 
+/* ============================================================
+   Settings modal helpers
+   ============================================================ */
+
+/* Branded range slider (Settings → Temperature / Max Tokens) */
+.range-brand {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.85), rgba(16, 185, 129, 0.85));
+  outline: none;
+  cursor: pointer;
+}
+.range-brand::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #8b5cf6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.range-brand::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.range-brand::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #8b5cf6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.range-brand::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Slim scrollbar for modal bodies */
+.modal-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.modal-scroll::-webkit-scrollbar-track { background: transparent; }
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  border: none;
+}
+.modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
 /* Aurora conic glow accent for hero visuals */
+
 .aurora-ring {
   background: conic-gradient(
     from 180deg,
