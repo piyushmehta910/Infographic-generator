@@ -11,6 +11,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast with an actionable message instead of a cryptic
+      # "vercel pull" error when the secrets are missing/expired.
+      - name: Verify Vercel secrets are configured
+        run: |
+          missing=0
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN secret is missing or empty. Create a token at https://vercel.com/account/tokens then add it in GitHub: Repo Settings → Secrets and variables → Actions → New repository secret."
+            missing=1
+          fi
+          if [ -z "${VERCEL_ORG_ID:-}" ]; then
+            echo "::error::VERCEL_ORG_ID secret is missing or empty. Find it in Vercel Dashboard → [Your Project] → Settings → General → 'Vercel Org ID' (or run 'npx vercel link' locally and copy orgId from .vercel/project.json)."
+            missing=1
+          fi
+          if [ -z "${VERCEL_PROJECT_ID:-}" ]; then
+            echo "::error::VERCEL_PROJECT_ID secret is missing or empty. Find it in Vercel Dashboard → [Your Project] → Settings → General → 'Vercel Project ID' (or run 'npx vercel link' locally and copy projectId from .vercel/project.json)."
+            missing=1
+          fi
+          exit $missing
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
