@@ -217,8 +217,8 @@ export async function POST(request: NextRequest) {
           effectiveModel.includes("meta-llama/llama-3.3-70b-instruct"))
       ) {
         effectiveModel = "google/gemma-4-31b-it:free";
-      } else if (options.providerId === "gemini" && !effectiveModel) {
-        effectiveModel = "gemini-2.0-flash";
+      } else if (options.providerId === "gemini" && (!effectiveModel || effectiveModel.startsWith("gemini-2.0") || effectiveModel.startsWith("gemini-1.5"))) {
+        effectiveModel = "gemini-3.8-flash";
       } else if (options.providerId === "groq" && (!effectiveModel || effectiveModel.includes("mixtral"))) {
         effectiveModel = "llama-3.3-70b-versatile";
       }

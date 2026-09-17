@@ -22,6 +22,19 @@ interface AIStore {
 
 const SUPPORTED_PROVIDER_IDS = ["openrouter", "gemini", "groq", "nim", "mistral", "custom"] as const;
 
+/** Gemini models Google has shut down — persisted selections get migrated. */
+const GEMINI_SHUT_DOWN = new Set([
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash-lite-preview-02-05",
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro",
+  "gemini-3.1-flash-lite-preview",
+  "gemini-3-pro-preview",
+]);
+
 const defaultProviders: AIProviderConfig[] = [
   {
     id: "openrouter",
@@ -36,7 +49,7 @@ const defaultProviders: AIProviderConfig[] = [
     id: "gemini",
     name: "Google Gemini",
     apiKey: "",
-    model: "gemini-2.0-flash",
+    model: "gemini-3.8-flash",
     temperature: 0.5,
     maxTokens: 1024,
     enabled: false,
@@ -129,8 +142,8 @@ export const useAIStore = create<AIStore>()(
                 ) {
                   return { ...p, model: "google/gemma-4-31b-it:free" };
                 }
-                if (p.id === "gemini" && !p.model) {
-                  return { ...p, model: "gemini-2.0-flash" };
+                if (p.id === "gemini" && (!p.model || GEMINI_SHUT_DOWN.has(p.model))) {
+                  return { ...p, model: "gemini-3.8-flash" };
                 }
                 // NIM models NVIDIA has retired from the API catalog — migrate
                 // to the recommended model so generation doesn't 404.
