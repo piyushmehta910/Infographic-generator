@@ -156,6 +156,15 @@ export const useAIStore = create<AIStore>()(
                 if (p.id === "nim" && NIM_RETIRED.has(p.model)) {
                   return { ...p, model: "meta/llama-3.3-70b-instruct" };
                 }
+                // Groq models GroqCloud has decommissioned — migrate.
+                const GROQ_RETIRED = new Set([
+                  "deepseek-r1-distill-llama-70b",
+                  "gemma2-9b-it",
+                  "qwen-2.5-32b",
+                ]);
+                if (p.id === "groq" && GROQ_RETIRED.has(p.model)) {
+                  return { ...p, model: "llama-3.3-70b-versatile" };
+                }
                 return p;
               });
             for (const def of defaultProviders) {

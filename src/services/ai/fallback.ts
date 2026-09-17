@@ -12,11 +12,9 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   openrouter: [
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "minimax/minimax-m3:free",
     "nvidia/nemotron-3.5-lightning:free",
     "cohere/north-mini-code:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "minimax/minimax-m2.7:free",
     "liquid/lfm-2.5-2.6b:free",
     "openrouter/free",
   ],
@@ -32,10 +30,10 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   ],
   groq: [
     "llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
     "llama-3.1-8b-instant",
-    "deepseek-r1-distill-llama-70b",
-    "gemma2-9b-it",
-    "qwen-2.5-32b",
+    "minimaxai/minimax-m2.7",
   ],
   nim: [
     "meta/llama-3.3-70b-instruct",
@@ -57,6 +55,137 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   ],
   custom: [],
 };
+/* ==========================================================================
+ * Self-healing live fallbacks
+ * --------------------------------------------------------------------------
+ * Static chains above go stale whenever a provider retires models. When the
+ * static chain starts failing we query the provider's own catalog API for its
+ * CURRENT model ids and append them to the retry queue, so generation keeps
+ * working even when every hardcoded id has been decommissioned.
+ * ========================================================================== */
+
+const liveFallbackCache = new Map<AIProviderId, { at: number; models: string[] }>();
+const LIVE_FALLBACK_TTL_MS = 10 * 60 * 1000;
+const LIVE_FALLBACK_LIMIT = 5;
+
+/** Patterns that mark a model as non-generative / unusable for chat. */
+const LIVE_EXCLUDE = [
+  "guard", "safety", "moderation", "reward", "embed", "rerank", "clip",
+  "whisper", "audio", "tts", "speech", "ocr", "diffusion", "riva",
+  "parse", "omni", "muse", "prompt-guard", "safeguard", "compound",
+  "orpheus", "deplot", "kosmos", "fuyu", "neva", "vila", "usdcode", "pii",
+];
+
+/** Per-provider exclusion extras (NIM has many VLM endpoints). */
+const PROVIDER_EXCLUDE: Partial<Record<AIProviderId, string[]>> = {
+  nim: ["vision", "video"],
+  openrouter: ["openrouter/auto"],
+};
+
+function isUsableChatModel(id: string, providerId: AIProviderId): boolean {
+  const lower = id.toLowerCase();
+  const patterns = [...LIVE_EXCLUDE, ...(PROVIDER_EXCLUDE[providerId] || [])];
+  return !patterns.some((p) => lower.includes(p));
+}
+/**
+ * Query the provider's own models endpoint for current model ids.
+ * OpenRouter + NIM catalogs are public; the rest need the user's key.
+ * Returns up to LIVE_FALLBACK_LIMIT ids, or [] on any failure.
+ */
+async function fetchLiveFallbackModels(
+  providerId: AIProviderId,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const cached = liveFallbackCache.get(providerId);
+  if (cached && Date.now() - cached.at < LIVE_FALLBACK_TTL_MS) return cached.models;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    let ids: string[] = [];
+    if (providerId === "openrouter") {
+      const res = await fetch("https://openrouter.ai/api/v1/models", {
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        ids = (data?.data || [])
+          .filter(
+            (m: { id: string; pricing?: { prompt?: string; completion?: string } }) =>
+              m?.id && (String(m.id).endsWith(":free") || (m.pricing?.prompt === "0" && m.pricing?.completion === "0")),
+          )
+          .map((m: { id: string }) => m.id);
+      }
+    } else if (providerId === "nim") {
+      const res = await fetch("https://integrate.api.nvidia.com/v1/models", {
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        ids = (data?.data || []).map((m: { id: string }) => m.id);
+      }
+    } else if (providerId === "groq" && apiKey) {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        ids = (data?.data || []).map((m: { id: string }) => m.id);
+      }
+    } else if (providerId === "gemini" && apiKey) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`,
+        { signal: controller.signal },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        ids = (data?.models || [])
+          .filter((m: { supportedGenerationMethods?: string[] }) =>
+            (m.supportedGenerationMethods || []).includes("generateContent"),
+          )
+          .map((m: { name: string }) => String(m.name || "").replace(/^models\//, ""));
+      }
+    } else if (providerId === "mistral" && apiKey) {
+      const res = await fetch("https://api.mistral.ai/v1/models", {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        ids = (data?.data || [])
+          .filter((m: { capabilities?: { completion_chat?: boolean } }) => m?.capabilities?.completion_chat)
+          .map((m: { id: string }) => m.id);
+      }
+    }
+
+    const staticIds = FALLBACK_MODELS[providerId] || [];
+    const filtered = ids
+      .filter((id) => typeof id === "string" && id.length > 0 && isUsableChatModel(id, providerId))
+      // Prefer ids already vetted in the static chain, then new discoveries.
+      .sort((a, b) => Number(staticIds.includes(b)) - Number(staticIds.includes(a)))
+      .slice(0, LIVE_FALLBACK_LIMIT);
+
+    if (filtered.length > 0) {
+      liveFallbackCache.set(providerId, { at: Date.now(), models: filtered });
+    }
+    return filtered;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+
+
 
 /** Hard caps that stop the old worst-case of hundreds of sequential calls. */
 export const MAX_MODELS_PER_CALL = 8;
@@ -124,11 +253,29 @@ export async function generateWithFallback(
   checkStop(limits);
   const maxModels = limits?.maxModels ?? MAX_MODELS_PER_CALL;
   const fallbackModels = FALLBACK_MODELS[providerId] || [];
-  const modelsToTry = [model, ...fallbackModels.filter((m) => m !== model)].slice(0, maxModels);
+  const tried = new Set<string>();
+  // Retry queue: static chain first, live catalog models appended lazily
+  // when the static chain is failing (self-healing against retired models).
+  const queue: string[] = [model, ...fallbackModels.filter((m) => m !== model)].slice(0, maxModels);
   let lastError = "";
   let consecutiveRateLimits = 0;
-  for (const currentModel of modelsToTry) {
+  let attempts = 0;
+  let liveLoaded = false;
+
+  const loadLiveFallbacks = async () => {
+    liveLoaded = true;
+    const live = await fetchLiveFallbackModels(providerId, apiKey, limits?.signal);
+    for (const id of live) {
+      if (!tried.has(id)) queue.push(id);
+    }
+  };
+
+  while (queue.length > 0 && attempts < maxModels) {
     checkStop(limits);
+    const currentModel = queue.shift()!;
+    if (tried.has(currentModel)) continue;
+    tried.add(currentModel);
+    attempts++;
     try {
       const result = await provider.generate(
         prompt, apiKey, currentModel, temperature, maxTokens, baseUrl, limits?.signal,
@@ -155,8 +302,14 @@ export async function generateWithFallback(
         if (httpStatus === 401 || httpStatus === 403) break;
       }
     }
+    // After 3 failed attempts (and again if the queue drains), pull the
+    // provider's LIVE model catalog into the retry queue. This is what keeps
+    // generation working when a provider retires every hardcoded model id.
+    if (!liveLoaded && (attempts >= 3 || queue.length === 0)) {
+      await loadLiveFallbacks();
+    }
   }
-  throw new Error(`All ${modelsToTry.length} attempted models failed for ${providerId}. Last error: ${lastError}`);
+  throw new Error(`All ${attempts} attempted models failed for ${providerId}. Last error: ${lastError}`);
 }
 
 /**
