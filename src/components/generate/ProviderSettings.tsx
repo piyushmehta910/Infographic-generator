@@ -512,6 +512,16 @@ export default function ProviderSettings({ open, onClose }: ProviderSettingsProp
                           className="w-full appearance-none px-4 py-2.5 pr-10 bg-navy-950 border border-white/10 rounded-xl text-sm text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-400/60 focus:border-brand-400/40 transition cursor-pointer"
                           style={{ colorScheme: "dark" }}
                         >
+                          {/* Safety net: keep the saved model selectable even when it
+                              no longer exists in the catalog or is filtered out. */}
+                          {active.model &&
+                            !modelsList.some(
+                              (m) => m.id === active.model && (!freeOnly || m.isFree !== false),
+                            ) && (
+                              <option value={active.model}>
+                                {active.model} (saved — not in catalog)
+                              </option>
+                            )}
                           {modelsList
                             .filter((m) => !freeOnly || m.isFree !== false)
                             .map((model) => (

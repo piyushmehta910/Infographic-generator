@@ -132,6 +132,17 @@ export const useAIStore = create<AIStore>()(
                 if (p.id === "gemini" && !p.model) {
                   return { ...p, model: "gemini-2.0-flash" };
                 }
+                // NIM models NVIDIA has retired from the API catalog — migrate
+                // to the recommended model so generation doesn't 404.
+                const NIM_RETIRED = new Set([
+                  "qwen/qwen2.5-72b-instruct",
+                  "nvidia/llama-3.1-nemotron-70b-instruct",
+                  "microsoft/phi-3.5-mini-instruct",
+                  "deepseek-ai/deepseek-r1",
+                ]);
+                if (p.id === "nim" && NIM_RETIRED.has(p.model)) {
+                  return { ...p, model: "meta/llama-3.3-70b-instruct" };
+                }
                 return p;
               });
             for (const def of defaultProviders) {

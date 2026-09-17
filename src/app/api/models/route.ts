@@ -11,11 +11,124 @@ interface CachedModels {
 }
 
 let openRouterCache: CachedModels | null = null;
+let nimCache: CachedModels | null = null;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+
+const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1/models";
+
+/**
+ * The static catalog in `constants.ts` is the floor — it is always available
+ * even if the live fetch fails. Model IDs retired by NVIDIA must be removed
+ * there first, then mirrored into the exclusion lists below.
+ */
+const NIM_EXCLUDE_PATTERNS = [
+  "guard",        // llama-guard, nemoguard safety classifiers
+  "safety",
+  "embed",        // embedding models
+  "rerank",
+  "clip",
+  "riva",         // translation
+  "parse",        // document parsing
+  "deplot",
+  "neva",         // VLM
+  "vila",         // VLM
+  "diffusion",
+  "kosmos",
+  "fuyu",
+  "reward",
+  "usdcode",
+  "pii",
+  "omni",         // audio-capable omni models
+  "muse",         // audio/music models
+  "whisper",
+  "audio",
+];
+
+function isGenerativeNimModel(id: string): boolean {
+  const lower = id.toLowerCase();
+  return !NIM_EXCLUDE_PATTERNS.some((p) => lower.includes(p));
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const provider = searchParams.get("provider") || "openrouter";
+
+  if (provider === "nim") {
+    const staticModels = AI_PROVIDERS.find((p) => p.id === "nim")?.models || [];
+
+    // Serve from cache when fresh
+    if (nimCache && Date.now() - nimCache.timestamp < CACHE_TTL_MS) {
+      return NextResponse.json({
+        success: true,
+        provider,
+        models: nimCache.models,
+        source: "cache",
+      });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(NIM_BASE_URL, {
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+      }).finally(() => clearTimeout(timeout));
+
+      if (!res.ok) {
+        return NextResponse.json({
+          success: true,
+          provider,
+          models: staticModels,
+          source: "static_fallback",
+        });
+      }
+
+      const data = await res.json();
+      const rawModels: Array<{ id: string }> = data?.data || [];
+
+      const dynamicModels: AIModelOption[] = rawModels
+        .map((m) => m.id)
+        .filter(isGenerativeNimModel)
+        .map((id) => {
+          const staticInfo = staticModels.find((m) => m.id === id);
+          return (
+            staticInfo ?? {
+              id,
+              name: `${id.split("/")[1] || id} (Free Tier)`,
+              contextWindow: 131072,
+              maxOutput: 8192,
+              isFree: true,
+              description: "Live model from the NVIDIA API catalog.",
+            }
+          );
+        });
+
+      if (dynamicModels.length === 0) {
+        return NextResponse.json({
+          success: true,
+          provider,
+          models: staticModels,
+          source: "static_fallback",
+        });
+      }
+
+      nimCache = { timestamp: Date.now(), models: dynamicModels };
+
+      return NextResponse.json({
+        success: true,
+        provider,
+        models: dynamicModels,
+        source: "live",
+      });
+    } catch {
+      return NextResponse.json({
+        success: true,
+        provider,
+        models: staticModels,
+        source: "static_fallback",
+      });
+    }
+  }
 
   if (provider !== "openrouter") {
     const found = AI_PROVIDERS.find((p) => p.id === provider);

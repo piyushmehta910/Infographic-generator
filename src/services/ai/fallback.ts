@@ -35,11 +35,14 @@ const FALLBACK_MODELS: Record<AIProviderId, string[]> = {
   ],
   nim: [
     "meta/llama-3.3-70b-instruct",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
-    "deepseek-ai/deepseek-r1",
-    "qwen/qwen2.5-72b-instruct",
+    "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "deepseek-ai/deepseek-v4-flash",
+    "qwen/qwen3-next-80b-a3b-instruct",
+    "openai/gpt-oss-120b",
+    "mistralai/mistral-nemotron",
     "meta/llama-3.1-8b-instruct",
-    "microsoft/phi-3.5-mini-instruct",
   ],
   mistral: [
     "mistral-small-latest",
